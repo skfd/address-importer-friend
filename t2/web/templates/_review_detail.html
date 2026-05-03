@@ -201,7 +201,18 @@
       <td><span class="pill {% if r.verdict == 'FLAG' %}warn{% elif r.verdict == 'PASS' %}ok{% endif %}" data-tip="{{ tip('checkverdict.' ~ r.verdict) }}">{{ r.verdict }}</span></td>
       <td>{% if r.severity %}<span data-tip="{{ tip('severity.' ~ r.severity) }}">{{ r.severity }}</span>{% endif %}</td>
       <td>{% if r.reason_code %}<span data-tip="{{ tip('reason.' ~ r.reason_code) }}">{{ r.reason_code }}</span>{% endif %}</td>
-      <td class="muted"><code>{{ r.details }}</code></td>
+      <td class="muted">
+        {% if r.check_id == 'city_duplicate' and r.details.neighbors %}
+          {% for n in r.details.neighbors %}
+            <a href="/runs/{{ run_id }}/{{ view }}/{{ n.candidate_id }}">#{{ n.candidate_id }}{% if n.address %} {{ n.address }}{% endif %}</a> · {{ '%.2f' % n.dist_m }} m{% if not loop.last %}<br/>{% endif %}
+          {% endfor %}
+          {% if r.details.count and r.details.count > r.details.neighbors|length %}
+            <br/><span class="muted">+{{ r.details.count - r.details.neighbors|length }} more</span>
+          {% endif %}
+        {% else %}
+          <code>{{ r.details }}</code>
+        {% endif %}
+      </td>
     </tr>
     {% endfor %}
   </tbody>

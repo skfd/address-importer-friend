@@ -499,6 +499,37 @@ def create_app() -> Flask:
                 r["details"] = json.loads(r["details_json"] or "{}")
             except Exception:
                 r["details"] = {}
+        neighbour_ids = []
+        for r in results:
+            if r["check_id"] == "city_duplicate":
+                for n in r["details"].get("neighbors") or []:
+                    nid = n.get("candidate_id")
+                    if nid is not None:
+                        neighbour_ids.append(nid)
+        if neighbour_ids:
+            conn = _db.connect()
+            try:
+                placeholders = ",".join("?" * len(neighbour_ids))
+                rows = conn.execute(
+                    f"""SELECT candidate_id, address_full, housenumber, street_raw
+                        FROM candidates WHERE run_id=? AND candidate_id IN ({placeholders})""",
+                    (run_id, *neighbour_ids),
+                ).fetchall()
+            finally:
+                conn.close()
+            addr_by_id = {
+                nr["candidate_id"]: (
+                    nr["address_full"]
+                    or " ".join(p for p in (nr["housenumber"], nr["street_raw"]) if p)
+                    or None
+                )
+                for nr in rows
+            }
+            for r in results:
+                if r["check_id"] != "city_duplicate":
+                    continue
+                for n in r["details"].get("neighbors") or []:
+                    n["address"] = addr_by_id.get(n.get("candidate_id"))
 
         cand = dict(row)
         if sibling_row is not None:
