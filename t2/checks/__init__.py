@@ -4,6 +4,7 @@ from .city_duplicate import CityDuplicateCheck
 from .conflict import ConflictCheck
 from .intra_source_duplicate import IntraSourceDuplicateCheck
 from .missing_sample import MissingSampleCheck
+from .nearby_street_mismatch import NearbyStreetMismatchCheck
 from .potential_amenity import PotentialAmenityCheck
 from .suffix_range import SuffixRangeCheck
 
@@ -15,6 +16,7 @@ REGISTRY: dict[str, Check] = {
         CityDuplicateCheck(),
         IntraSourceDuplicateCheck(),
         MissingSampleCheck(),
+        NearbyStreetMismatchCheck(),
         PotentialAmenityCheck(),
     )
 }

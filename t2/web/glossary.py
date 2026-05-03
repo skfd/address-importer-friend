@@ -51,6 +51,8 @@ GLOSSARY: dict[str, str] = {
     "reason.suspicious_suffix": "Suffix letter looks like a digit (I↔1, O↔0, Q↔0) — likely a data-entry typo.",
     "reason.city_duplicate": "Another candidate in this run sits within a few metres.",
     "reason.intra_source_duplicate": "Another Land row in the source has the same address_full + municipality but sits elsewhere. Unlike city_duplicate (3 m, any class), this is address-keyed and Land-only; <5 m pairs are silently deduped during conflation, so anything flagged here is 5 m or farther.",
+    "reason.nearby_street_mismatch": "An OSM address within ~20 m has the same housenumber but a different street name — likely a spelling variant (e.g. source 'Deane Field Crescent' vs OSM 'Deanefield Crescent') the normalizer can't bridge.",
+    "reason.no_nearby_mismatch": "No nearby OSM address with the same housenumber and a different street name.",
     "reason.spot_check": "Randomly sampled MISSING address for manual QA.",
     "reason.plain_number": "Plain housenumber — no suffix or range.",
     "reason.unique_location": "No nearby duplicates in the input.",

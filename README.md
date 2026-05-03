@@ -212,6 +212,17 @@ flags those with `severity=info` so we can refine the POI filter over time.
 Metadata keys like `source`, `opendata:type`, `check_date`, `note` are on an
 ignore list inside the check and don't trigger it.
 
+Street-name normalization (`STREET` → `ST`, `AVENUE` → `AVE`, etc. — see
+`STREET_SUFFIXES` in `t2/conflate.py`) covers suffix and direction variants
+but cannot bridge spelling differences inside the proper-noun part of the
+name, including space-vs-no-space splits like source `Deane Field Crescent`
+vs OSM signage `Deanefield Crescent`. Conflation calls those MISSING; the
+`nearby_street_mismatch` check then flags any MISSING candidate whose OSM
+neighbour within ~20 m shares the housenumber under a different street
+name, so a reviewer can decide whether to accept the variant or fix the
+source. Default radius is in `config.toml` under
+`[check_params.nearby_street_mismatch]`.
+
 ## Out of scope (possible next phase)
 
 The current pipeline is one-directional: Toronto source → OSM lookup → upload

@@ -217,7 +217,7 @@ Each stage is resumable — killing the process mid-run and restarting is safe. 
 
 ### Checks
 
-Six automated checks (enabled in `config.toml`, all `severity=info|warn|block`):
+Seven automated checks (enabled in `config.toml`, all `severity=info|warn|block`):
 
 | Check | Purpose |
 |---|---|
@@ -226,6 +226,7 @@ Six automated checks (enabled in `config.toml`, all `severity=info|warn|block`):
 | `city_duplicate` | Another candidate in the same run is within a few metres and has the same housenumber. |
 | `intra_source_duplicate` | Duplicate within the source dataset before conflation. |
 | `missing_sample` | Every Nth MISSING candidate is force-reviewed even if it has no other flags. Provides ongoing validation that the auto-approval bar is well-calibrated. |
+| `nearby_street_mismatch` | A MISSING candidate has an OSM address within ~20 m with the same housenumber but a different street name — likely a street-name spelling variant (e.g. source `Deane Field Crescent` vs OSM `Deanefield Crescent`) the normalizer can't bridge. |
 | `potential_amenity` | Matched OSM node carries non-address tags (`name`, `ref`, `entrance`, etc.) — hints the POI filter may need to grow. Not a block; feeds iteration on the match target rules. |
 
 ### Review queue
@@ -287,7 +288,7 @@ These are documented so no reviewer has to ask whether we forgot them. Each woul
 | Risk | Mitigation |
 |---|---|
 | Duplicate creation against an OSM address we didn't see. | Conflation against a fresh Geofabrik snapshot; 100 m search radius with normalised housenumber/street; re-fetch + re-conflate if conflation-to-upload lag exceeds 24 h; post-upload reconciliation so any duplicate raised by the community can be traced to its source row and corrected. |
-| Incorrect street name (pre/post amalgamation rename, City typo). | `match_far` and `city_duplicate` checks surface most cases; reviewer can defer to a follow-up. Street-name renames without a corresponding OSM change are escalated to local mappers, not force-pushed. |
+| Incorrect street name (pre/post amalgamation rename, City typo, spelling variant). | `match_far` catches near-coincident points whose street name normalizes the same; `nearby_street_mismatch` catches near-coincident points whose street name normalizes differently (the `Deane Field` / `Deanefield` shape — see §6 normalization). `city_duplicate` surfaces remaining cases by colocation. Reviewer can defer; street-name renames without a corresponding OSM change are escalated to local mappers, not force-pushed. |
 | Rate pressure on OSM API / planet feed. | Operator-triggered cadence targeting ≤1 changeset/min; 300 items per changeset (enforced); pilot tile first; no parallel uploaders from this tool. |
 | Scripted or bulk auto-approval drift. | `missing_sample` check force-reviews every Nth MISSING; Phases 1 and 2 hold ≥5% of AUTO_APPROVED items for manual click; reviewer actions and their actors are in the audit log. |
 | Mid-upload crash leaving orphan changesets. | `import:client_token` tag on each changeset; on retry the client searches open changesets for the token before opening a new one (`t2/osm_client.py`). Changesets are explicitly closed after upload. |
@@ -363,3 +364,4 @@ These are the prior OSM import proposals this document was compared against. Sec
 | 2026-04-29 | §11 Open questions: added #6 on housenumber-range rows. Source has 1,639 ranges (incl. 49 lettered) with no parity flag and a single coordinate per range; current pipeline skips them. Asking the community whether to keep skipping, upload the verbatim `lo-hi` string on the source-provided point, or expand into per-housenumber nodes (which requires synthesising coordinates and choosing a step rule that handles the 22 cluster-style and 49 lettered exceptions). |
 | 2026-04-29 | §6 acknowledges a third duplicate-creation path — ~1,580 OSM buildings with `addr:housenumber` but no `addr:street`/`addr:place`/`addr:housename` (counted via `scripts/find_buildingname_addrs.py` against the 2026-04-29 extract). Same disposition as the other two (accept transient duplication, fix in a follow-up). §8 adds a deferred-work entry pointing to the new `future-work/no-anchor-osm-buildings.md` MapRoulette sketch. Two `addr:place=<street>` typos (way/24626769, node/3308179664) found during the same scan were fixed manually in OSM and are out of scope here. |
 | 2026-04-29 | Pre-submission cleanup against the OSM Import Guidelines rubric. Header: removed the prose Status block (live status now tracked in the project README); added sample dev-sandbox changeset URL as evidence the upload mechanics work end-to-end. §1: added the City of Toronto admin-boundary reference (OSM relation 324211). §3 Contacts: named the dedicated OSM import account `skfd imports` (the maintainer's personal account `skfd` is not used for any upload). §3 Phase 0: separated the wiki proposal page (`Toronto/Import/AddressPoints`) from the `Import/Catalogue` index entry; added the existing OSM Community Forum discussion thread to the distribution list (the modern replacement for talk-ca@). §3 Phase 1: pinned earliest start as no sooner than two weeks after wiki publication and the `imports@` post. |
+| 2026-05-02 | §7 Checks: added `nearby_street_mismatch` (count now seven). Flags MISSING candidates with an OSM address within ~20 m sharing the housenumber but a different normalized street name — the `Deane Field Crescent` (source) vs `Deanefield Crescent` (OSM) shape, where the normalizer can't bridge an arbitrary space change. §9 Risks: street-name row updated to call out the new check. `SOURCE_DATA.md` documents the spelling-variant edge case. |

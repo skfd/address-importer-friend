@@ -30,12 +30,21 @@ match_far = true
 suffix_range = true
 city_duplicate = true
 missing_sample = true
+nearby_street_mismatch = true
 
 [check_params.city_duplicate]
 radius_m = 3.0
 
 [check_params.missing_sample]
 every_nth = 50
+
+[check_params.nearby_street_mismatch]
+# Distance from a MISSING candidate within which an OSM address with the
+# same housenumber but a different normalized street name will be flagged
+# as a likely street-name spelling variant (e.g. "Deane Field" vs
+# "Deanefield"). Tight by design — a wider radius would surface unrelated
+# same-number addresses on parallel streets.
+radius_m = 20.0
 
 [upload]
 batch_size = 300

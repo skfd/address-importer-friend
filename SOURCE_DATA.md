@@ -154,6 +154,28 @@ another — they are **different civic addresses** despite identical
 **Always include `municipality_name` when testing for duplicates.** Matching
 on `address_full` alone produces false twins.
 
+## Street-name spelling variants vs OSM
+
+`linear_name_full` is what the City stores; OSM carries what local mappers
+read off street signs. The two are not always character-identical:
+
+- Suffix and direction differences (`STREET` vs `ST`, `NORTH` vs `N`)
+  are bridged by the normalizer in `t2/conflate.py` (`STREET_SUFFIXES`,
+  `DIRS`) and don't break matching.
+- Differences inside the proper-noun part of the name — most often
+  space-vs-no-space splits — are **not** bridged. The pilot example is
+  source `Deane Field Crescent` against OSM signage `Deanefield
+  Crescent`: `normalize_street` produces `DEANE FIELD CRES` vs
+  `DEANEFIELD CRES`, conflation classifies the candidate as MISSING,
+  and the row is on track to upload as a duplicate of the OSM address.
+
+The `nearby_street_mismatch` check (in `t2/checks/`) catches this shape:
+a MISSING candidate with an OSM address sharing its housenumber within
+a tight radius (default 20 m, see `[check_params.nearby_street_mismatch]`
+in `config.toml`) but a different normalized street is flagged for review
+rather than auto-approved. The reviewer either rejects the source row
+(genuine source typo) or escalates the OSM name back to local mappers.
+
 ## Pipeline consumption points
 
 - `t2/source_db.py:30 iter_active_addresses_in_bbox` — the read path. Today
