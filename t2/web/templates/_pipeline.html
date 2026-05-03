@@ -1,4 +1,5 @@
 {% set labels = {'ingest': 'Ingest', 'fetch': 'Fetch OSM', 'conflate': 'Conflate', 'checks': 'Run checks'} %}
+{% set is_uploaded = upload_status == 'uploaded' %}
 <div id="pipeline" class="pipeline">
   <div class="pipeline-header">
     <form hx-post="/runs/{{ run_id }}/stage/all"
@@ -6,10 +7,15 @@
           hx-swap="outerHTML"
           hx-indicator="#pipeline"
           class="inline">
-      <button class="run-all" title="{{ tip('btn.run_all') }}">Run all stages</button>
+      <button class="run-all"
+              title="{{ 'Run has been uploaded — pipeline is locked.' if is_uploaded else tip('btn.run_all') }}"
+              {% if is_uploaded %}disabled{% endif %}>Run all stages</button>
     </form>
     <span class="htmx-indicator pipeline-spinner" aria-hidden="true"></span>
     <span class="htmx-indicator muted pipeline-hint">working…</span>
+    {% if is_uploaded %}
+    <span class="muted" style="margin-left:.6rem;">Run uploaded — stages locked.</span>
+    {% endif %}
   </div>
 
   <ol class="stepper">
@@ -26,7 +32,8 @@
             hx-indicator="#pipeline"
             class="inline">
         <button class="stage-btn {% if done %}secondary{% endif %}"
-                title="{{ tip('btn.' ~ key) }}">{{ labels[key] }}</button>
+                title="{{ 'Run has been uploaded — pipeline is locked.' if is_uploaded else tip('btn.' ~ key) }}"
+                {% if is_uploaded %}disabled{% endif %}>{{ labels[key] }}</button>
       </form>
     </li>
     {% endfor %}

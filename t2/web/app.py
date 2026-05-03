@@ -346,6 +346,11 @@ def create_app() -> Flask:
     _STAGE_ORDER = ("ingest", "fetch", "conflate", "checks")
 
     def _render_pipeline(run_id: int, msg: str | None = None, error: str | None = None):
+        conn = _db.connect()
+        try:
+            row = conn.execute("SELECT upload_status FROM runs WHERE run_id=?", (run_id,)).fetchone()
+        finally:
+            conn.close()
         return render_template(
             "_pipeline.html",
             run_id=run_id,
@@ -355,6 +360,7 @@ def create_app() -> Flask:
             status=pipeline.stage_status(run_id),
             stage_order=_STAGE_ORDER,
             ranges_count=candidates.count_ranges(run_id),
+            upload_status=row["upload_status"] if row else None,
         )
 
     @app.post("/runs/<int:run_id>/stage/<stage>")

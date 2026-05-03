@@ -4,6 +4,10 @@
 <div class="card">
   <div style="display: flex; align-items: center; gap: .6rem;">
     <h2 style="margin: 0;">Run: {{ run.name }} <span class="muted">#{{ run.run_id }}</span>{% if tile_index %} <span class="muted">· tile {{ tile_index }}/{{ tile_total }}</span>{% endif %}</h2>
+    {% if run.upload_status %}
+    <a href="#upload" class="pill {% if run.upload_status == 'uploaded' %}ok{% elif run.upload_status in ('failed','needs_attention') %}bad{% else %}warn{% endif %}"
+       data-tip="{{ tip('upload.' ~ run.upload_status) }}">{{ run.upload_status }}</a>
+    {% endif %}
     <form method="post" action="{{ url_for('runs_new') }}" class="inline" style="margin-left: auto;">
       <input type="hidden" name="name" value="{{ new_run_name }}"/>
       <input type="hidden" name="min_lat" value="{{ run.bbox_min_lat }}"/>
@@ -42,7 +46,7 @@
 
 <div class="card">
   <h3>Pipeline stages</h3>
-  {% with run_id = run.run_id %}
+  {% with run_id = run.run_id, upload_status = run.upload_status %}
     {% include "_pipeline.html" %}
   {% endwith %}
 </div>
