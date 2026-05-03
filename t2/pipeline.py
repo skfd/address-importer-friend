@@ -441,12 +441,10 @@ def list_runs() -> list[dict]:
         conn.close()
 
 
-# Run-scoped tables, in delete order (children before parents so FKs hold).
+# Run-scoped child tables, in delete order (children before parents so FKs hold).
 # multi_address_verdicts / checks_catalog / kv / schema_version are intentionally
 # excluded — they are global, not tied to a run.
-_RUN_SCOPED_TABLES = (
-    "batch_items",
-    "batches",
+_RUN_CHILD_TABLES = (
     "changesets",
     "events",
     "review_items",
@@ -454,25 +452,38 @@ _RUN_SCOPED_TABLES = (
     "check_toggles",
     "conflation",
     "candidates",
-    "runs",
 )
 
 
 def delete_all_runs() -> dict[str, int]:
-    """Wipe every run and all related rows. Also removes per-run cached files
-    (osm_current_run*.json, batch_*.osm). Returns row counts deleted per table."""
+    """Wipe every run that has not been uploaded to OSM, plus its child rows
+    and per-run cached files. Runs with upload_status='uploaded' are preserved
+    so the audit trail of pushed changesets stays intact. Returns row counts
+    deleted per table."""
     cfg = _config.load()
     counts: dict[str, int] = {}
     conn = _db.connect()
     try:
         conn.execute("BEGIN IMMEDIATE")
-        for table in _RUN_SCOPED_TABLES:
-            cur = conn.execute(f"DELETE FROM {table}")
-            counts[table] = cur.rowcount or 0
-        # Reset autoincrement so the next run starts at 1.
-        conn.execute(
-            "DELETE FROM sqlite_sequence WHERE name IN ('runs','batches','events')"
-        )
+        deletable = [
+            int(r["run_id"]) for r in conn.execute(
+                "SELECT run_id FROM runs WHERE upload_status IS NULL OR upload_status != 'uploaded'"
+            ).fetchall()
+        ]
+        if deletable:
+            placeholders = ",".join("?" for _ in deletable)
+            for table in _RUN_CHILD_TABLES:
+                cur = conn.execute(
+                    f"DELETE FROM {table} WHERE run_id IN ({placeholders})", deletable,
+                )
+                counts[table] = cur.rowcount or 0
+            cur = conn.execute(
+                f"DELETE FROM runs WHERE run_id IN ({placeholders})", deletable,
+            )
+            counts["runs"] = cur.rowcount or 0
+        else:
+            for table in (*_RUN_CHILD_TABLES, "runs"):
+                counts[table] = 0
         conn.execute("COMMIT")
     except Exception:
         conn.execute("ROLLBACK")
@@ -480,10 +491,27 @@ def delete_all_runs() -> dict[str, int]:
     finally:
         conn.close()
 
+    deleted_run_ids = set(deletable)
     for path in cfg.data_dir.glob("osm_current_run*.json"):
-        path.unlink(missing_ok=True)
+        # path stem like 'osm_current_run123' -> 123
+        try:
+            rid = int(path.stem.removeprefix("osm_current_run"))
+        except ValueError:
+            continue
+        if rid in deleted_run_ids:
+            path.unlink(missing_ok=True)
+    for path in cfg.data_dir.glob("upload_run_*.osm"):
+        try:
+            rid = int(path.stem.removeprefix("upload_run_"))
+        except ValueError:
+            continue
+        if rid in deleted_run_ids:
+            path.unlink(missing_ok=True)
+    # Legacy per-batch files from before the merge — none of them belong to
+    # an uploaded run any more, so always sweep.
     for path in cfg.data_dir.glob("batch_*.osm"):
         path.unlink(missing_ok=True)
 
-    audit.log(actor="operator", event_type="RUNS_PURGED", payload={"counts": counts})
+    audit.log(actor="operator", event_type="RUNS_PURGED",
+              payload={"counts": counts, "kept_uploaded": True})
     return counts

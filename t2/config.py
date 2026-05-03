@@ -15,7 +15,6 @@ class Config:
     match_near_m: float
     checks_enabled: dict[str, bool]
     checks_params: dict[str, dict]
-    batch_size: int
     changesets_per_minute: float
     changeset_comment_template: str
 
@@ -90,7 +89,6 @@ def load() -> Config:
         match_near_m=float(cfg["conflation"]["match_near_m"]),
         checks_enabled=checks_enabled,
         checks_params=checks_params,
-        batch_size=int(cfg["upload"]["batch_size"]),
         changesets_per_minute=float(cfg["upload"]["changesets_per_minute"]),
         changeset_comment_template=cfg["upload"]["changeset_comment_template"],
         osm_source=osm_source,

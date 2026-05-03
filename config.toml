@@ -47,6 +47,5 @@ every_nth = 50
 radius_m = 20.0
 
 [upload]
-batch_size = 300
 changesets_per_minute = 1
-changeset_comment_template = "Toronto Open Data address import, run={run_name}, batch={batch_id}"
+changeset_comment_template = "Toronto Open Data address import, run={run_name}"

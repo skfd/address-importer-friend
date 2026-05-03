@@ -55,7 +55,7 @@ def _global_pairs() -> list[tuple[str, str]]:
     ]
 
 
-def _per_run_pairs(run_id: int, candidates: list[dict], batch_ids: list[int]) -> list[tuple[str, str]]:
+def _per_run_pairs(run_id: int, candidates: list[dict]) -> list[tuple[str, str]]:
     pairs: list[tuple[str, str]] = [
         (f"/runs/{run_id}", f"runs/{run_id}/index.html"),
         (f"/runs/{run_id}/review", f"runs/{run_id}/review/index.html"),
@@ -68,8 +68,6 @@ def _per_run_pairs(run_id: int, candidates: list[dict], batch_ids: list[int]) ->
         (f"/runs/{run_id}/ranges", f"runs/{run_id}/ranges/index.html"),
         (f"/runs/{run_id}/audit", f"runs/{run_id}/audit/index.html"),
     ]
-    for bid in batch_ids:
-        pairs.append((f"/batches/{bid}", f"batches/{bid}/index.html"))
     for c in candidates:
         cid = c["candidate_id"]
         if c.get("stage") != "SKIPPED":
@@ -99,7 +97,7 @@ def main(argv: list[str] | None = None) -> int:
     os.environ["T2_STATIC_EXPORT_SNAPSHOT_DATE"] = args.snapshot_date
     os.environ["T2_STATIC_EXPORT_RUN_IDS"] = ",".join(str(r) for r in run_ids)
 
-    from . import batcher, config as _config, upload_manifest
+    from . import config as _config, upload_manifest
     from .web.app import create_app
 
     cfg = _config.load()
@@ -119,13 +117,11 @@ def main(argv: list[str] | None = None) -> int:
     per_run_meta: list[dict] = []
     for rid in run_ids:
         cands = _single._candidates(rid)
-        batches = batcher.list_batches(rid)
-        bids = [int(b["batch_id"]) for b in batches]
         tile_id = _tile_id_for_run(cfg.data_dir, rid, spike)
-        pairs.extend(_per_run_pairs(rid, cands, bids))
+        pairs.extend(_per_run_pairs(rid, cands))
         if tile_id:
             pairs.append((f"/tiles/{tile_id}", f"tiles/{tile_id}/index.html"))
-        per_run_meta.append({"run_id": rid, "candidates": cands, "batch_ids": bids, "tile_id": tile_id})
+        per_run_meta.append({"run_id": rid, "candidates": cands, "tile_id": tile_id})
 
     url_to_path = {u: p for u, p in pairs}
     for src, dst in _single._STATIC_BUNDLES:
@@ -174,7 +170,7 @@ def main(argv: list[str] | None = None) -> int:
     for src, dst in _single._STATIC_BUNDLES:
         shutil.copyfile(static_src_dir / src, out / "assets" / dst)
 
-    # Raw assets — per-run osm snapshots + batch .osm files + the tile polygon JSON.
+    # Raw assets — per-run osm snapshots + upload .osm files + the tile polygon JSON.
     copied: list[str] = []
     for meta in per_run_meta:
         rid = meta["run_id"]
@@ -182,11 +178,10 @@ def main(argv: list[str] | None = None) -> int:
         if snap.exists():
             shutil.copyfile(snap, out / "assets" / f"osm_run{rid}.json")
             copied.append(f"osm_run{rid}.json")
-        for bid in meta["batch_ids"]:
-            src = cfg.data_dir / f"batch_{bid}.osm"
-            if src.exists():
-                shutil.copyfile(src, out / "assets" / f"batch_{bid}.osm")
-                copied.append(f"batch_{bid}.osm")
+        upload_osm = cfg.data_dir / f"upload_run_{rid}.osm"
+        if upload_osm.exists():
+            shutil.copyfile(upload_osm, out / "assets" / upload_osm.name)
+            copied.append(upload_osm.name)
     tiles_json = cfg.data_dir / "tiles.json"
     if tiles_json.exists():
         shutil.copyfile(tiles_json, out / "assets" / "tiles.json")

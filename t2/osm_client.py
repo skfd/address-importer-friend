@@ -12,7 +12,7 @@ from typing import Any
 import requests
 from cryptography.fernet import Fernet
 
-from . import audit, batcher, config as _config, db as _db, osm_export
+from . import audit, config as _config, db as _db, osm_export
 
 _CONFIG = _config.load()
 
@@ -177,10 +177,10 @@ def find_changeset_by_client_token(client_token: str) -> int | None:
     return None
 
 
-def _create_changeset(batch_id: int) -> int:
+def _create_changeset(run_id: int) -> int:
     payload = ET.Element("osm")
     cs = ET.SubElement(payload, "changeset")
-    for k, v in osm_export.changeset_tags(batch_id).items():
+    for k, v in osm_export.changeset_tags(run_id).items():
         ET.SubElement(cs, "tag", k=k, v=v)
     body = ET.tostring(payload, encoding="utf-8")
     r = _request("PUT", f"{_API}/changeset/create", data=body, headers={"Content-Type": "text/xml"})
@@ -188,8 +188,8 @@ def _create_changeset(batch_id: int) -> int:
     return int(r.text.strip())
 
 
-def _upload_diff(changeset_id: int, batch_id: int) -> dict[int, int]:
-    body = osm_export.osmchange_xml(batch_id, changeset_id)
+def _upload_diff(changeset_id: int, run_id: int) -> dict[int, int]:
+    body = osm_export.osmchange_xml(run_id, changeset_id)
     r = _request("POST", f"{_API}/changeset/{changeset_id}/upload",
                  data=body, headers={"Content-Type": "text/xml"})
     if r.status_code != 200:
@@ -205,43 +205,49 @@ def _close_changeset(changeset_id: int) -> None:
     _request("PUT", f"{_API}/changeset/{changeset_id}/close")
 
 
-def upload(batch_id: int) -> None:
-    """Upload a batch via the OSM API, idempotent under Ctrl-C."""
+def upload(run_id: int) -> None:
+    """Upload a run's APPROVED candidates via the OSM API. Idempotent under
+    crash/Ctrl-C: client_token, once stored on the run, is reused on retry; if
+    a changeset for that token already exists on the server, we adopt it."""
     now = datetime.now(timezone.utc).isoformat()
     conn = _db.connect()
     try:
         row = conn.execute(
-            "SELECT b.run_id, b.status, b.changeset_id, b.client_token, b.size, r.name "
-            "FROM batches b JOIN runs r ON r.run_id = b.run_id WHERE b.batch_id = ?",
-            (batch_id,),
+            "SELECT name, upload_status, client_token, changeset_id "
+            "FROM runs WHERE run_id=?",
+            (run_id,),
         ).fetchone()
         if not row:
-            raise ValueError(f"batch {batch_id} not found")
-        if row["status"] == "uploaded":
+            raise ValueError(f"run {run_id} not found")
+        if row["upload_status"] == "uploaded":
             return
-        run_id = row["run_id"]
         run_name = row["name"]
         client_token = row["client_token"]
         changeset_id = row["changeset_id"]
     finally:
         conn.close()
 
-    comment = _CONFIG.changeset_comment_template.format(run_name=run_name, batch_id=batch_id)
+    if not client_token:
+        client_token = osm_export._ensure_client_token(run_id)
 
-    # Crash recovery: if no changeset_id locally but server has one for our token, adopt it.
+    comment = _CONFIG.changeset_comment_template.format(run_name=run_name)
+
+    # Crash recovery: if no local changeset_id yet but server has one tagged
+    # with our client_token, adopt it instead of opening a duplicate.
     if changeset_id is None:
         existing = find_changeset_by_client_token(client_token)
         if existing:
             changeset_id = existing
         else:
-            changeset_id = _create_changeset(batch_id)
+            changeset_id = _create_changeset(run_id)
 
         conn = _db.connect()
         try:
             conn.execute("BEGIN IMMEDIATE")
             conn.execute(
-                "UPDATE batches SET changeset_id=?, status='uploading' WHERE batch_id=?",
-                (changeset_id, batch_id),
+                "UPDATE runs SET upload_mode='osm_api', changeset_id=?, upload_status='uploading' "
+                "WHERE run_id=?",
+                (changeset_id, run_id),
             )
             conn.execute(
                 "INSERT OR IGNORE INTO changesets (changeset_id, run_id, opened_at, comment, status) "
@@ -249,70 +255,70 @@ def upload(batch_id: int) -> None:
                 (changeset_id, run_id, now, comment),
             )
             audit.log(actor="osm_client", event_type="CHANGESET_OPENED",
-                      run_id=run_id, batch_id=batch_id,
+                      run_id=run_id,
                       payload={"changeset_id": changeset_id, "comment": comment}, conn=conn)
             conn.execute("COMMIT")
         finally:
             conn.close()
 
-    # Upload diff (idempotent enough: if server already has our nodes from a prior attempt,
-    # a retry will 409; we surface that rather than auto-recover).
+    # Upload diff (idempotent enough: if server already has our nodes from a
+    # prior attempt, a retry will 409; we surface that rather than auto-recover).
     try:
-        mapping = _upload_diff(changeset_id, batch_id)
+        mapping = _upload_diff(changeset_id, run_id)
     except Exception as e:
         conn = _db.connect()
         try:
             conn.execute("BEGIN IMMEDIATE")
             conn.execute(
-                "UPDATE batches SET status='needs_attention', error_msg=? WHERE batch_id=?",
-                (str(e)[:500], batch_id),
+                "UPDATE runs SET upload_status='needs_attention', upload_error_msg=? "
+                "WHERE run_id=?",
+                (str(e)[:500], run_id),
             )
             audit.log(actor="osm_client", event_type="UPLOAD_FAILED",
-                      run_id=run_id, batch_id=batch_id, payload={"error": str(e)[:500]}, conn=conn)
+                      run_id=run_id, payload={"error": str(e)[:500]}, conn=conn)
             conn.execute("COMMIT")
         finally:
             conn.close()
         raise
 
-    # Fill osm_node_ids, mark items uploaded, close changeset. If the server's
-    # diffResult didn't include a mapping for every batch item, flag the batch
-    # as needs_attention instead of uploaded — the successful items still
-    # transition to UPLOADED, but the operator must reconcile the rest.
+    # Apply diffResult mapping. Candidates whose local_node_id appears in
+    # the mapping flip to UPLOADED with their osm_node_id filled in. Anything
+    # still APPROVED with a local_node_id was sent but not acknowledged —
+    # mark the run needs_attention and let the operator reconcile.
     conn = _db.connect()
     try:
         conn.execute("BEGIN IMMEDIATE")
         for local_id, new_id in mapping.items():
             conn.execute(
-                "UPDATE batch_items SET osm_node_id=?, upload_status='uploaded' "
-                "WHERE batch_id=? AND local_node_id=?",
-                (new_id, batch_id, local_id),
+                "UPDATE candidates SET osm_node_id=?, stage='UPLOADED', stage_updated_at=? "
+                "WHERE run_id=? AND local_node_id=?",
+                (new_id, now, run_id, local_id),
             )
-        conn.execute(
-            "UPDATE candidates SET stage='UPLOADED', stage_updated_at=? WHERE (run_id, candidate_id) IN "
-            "(SELECT b.run_id, bi.candidate_id FROM batch_items bi JOIN batches b ON b.batch_id = bi.batch_id "
-            " WHERE bi.batch_id = ? AND bi.upload_status = 'uploaded')",
-            (now, batch_id),
-        )
-        pending_rows = conn.execute(
-            "SELECT local_node_id FROM batch_items WHERE batch_id=? AND upload_status='pending'",
-            (batch_id,),
+        unmapped_rows = conn.execute(
+            "SELECT local_node_id FROM candidates "
+            "WHERE run_id=? AND stage='APPROVED' AND local_node_id IS NOT NULL",
+            (run_id,),
         ).fetchall()
-        unmapped = [int(r["local_node_id"]) for r in pending_rows]
+        unmapped = [int(r["local_node_id"]) for r in unmapped_rows]
         if unmapped:
             msg = f"partial upload: {len(unmapped)} of {len(unmapped) + len(mapping)} items unmapped"
             conn.execute(
-                "UPDATE batches SET status='needs_attention', error_msg=? WHERE batch_id=?",
-                (msg, batch_id),
+                "UPDATE runs SET upload_status='needs_attention', upload_error_msg=? "
+                "WHERE run_id=?",
+                (msg, run_id),
             )
             audit.log(actor="osm_client", event_type="UPLOAD_PARTIAL",
-                      run_id=run_id, batch_id=batch_id,
+                      run_id=run_id,
                       payload={"changeset_id": changeset_id,
                                "uploaded": len(mapping),
                                "unmapped_local_node_ids": unmapped}, conn=conn)
         else:
-            conn.execute("UPDATE batches SET status='uploaded', uploaded_at=? WHERE batch_id=?", (now, batch_id))
+            conn.execute(
+                "UPDATE runs SET upload_status='uploaded', uploaded_at=? WHERE run_id=?",
+                (now, run_id),
+            )
             audit.log(actor="osm_client", event_type="CHANGESET_UPLOADED",
-                      run_id=run_id, batch_id=batch_id,
+                      run_id=run_id,
                       payload={"changeset_id": changeset_id, "count": len(mapping)}, conn=conn)
         conn.execute("COMMIT")
     finally:
@@ -324,7 +330,50 @@ def upload(batch_id: int) -> None:
         conn.execute("BEGIN IMMEDIATE")
         conn.execute("UPDATE changesets SET closed_at=?, status='closed' WHERE changeset_id=?", (now, changeset_id))
         audit.log(actor="osm_client", event_type="CHANGESET_CLOSED",
-                  run_id=run_id, batch_id=batch_id, payload={"changeset_id": changeset_id}, conn=conn)
+                  run_id=run_id, payload={"changeset_id": changeset_id}, conn=conn)
+        conn.execute("COMMIT")
+    finally:
+        conn.close()
+
+
+def mark_uploaded_externally(run_id: int) -> None:
+    """Flip a run to upload_status='uploaded' for the JOSM-external path: the
+    operator downloaded the .osm, uploaded it via JOSM, and is telling the
+    system to consider it done. No changeset_id (we don't know what JOSM
+    chose). All APPROVED candidates flip to UPLOADED."""
+    now = datetime.now(timezone.utc).isoformat()
+    conn = _db.connect()
+    try:
+        row = conn.execute(
+            "SELECT upload_status, client_token FROM runs WHERE run_id=?",
+            (run_id,),
+        ).fetchone()
+        if not row:
+            raise ValueError(f"run {run_id} not found")
+        if row["upload_status"] == "uploaded":
+            return
+    finally:
+        conn.close()
+
+    # Make sure the run has a client_token even after a JOSM-only upload, so
+    # later auditing / cross-referencing can find the upload.
+    osm_export._ensure_client_token(run_id)
+
+    conn = _db.connect()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        conn.execute(
+            "UPDATE runs SET upload_mode='josm_xml', upload_status='uploaded', "
+            "uploaded_at=? WHERE run_id=?",
+            (now, run_id),
+        )
+        conn.execute(
+            "UPDATE candidates SET stage='UPLOADED', stage_updated_at=? "
+            "WHERE run_id=? AND stage='APPROVED'",
+            (now, run_id),
+        )
+        audit.log(actor="operator", event_type="MARKED_UPLOADED_JOSM",
+                  run_id=run_id, payload={}, conn=conn)
         conn.execute("COMMIT")
     finally:
         conn.close()

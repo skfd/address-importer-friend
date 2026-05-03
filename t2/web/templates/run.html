@@ -66,44 +66,118 @@
   <p class="muted">0 disables sampling; higher values flag fewer MISSINGs for spot-check. Change before re-running checks.</p>
 </div>
 
-<div class="card" id="batches">
-  <h3>Batches</h3>
+<div class="card" id="upload">
+  <h3>Upload</h3>
   {% set approved_avail = counts.get('APPROVED', 0) %}
-  {% set batched_n = counts.get('BATCHED', 0) %}
   {% set uploaded_n = counts.get('UPLOADED', 0) %}
-  {% set total_changes = approved_avail + batched_n + uploaded_n %}
+  {% set total_changes = approved_avail + uploaded_n %}
   <p class="muted">
-    <strong>{{ approved_avail }}</strong> APPROVED available to compose
-    · {{ batched_n }} already batched
-    · {{ uploaded_n }} uploaded
+    <strong>{{ approved_avail }}</strong> APPROVED ready to upload
+    · {{ uploaded_n }} already uploaded
     · <strong>{{ total_changes }}</strong> total changes
   </p>
-  <div style="display: inline-flex; gap: .4rem;">
-    <form method="post" action="/runs/{{ run.run_id }}/batches" class="inline">
-      <input type="hidden" name="mode" value="josm_xml"/>
-      <button title="{{ tip('field.mode') }}" {% if approved_avail == 0 %}disabled{% endif %}>Compose josm_xml batch</button>
+  {% if run.upload_status %}
+  <p>
+    Status:
+    <span class="pill {% if run.upload_status == 'uploaded' %}ok{% elif run.upload_status in ('failed','needs_attention') %}bad{% else %}warn{% endif %}"
+          data-tip="{{ tip('upload.' ~ run.upload_status) }}">{{ run.upload_status }}</span>
+    {% if run.upload_mode %}· mode <code>{{ run.upload_mode }}</code>{% endif %}
+    {% if run.changeset_id %}· changeset <a href="https://master.apis.dev.openstreetmap.org/changeset/{{ run.changeset_id }}" target="_blank">#{{ run.changeset_id }}</a>{% endif %}
+    {% if run.client_token %}· token <code>{{ run.client_token }}</code>{% endif %}
+  </p>
+  {% if run.upload_error_msg %}<p class="flash">{{ run.upload_error_msg }}</p>{% endif %}
+  {% endif %}
+
+  <div style="display: inline-flex; gap: .4rem; flex-wrap: wrap;">
+    <form method="post" action="/runs/{{ run.run_id }}/upload" class="inline">
+      <button title="{{ tip('btn.upload_api') }}"
+              {% if approved_avail == 0 or run.upload_status == 'uploaded' %}disabled{% endif %}>Upload to OSM</button>
     </form>
-    <form method="post" action="/runs/{{ run.run_id }}/batches" class="inline">
-      <input type="hidden" name="mode" value="osm_api"/>
-      <button title="{{ tip('field.mode') }}" {% if approved_avail == 0 %}disabled{% endif %}>Compose osm_api batch</button>
+    <form method="post" action="/runs/{{ run.run_id }}/export" class="inline">
+      <button class="secondary" title="{{ tip('btn.export_osm') }}"
+              {% if approved_avail == 0 %}disabled{% endif %}>Download .osm (JOSM)</button>
+    </form>
+    {% if josm_url %}
+    <button type="button" class="secondary" id="josm-open-btn"
+            data-josm-url="{{ josm_url }}"
+            {% if approved_avail == 0 %}disabled{% endif %}
+            title="Loads the .osm into JOSM via Remote Control (Preferences → Remote Control must be enabled in JOSM) and pre-fills the changeset comment, source, and tags. Stays on this page.">Open in JOSM</button>
+    <span id="josm-open-status" class="muted" style="margin-left:.4rem;"></span>
+    {% endif %}
+    <form method="post" action="/runs/{{ run.run_id }}/mark_uploaded" class="inline">
+      <button class="secondary"
+              {% if run.upload_status == 'uploaded' %}disabled{% endif %}
+              title="Click after you've uploaded via JOSM externally — flips this run to uploaded and marks all APPROVED candidates as UPLOADED.">Mark uploaded (JOSM)</button>
     </form>
   </div>
-  {% if batches %}
+
+  {% if josm_url %}
+  <script>
+    (function () {
+      const btn = document.getElementById('josm-open-btn');
+      const status = document.getElementById('josm-open-status');
+      if (!btn) return;
+      btn.addEventListener('click', () => {
+        const original = btn.textContent;
+        btn.disabled = true;
+        status.textContent = 'Sending to JOSM…';
+        // mode:'no-cors' lets the request leave the browser even though
+        // 127.0.0.1:8111 doesn't send CORS headers. The response is opaque,
+        // but resolution = JOSM accepted it; rejection = JOSM unreachable.
+        fetch(btn.dataset.josmUrl, { mode: 'no-cors' })
+          .then(() => { status.textContent = 'Sent to JOSM'; })
+          .catch(() => { status.textContent = 'JOSM not reachable. Enable Remote Control (Preferences → Remote Control).'; })
+          .finally(() => {
+            btn.disabled = false;
+            btn.textContent = original;
+            setTimeout(() => { status.textContent = ''; }, 4000);
+          });
+      });
+    })();
+  </script>
+  {% endif %}
+</div>
+
+{% if cs_tags %}
+<div class="card">
+  <h3>Changeset tags</h3>
+  <p class="muted">Applied automatically when uploading via OSM API. For the JOSM flow, copy below and use <strong>Paste Tags</strong> (Ctrl+Shift+V) on the changeset in JOSM's upload dialog &mdash; tab-separated <code>key&lt;TAB&gt;value</code> is what JOSM's <code>TextTagParser</code> expects.</p>
+  <textarea id="cs-tags-tsv" readonly rows="{{ cs_tags|length }}"
+            style="width: 100%; font-family: monospace; white-space: pre; resize: vertical;">{{- cs_tags_tsv -}}</textarea>
+  <button type="button" class="secondary" onclick="
+    const t = document.getElementById('cs-tags-tsv');
+    t.select();
+    navigator.clipboard.writeText(t.value).then(
+      () => { this.textContent = 'Copied'; setTimeout(() => this.textContent = 'Copy for JOSM Paste Tags', 1500); },
+      () => { document.execCommand('copy'); }
+    );
+  ">Copy for JOSM Paste Tags</button>
+</div>
+{% endif %}
+
+{% if upload_items %}
+<div class="card">
+  <h3>Items ({{ upload_items|length }})</h3>
   <table>
-    <thead><tr><th>ID</th><th>Mode</th><th>Status</th><th>Size</th><th>Created</th><th>Changeset</th></tr></thead>
+    <thead><tr><th>cand_id</th><th>local_id</th><th>housenumber</th><th>street</th><th>coords</th><th>stage</th><th>osm_id</th></tr></thead>
     <tbody>
-      {% for b in batches %}
+      {% for it in upload_items %}
       <tr>
-        <td><a href="/batches/{{ b.batch_id }}">{{ b.batch_id }}</a></td>
-        <td>{{ b.mode }}</td>
-        <td><span class="pill {% if b.status == 'uploaded' %}ok{% elif b.status in ('failed','needs_attention') %}bad{% else %}warn{% endif %}" data-tip="{{ tip('batch.' ~ b.status) }}">{{ b.status }}</span></td>
-        <td>{{ b.size }}</td>
-        <td class="muted">{{ b.created_at }}</td>
-        <td class="muted">{{ b.changeset_id or '—' }}</td>
+        <td>{{ it.candidate_id }}</td>
+        <td>{{ it.local_node_id or '—' }}</td>
+        <td>{{ it.housenumber }}</td>
+        <td>{{ it.street_raw }}</td>
+        <td class="muted">
+          {% if it.lat and it.lon %}
+          <a href="https://www.openstreetmap.org/?mlat={{ it.lat }}&mlon={{ it.lon }}#map=19/{{ it.lat }}/{{ it.lon }}" target="_blank" rel="noopener">{{ it.lat }}, {{ it.lon }}</a>
+          {% else %}—{% endif %}
+        </td>
+        <td><span class="pill {% if it.stage == 'UPLOADED' %}ok{% else %}warn{% endif %}">{{ it.stage }}</span></td>
+        <td>{% if it.osm_node_id %}<a href="https://master.apis.dev.openstreetmap.org/node/{{ it.osm_node_id }}" target="_blank" rel="noopener">{{ it.osm_node_id }}</a>{% else %}—{% endif %}</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
-  {% endif %}
 </div>
+{% endif %}
 {% endblock %}

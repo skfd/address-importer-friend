@@ -23,15 +23,14 @@ def fetch_for_run(run_id: int) -> list[Row]:
     try:
         rows = conn.execute(
             """
-            SELECT bi.candidate_id, c.address_full, bi.osm_node_id, b.changeset_id
-            FROM batch_items bi
-            JOIN batches b   ON b.batch_id = bi.batch_id
-            JOIN candidates c ON c.run_id = b.run_id AND c.candidate_id = bi.candidate_id
-            WHERE b.run_id = ?
-              AND bi.upload_status = 'uploaded'
-              AND bi.osm_node_id IS NOT NULL
-              AND b.changeset_id IS NOT NULL
-            ORDER BY bi.candidate_id
+            SELECT c.candidate_id, c.address_full, c.osm_node_id, r.changeset_id
+            FROM candidates c
+            JOIN runs r ON r.run_id = c.run_id
+            WHERE c.run_id = ?
+              AND c.stage = 'UPLOADED'
+              AND c.osm_node_id IS NOT NULL
+              AND r.changeset_id IS NOT NULL
+            ORDER BY c.candidate_id
             """,
             (run_id,),
         ).fetchall()

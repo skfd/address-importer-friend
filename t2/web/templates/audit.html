@@ -12,7 +12,7 @@
 
 <div class="card">
   <table>
-    <thead><tr><th>ts</th><th>actor</th><th>type</th><th>cand</th><th>batch</th><th>payload</th></tr></thead>
+    <thead><tr><th>ts</th><th>actor</th><th>type</th><th>cand</th><th>payload</th></tr></thead>
     <tbody>
       {% for e in events %}
       <tr>
@@ -20,7 +20,6 @@
         <td>{{ e.actor }}</td>
         <td><code>{{ e.event_type }}</code></td>
         <td>{{ e.candidate_id or '' }}</td>
-        <td>{{ e.batch_id or '' }}</td>
         <td class="muted">
           {% if e.event_type == 'CONFLATE_CANDIDATE' %}
             {% set p = e.payload %}

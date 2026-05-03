@@ -7,7 +7,7 @@ from pathlib import Path
 
 from flask import Flask, abort, flash, g, jsonify, redirect, render_template, request, send_file, send_from_directory, url_for
 
-from .. import audit, batcher, candidates, config as _config, db as _db, multi_addresses as _multi_addresses, multi_fixes as _multi_fixes, osm_client, osm_export, osm_refresh, pipeline, ranges as _ranges, review, run_for_all, source_db, streets as _streets, tag_diff, tiles_build
+from .. import audit, candidates, config as _config, db as _db, multi_addresses as _multi_addresses, multi_fixes as _multi_fixes, osm_client, osm_export, osm_refresh, pipeline, ranges as _ranges, review, run_for_all, source_db, streets as _streets, tag_diff, tiles_build
 from ..conflate import _proposed_tags, _is_poi_node, POI_TAG_KEYS, normalize_street
 from ..checks import REGISTRY
 from .glossary import GLOSSARY
@@ -272,7 +272,10 @@ def create_app() -> Flask:
         run = _get_run(run_id)
         counts = pipeline.counts_by_stage(run_id)
         toggles = _get_toggles(run_id)
-        batches = batcher.list_batches(run_id)
+        upload_items = osm_export.items_for_view(run_id)
+        cs_tags = osm_export.changeset_tags(run_id) if counts.get("APPROVED", 0) or run.get("upload_status") else {}
+        cs_tags_tsv = "\n".join(f"{k}\t{v}" for k, v in cs_tags.items())
+        josm_url = _josm_remote_url(run_id, cs_tags) if cs_tags else ""
         tile, tile_index, tile_total = _tile_for_run(run)
         status = pipeline.stage_status(run_id)
         from datetime import datetime
@@ -282,12 +285,14 @@ def create_app() -> Flask:
             run_id, "missing_sample", "every_nth", 50
         )
         return render_template("run.html", run=run, counts=counts, toggles=toggles,
-                               registry=REGISTRY, batches=batches, tile=tile,
+                               registry=REGISTRY, tile=tile,
                                tile_index=tile_index, tile_total=tile_total,
                                status=status, stage_order=("ingest", "fetch", "conflate", "checks"),
                                ranges_count=candidates.count_ranges(run_id),
                                new_run_name=new_run_name,
-                               missing_sample_every_nth=missing_sample_every_nth)
+                               missing_sample_every_nth=missing_sample_every_nth,
+                               upload_items=upload_items, cs_tags=cs_tags,
+                               cs_tags_tsv=cs_tags_tsv, josm_url=josm_url)
 
     @app.get("/runs/<int:run_id>/neighbor")
     def run_neighbor(run_id: int):
@@ -1046,33 +1051,9 @@ def create_app() -> Flask:
             **{k: v for k, v in detail_ctx.items() if k != "run_id"},
         )
 
-    # ---- Batches ----
+    # ---- Upload (per run) ----
 
-    @app.post("/runs/<int:run_id>/batches")
-    def batch_create(run_id: int):
-        mode = request.form["mode"]
-        bid = batcher.compose(run_id, mode, cfg.batch_size)
-        if bid is None:
-            flash("No APPROVED candidates available to batch.")
-            return redirect(url_for("run_view", run_id=run_id))
-        return redirect(url_for("batch_view", batch_id=bid))
-
-    @app.get("/batches/<int:batch_id>")
-    def batch_view(batch_id: int):
-        items = batcher.load_batch_items(batch_id)
-        conn = _db.connect()
-        try:
-            batch = dict(conn.execute("SELECT * FROM batches WHERE batch_id=?", (batch_id,)).fetchone() or {})
-        finally:
-            conn.close()
-        cs_tags = osm_export.changeset_tags(batch_id) if batch else {}
-        cs_tags_tsv = "\n".join(f"{k}\t{v}" for k, v in cs_tags.items())
-        josm_url = _josm_remote_url(batch_id, cs_tags) if batch else ""
-        return render_template("batch.html", batch=batch, items=items,
-                               cs_tags=cs_tags, cs_tags_tsv=cs_tags_tsv,
-                               josm_url=josm_url)
-
-    def _josm_remote_url(batch_id: int, cs_tags: dict[str, str]) -> str:
+    def _josm_remote_url(run_id: int, cs_tags: dict[str, str]) -> str:
         """JOSM Remote Control /import URL: load the .osm file and pre-fill changeset tags.
 
         JOSM listens on http://127.0.0.1:8111 when Remote Control is enabled
@@ -1087,12 +1068,12 @@ def create_app() -> Flask:
         Putting `url=` last ensures nothing follows it.
         """
         from urllib.parse import urlencode
-        data_url = url_for("batch_export_get", batch_id=batch_id, _external=True)
+        data_url = url_for("run_export_get", run_id=run_id, _external=True)
         extra = {k: v for k, v in cs_tags.items() if k not in ("comment", "source")}
         # Order matters: url must come last (see docstring).
         params = [
             ("new_layer", "true"),
-            ("layer_name", f"batch_{batch_id}"),
+            ("layer_name", f"run_{run_id}"),
             ("changeset_comment", cs_tags.get("comment", "")),
             ("changeset_source", cs_tags.get("source", "")),
             ("changeset_tags", "|".join(f"{k}={v}" for k, v in extra.items())),
@@ -1100,8 +1081,8 @@ def create_app() -> Flask:
         ]
         return "http://127.0.0.1:8111/import?" + urlencode(params)
 
-    def _send_batch_osm(batch_id: int, as_attachment: bool):
-        path = osm_export.write_xml(batch_id)
+    def _send_run_osm(run_id: int, as_attachment: bool):
+        path = osm_export.write_xml(run_id)
         return send_file(
             path,
             mimetype="application/xml",
@@ -1109,26 +1090,36 @@ def create_app() -> Flask:
             download_name=path.name,
         )
 
-    @app.post("/batches/<int:batch_id>/export")
-    def batch_export(batch_id: int):
-        return _send_batch_osm(batch_id, as_attachment=True)
+    @app.post("/runs/<int:run_id>/export")
+    def run_export(run_id: int):
+        return _send_run_osm(run_id, as_attachment=True)
 
-    @app.get("/batches/<int:batch_id>/export.osm")
-    def batch_export_get(batch_id: int):
+    @app.get("/runs/<int:run_id>/export.osm")
+    def run_export_get(run_id: int):
         # Inline (not as_attachment) so JOSM Remote Control fetches the body
         # directly rather than receiving a download header it doesn't need.
-        return _send_batch_osm(batch_id, as_attachment=False)
+        return _send_run_osm(run_id, as_attachment=False)
 
-    @app.post("/batches/<int:batch_id>/upload")
-    def batch_upload(batch_id: int):
+    @app.post("/runs/<int:run_id>/upload")
+    def run_upload(run_id: int):
         try:
-            osm_client.upload(batch_id)
-            flash(f"Uploaded batch {batch_id}.")
+            osm_client.upload(run_id)
+            flash(f"Uploaded run {run_id}.")
         except osm_client.OsmAuthError as e:
             flash(f"Not authorized: {e}. Visit /oauth to set up.")
         except Exception as e:
             flash(f"Upload failed: {e}")
-        return redirect(url_for("batch_view", batch_id=batch_id))
+        return redirect(url_for("run_view", run_id=run_id))
+
+    @app.post("/runs/<int:run_id>/mark_uploaded")
+    def run_mark_uploaded(run_id: int):
+        """Operator confirms they uploaded via JOSM externally."""
+        try:
+            osm_client.mark_uploaded_externally(run_id)
+            flash(f"Run {run_id} marked as uploaded (JOSM).")
+        except Exception as e:
+            flash(f"Could not mark uploaded: {e}")
+        return redirect(url_for("run_view", run_id=run_id))
 
     # ---- Audit ----
 
@@ -1476,7 +1467,7 @@ def _get_toggles(run_id: int) -> dict[str, bool]:
 
 _TOOL_DB_TABLES = (
     "runs", "candidates", "conflation", "check_results", "check_toggles",
-    "review_items", "batches", "batch_items", "changesets", "events",
+    "review_items", "changesets", "events",
 )
 
 

@@ -7,7 +7,7 @@ GLOSSARY: dict[str, str] = {
 
     # review statuses
     "status.OPEN": "Awaiting operator decision.",
-    "status.APPROVED": "Operator approved — will be uploaded in the next batch.",
+    "status.APPROVED": "Operator approved — will be uploaded next time you click Upload.",
     "status.APPROVED_override": "Operator approved after the pipeline auto-approved or flagged it.",
     "status.REJECTED": "Operator rejected — will not be uploaded.",
     "status.REJECTED_override": "Operator rejected something the pipeline had auto-approved.",
@@ -28,14 +28,13 @@ GLOSSARY: dict[str, str] = {
     "stage.REVIEW_PENDING": "Flagged by a check; awaiting operator decision.",
     "stage.APPROVED": "Cleared for upload.",
     "stage.SKIPPED": "Not uploading (MATCH, range, or duplicate).",
-    "stage.BATCHED": "Already included in an upload batch.",
+    "stage.UPLOADED": "Sent to OSM (or marked uploaded after a JOSM upload).",
 
-    # batch statuses
-    "batch.draft": "Composed but not yet sent.",
-    "batch.pending": "Upload in progress.",
-    "batch.uploaded": "Successfully uploaded to OSM as a changeset.",
-    "batch.failed": "Upload failed — see audit log.",
-    "batch.needs_attention": "Partial success / manual follow-up required.",
+    # upload statuses
+    "upload.uploading": "Upload in progress.",
+    "upload.uploaded": "Successfully uploaded to OSM as a changeset.",
+    "upload.failed": "Upload failed — see audit log.",
+    "upload.needs_attention": "Partial success / manual follow-up required.",
 
     # OSM tag keys
     "tag.addr:housenumber": "Building number, e.g. 123 or 10A.",
@@ -88,9 +87,9 @@ GLOSSARY: dict[str, str] = {
     "stage-status.pending": "This stage has not produced output yet for this run.",
     "stage-status.done": "This stage has produced output. Re-running resumes or refreshes idempotently.",
 
-    # buttons — batches
+    # buttons — upload
     "btn.export_osm": "Write a .osm XML file for manual editing in JOSM.",
-    "btn.upload_api": "Upload the batch to OSM as a changeset via the API.",
+    "btn.upload_api": "Upload the run's APPROVED candidates to OSM as a changeset via the API.",
 
     # buttons — review actions
     "btn.approve": "Mark this candidate for upload.",
@@ -99,7 +98,7 @@ GLOSSARY: dict[str, str] = {
     "btn.toggle_check": "Enable or disable this check for the current run.",
 
     # form fields & metrics
-    "field.mode": "josm_xml = write a .osm file for JOSM; osm_api = upload directly to OSM.",
+    "field.mode": "How this run was uploaded: josm_xml = exported .osm and uploaded externally via JOSM; osm_api = uploaded directly to the OSM API.",
     "field.bbox": "Bounding box: min_lat, min_lon → max_lat, max_lon.",
     "field.source_snapshot": "OSM snapshot identifier this run was conflated against.",
     "field.note": "Optional free-text comment explaining the operator decision.",

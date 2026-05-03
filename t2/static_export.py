@@ -84,7 +84,7 @@ def _pilot_tile_id(data_dir: Path, bbox: tuple[float, float, float, float]) -> s
     return None
 
 
-def _output_paths(run_id: int, candidates: list[dict], batch_ids: list[int], tile_id: str | None) -> list[tuple[str, str]]:
+def _output_paths(run_id: int, candidates: list[dict], tile_id: str | None) -> list[tuple[str, str]]:
     """Return list of (source_url, output_path_relative_to_out) to render."""
     pairs: list[tuple[str, str]] = [
         ("/", "index.html"),
@@ -103,8 +103,6 @@ def _output_paths(run_id: int, candidates: list[dict], batch_ids: list[int], til
     ]
     if tile_id:
         pairs.append((f"/tiles/{tile_id}", f"tiles/{tile_id}/index.html"))
-    for bid in batch_ids:
-        pairs.append((f"/batches/{bid}", f"batches/{bid}/index.html"))
     for c in candidates:
         cid = c["candidate_id"]
         # Auto-SKIPPED candidates have no open decision; their /review/<cid>
@@ -260,7 +258,7 @@ def main(argv: list[str] | None = None) -> int:
     os.environ["T2_STATIC_EXPORT_RUN_ID"] = str(args.run)
 
     # Import after env is set so the Jinja global picks up the flag.
-    from . import batcher, config as _config, upload_manifest
+    from . import config as _config, upload_manifest
     from .web.app import create_app
 
     cfg = _config.load()
@@ -277,11 +275,9 @@ def main(argv: list[str] | None = None) -> int:
 
     bbox = _run_bbox(args.run)
     candidates = _candidates(args.run)
-    batches = batcher.list_batches(args.run)
-    batch_ids = [int(b["batch_id"]) for b in batches]
     tile_id = _pilot_tile_id(cfg.data_dir, bbox)
 
-    pairs = _output_paths(args.run, candidates, batch_ids, tile_id)
+    pairs = _output_paths(args.run, candidates, tile_id)
     url_to_path = {u: p for u, p in pairs}
     # Static bundles (copied, not rendered). Seed into url_to_path so
     # /static/<file> links resolve to the exported asset path.
@@ -335,11 +331,10 @@ def main(argv: list[str] | None = None) -> int:
     if osm_snap.exists():
         shutil.copyfile(osm_snap, out / "assets" / "osm.json")
         copied.append("osm.json")
-    for bid in batch_ids:
-        src = cfg.data_dir / f"batch_{bid}.osm"
-        if src.exists():
-            shutil.copyfile(src, out / "assets" / f"batch_{bid}.osm")
-            copied.append(f"batch_{bid}.osm")
+    upload_osm = cfg.data_dir / f"upload_run_{args.run}.osm"
+    if upload_osm.exists():
+        shutil.copyfile(upload_osm, out / "assets" / upload_osm.name)
+        copied.append(upload_osm.name)
     tiles_json = cfg.data_dir / "tiles.json"
     if tiles_json.exists():
         shutil.copyfile(tiles_json, out / "assets" / "tiles.json")

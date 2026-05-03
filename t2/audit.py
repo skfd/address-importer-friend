@@ -13,7 +13,6 @@ def log(
     event_type: str,
     run_id: int | None = None,
     candidate_id: int | None = None,
-    batch_id: int | None = None,
     payload: dict[str, Any] | None = None,
     conn: sqlite3.Connection | None = None,
 ) -> None:
@@ -21,14 +20,13 @@ def log(
         datetime.now(timezone.utc).isoformat(),
         run_id,
         candidate_id,
-        batch_id,
         actor,
         event_type,
         json.dumps(payload or {}, default=str),
     )
     sql = """
-        INSERT INTO events (ts, run_id, candidate_id, batch_id, actor, event_type, payload_json)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO events (ts, run_id, candidate_id, actor, event_type, payload_json)
+        VALUES (?, ?, ?, ?, ?, ?)
     """
     if conn is None:
         c = _db.connect()

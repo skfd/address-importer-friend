@@ -43,7 +43,7 @@
     'APPROVED': '/runs/' ~ run_id ~ '/approved',
     'SKIPPED': '/runs/' ~ run_id ~ '/skipped',
     'REVIEW_PENDING': '/runs/' ~ run_id ~ '/review',
-    'BATCHED': '/runs/' ~ run_id ~ '#batches',
+    'UPLOADED': '/runs/' ~ run_id ~ '#upload',
   } %}
   <p class="stage-counts">
     {% for stage, n in counts.items() %}
