@@ -20,7 +20,7 @@ _AUTHORIZE = "/oauth2/authorize"
 _TOKEN = "/oauth2/token"
 _API = "/api/0.6"
 
-SCOPES = "read_prefs write_api write_changesets"
+SCOPES = "read_prefs write_api"
 
 
 class OsmAuthError(Exception):
