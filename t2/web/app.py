@@ -231,12 +231,16 @@ def create_app() -> Flask:
 
     @app.post("/map/run_all/stop")
     def run_for_all_stop():
-        running, _pid = run_for_all.is_running(cfg)
-        if not running:
+        running, pid = run_for_all.is_running(cfg)
+        if running:
+            run_for_all.kill_now(cfg)
+        flipped = run_for_all.mark_cancelled_and_cleanup(cfg)
+        if running:
+            flash(f"Run for All stopped (pid {pid}). {flipped} in-flight tile(s) cancelled.")
+        elif pid or flipped:
+            flash(f"Run for All was not running. Cleaned up stale state ({flipped} tile(s) flipped to cancelled).")
+        else:
             flash("Run for All is not running.")
-            return redirect(url_for("tiles_map"))
-        run_for_all.request_stop(cfg)
-        flash("Stop requested. Worker will exit after the current tile.")
         return redirect(url_for("tiles_map"))
 
     @app.post("/map/run_all/reset")

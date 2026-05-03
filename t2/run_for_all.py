@@ -30,6 +30,7 @@ import json
 import multiprocessing
 import os
 import queue as _queue
+import subprocess
 import sys
 import time
 from datetime import datetime, timezone
@@ -121,8 +122,59 @@ def read_status(cfg=None) -> dict | None:
         return None
 
 
-def request_stop(cfg=None) -> None:
-    stop_path(cfg).write_text(_iso_now(), encoding="utf-8")
+def kill_now(cfg=None) -> tuple[bool, int | None]:
+    """Forcibly kill the run-for-all process tree. Returns (killed, pid).
+
+    Hard-kill rather than the polite stop-flag: the parent's polling loop can
+    wedge (manager-queue IPC), and even when healthy it only cancels not-yet-
+    started futures while in-flight tiles drain through the full stage chain.
+    """
+    running, pid = is_running(cfg)
+    if not running or not pid:
+        return False, pid
+    if os.name == "nt":
+        # /T walks the tree (parent + Manager + workers); /F forces.
+        subprocess.run(
+            ["taskkill", "/T", "/F", "/PID", str(pid)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=subprocess.CREATE_NO_WINDOW,
+        )
+    else:
+        import signal
+        try:
+            os.killpg(os.getpgid(pid), signal.SIGTERM)
+        except (ProcessLookupError, PermissionError):
+            pass
+    return True, pid
+
+
+def mark_cancelled_and_cleanup(cfg=None) -> int:
+    """Flip running tiles to cancelled, mark stopped, drop lock/stop files.
+
+    The parent's `finally:` cleanup never gets to run after a forced kill,
+    so the UI does it here. Returns the number of tiles flipped.
+    """
+    paths = _paths(cfg)
+    flipped = 0
+    if paths["status"].exists():
+        try:
+            status = json.loads(paths["status"].read_text(encoding="utf-8"))
+        except Exception:
+            status = None
+        if status and isinstance(status.get("tiles"), dict):
+            now = _iso_now()
+            for entry in status["tiles"].values():
+                if entry.get("state") == "running":
+                    entry["state"] = "cancelled"
+                    entry["updated_at"] = now
+                    flipped += 1
+            status["stopped"] = True
+            status["finished_at"] = now
+            _write_status(paths["status"], status)
+    paths["lock"].unlink(missing_ok=True)
+    paths["stop"].unlink(missing_ok=True)
+    return flipped
 
 
 def reset_state(cfg=None) -> None:
@@ -135,6 +187,17 @@ def reset_state(cfg=None) -> None:
 def _write_status(path: Path, status: dict) -> None:
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(json.dumps(status), encoding="utf-8")
+    # Windows: a concurrent reader (status poller) can hold a brief share-lock
+    # that makes os.replace fail with WinError 5. Retry a few times with short
+    # backoff — readers release within milliseconds.
+    delay = 0.01
+    for _ in range(5):
+        try:
+            tmp.replace(path)
+            return
+        except PermissionError:
+            time.sleep(delay)
+            delay *= 2
     tmp.replace(path)
 
 
