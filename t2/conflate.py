@@ -52,11 +52,13 @@ def expand_street_name(name: str | None) -> str | None:
     West"). Only the last token (direction) and the token immediately before
     it (suffix) are touched. Earlier tokens — including a leading "St "
     standing for "Saint" in names like "St Clair Ave E" — are preserved
-    verbatim. Empty/None passes through.
+    verbatim. A standalone "Mc" token followed by an alphabetic word is
+    glued back into a single surname token ("Mc Caul St" → "McCaul St"),
+    matching OSM Toronto's convention. Empty/None passes through.
     """
     if not name:
         return name
-    parts = name.split()
+    parts = _glue_mc_prefix(name.split())
     if not parts:
         return name
     i = len(parts) - 1
@@ -69,6 +71,39 @@ def expand_street_name(name: str | None) -> str | None:
         if sfx_key in STREET_SUFFIX_EXPAND:
             parts[i] = STREET_SUFFIX_EXPAND[sfx_key]
     return " ".join(parts)
+
+
+def _glue_mc_prefix(parts: list[str]) -> list[str]:
+    """Collapse `["Mc", "Caul"]` → `["McCaul"]` for surname-prefix tokens.
+    Only fires when the next token is alphabetic and not a known
+    suffix/direction, so names like "Mc Way" (hypothetical) or "Mc West"
+    are left alone. The next token's case is preserved, so "Mc caul" stays
+    "Mccaul" and "Mc Caul" becomes "McCaul" — we don't re-case the
+    surname.
+    """
+    out: list[str] = []
+    i = 0
+    while i < len(parts):
+        tok = parts[i]
+        key = tok.upper().replace(".", "")
+        if (
+            key == "MC"
+            and i + 1 < len(parts)
+            and parts[i + 1].isalpha()
+        ):
+            nxt_key = parts[i + 1].upper()
+            if (
+                nxt_key not in STREET_SUFFIXES
+                and nxt_key not in STREET_SUFFIX_EXPAND
+                and nxt_key not in DIRS
+                and nxt_key not in DIRS_EXPAND
+            ):
+                out.append("Mc" + parts[i + 1])
+                i += 2
+                continue
+        out.append(tok)
+        i += 1
+    return out
 
 # Hardcoded source-name -> OSM-canonical-name overrides for known street
 # names where the City source and OSM disagree on the actual name. Two
