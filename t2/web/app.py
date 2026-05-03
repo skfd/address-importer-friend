@@ -217,8 +217,11 @@ def create_app() -> Flask:
                 "cwd": str(_config.ROOT),
             }
             if os.name == "nt":
+                # CREATE_NO_WINDOW (not DETACHED_PROCESS): the parent keeps a
+                # hidden console that multiprocessing workers inherit, so they
+                # don't each pop up a new terminal window.
                 popen_kwargs["creationflags"] = (
-                    subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+                    subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
                 )
             else:
                 popen_kwargs["start_new_session"] = True
