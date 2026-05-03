@@ -1,8 +1,24 @@
 {% extends "base.html" %}
 {% block title %}Tile picker{% endblock %}
 {% block content %}
+<style>
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; overflow: hidden; }
+  body > header { flex: 0 0 auto; }
+  body > main { flex: 1 1 auto; min-height: 0;
+                display: flex; flex-direction: column;
+                padding: .8rem 1.2rem;
+                max-width: none; width: 100%; }
+  body > main > .card { flex: 1 1 auto; min-height: 0;
+                        display: flex; flex-direction: column;
+                        margin-bottom: 0; padding: .7rem 1rem; }
+  body > main > .card > .muted:first-child { margin: 0 0 .35rem; }
+  body > main > .card .run-all-bar { margin: 0 0 .35rem; }
+  body > main > .card .run-all-legend { margin: 0 0 .4rem; }
+  #tile-map { flex: 1 1 auto; min-height: 0; height: auto !important;
+              border-radius: 4px; }
+</style>
 <div class="card">
-  <h2>Toronto tiles — pick a run area</h2>
   {% if tiles %}
     <p class="muted">
       {{ tiles|length }} tiles · generated {{ meta.generated_at[:10] }} · snapshot {{ meta.source_snapshot_id }} · threshold {{ meta.threshold }}
@@ -34,7 +50,7 @@
       <span class="swatch swatch-error"></span> error
     </div>
     {% endif %}
-    <div id="tile-map" style="height: 72vh; border-radius: 4px;"></div>
+    <div id="tile-map"></div>
   {% else %}
     <p class="muted">
       No tiles yet. Generate them with:
