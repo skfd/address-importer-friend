@@ -37,15 +37,22 @@ class Config:
 
 
 def _load_env():
-    env_path = ROOT / ".env"
-    if not env_path.exists():
-        return
-    for line in env_path.read_text().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        k, v = line.split("=", 1)
-        os.environ.setdefault(k.strip(), v.strip())
+    env_name = os.environ.get("OSM_ENV", "dev").strip().lower()
+    if env_name not in ("dev", "prod"):
+        raise ValueError(f"OSM_ENV must be 'dev' or 'prod', got {env_name!r}")
+    env_path = ROOT / f".env.{env_name}"
+    if env_path.exists():
+        for line in env_path.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            os.environ.setdefault(k.strip(), v.strip())
+    default_api = (
+        "https://api.openstreetmap.org" if env_name == "prod"
+        else "https://master.apis.dev.openstreetmap.org"
+    )
+    os.environ.setdefault("OSM_API_BASE", default_api)
 
 
 def load() -> Config:
@@ -93,7 +100,7 @@ def load() -> Config:
         osm_api_base=os.environ.get("OSM_API_BASE", "https://master.apis.dev.openstreetmap.org"),
         osm_client_id=os.environ.get("OSM_CLIENT_ID", ""),
         osm_client_secret=os.environ.get("OSM_CLIENT_SECRET", ""),
-        osm_redirect_uri=os.environ.get("OSM_REDIRECT_URI", "http://localhost:5000/oauth/callback"),
+        osm_redirect_uri=os.environ.get("OSM_REDIRECT_URI", "http://127.0.0.1:5000/oauth/callback"),
         flask_secret_key=os.environ.get("FLASK_SECRET_KEY", "dev-secret"),
         fernet_key=os.environ.get("FERNET_KEY", ""),
     )

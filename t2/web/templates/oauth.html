@@ -99,8 +99,9 @@
   </ul>
   <p>Save, then copy the resulting <strong>Client ID</strong> and <strong>Client Secret</strong>.</p>
 
-  <h3>2. Fill <code>.env</code> at the repo root</h3>
-  <p>Copy <code>.env.example</code> to <code>.env</code> and fill in:</p>
+  {% set env_file = '.env.' ~ (osm_target.class if osm_target.class in ('dev', 'prod') else 'dev') %}
+  <h3>2. Fill <code>{{ env_file }}</code> at the repo root</h3>
+  <p>Copy <code>{{ env_file }}.example</code> to <code>{{ env_file }}</code> and fill in:</p>
 <pre style="background:#f3f4f6; padding:.6rem .8rem; border-radius:4px; overflow:auto;"><code>OSM_API_BASE={{ status.api_base }}
 OSM_CLIENT_ID=&lt;from step 1&gt;
 OSM_CLIENT_SECRET=&lt;from step 1&gt;
@@ -110,23 +111,29 @@ FERNET_KEY=&lt;generate with the command below&gt;</code></pre>
   <p>Generate a Fernet key:</p>
 <pre style="background:#f3f4f6; padding:.6rem .8rem; border-radius:4px; overflow:auto;"><code>python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"</code></pre>
   <p class="muted">Don't lose <code>FERNET_KEY</code>: changing it makes any
-  previously stored OSM tokens unreadable, and you'll have to re-authorize.</p>
+  previously stored OSM tokens unreadable, and you'll have to re-authorize.
+  Each env file gets its own key &mdash; they don't need to match, since
+  switching env requires re-authorizing anyway (only one OAuth token set is
+  stored at a time).</p>
 
   <h3>3. Restart the server and authorize</h3>
-  <p>The app reads <code>.env</code> at startup, so restart <code>python run.py</code>
+  <p>The app reads the env file at startup, so restart <code>python run.py</code>
   after editing it. Then click <strong>Authorize with OSM</strong> above &mdash;
   you'll be sent to OSM, approve the scopes, and bounced back to
   <code>{{ status.redirect_uri }}</code> with a success flash.</p>
 
   <h3>Switching between dev and prod</h3>
-  <p>The DEV/PROD badge in the header reflects <code>OSM_API_BASE</code>.
-  To switch, set the env var inline (it wins over <code>.env</code> because
-  loading uses <code>setdefault</code>):</p>
+  <p>Selection is via the <code>OSM_ENV</code> variable (default <code>dev</code>):
+  <code>OSM_ENV=dev</code> loads <code>.env.dev</code>,
+  <code>OSM_ENV=prod</code> loads <code>.env.prod</code>.
+  The DEV/PROD badge in the header reflects the resulting <code>OSM_API_BASE</code>.</p>
 <pre style="background:#f3f4f6; padding:.6rem .8rem; border-radius:4px; overflow:auto;"><code># PowerShell (prod)
-$env:OSM_API_BASE="https://api.openstreetmap.org"
-$env:OSM_CLIENT_ID="&lt;prod-client-id&gt;"
-$env:OSM_CLIENT_SECRET="&lt;prod-client-secret&gt;"
+$env:OSM_ENV="prod"
 python run.py</code></pre>
+  <p class="muted">Only one OAuth token set is stored at a time, so switching
+  env requires re-authorizing on the new server. Inline env vars still win
+  over the file (loading uses <code>setdefault</code>) if you need a one-off
+  override.</p>
 </div>
 
 {% endblock %}

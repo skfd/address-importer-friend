@@ -51,17 +51,20 @@ A **Run** is one execution of the pipeline (produces many candidates); a
    - Log into <https://master.apis.dev.openstreetmap.org/>.
    - My Settings → OAuth 2 applications → **Register new application**.
    - Name: anything (e.g. `t2-address-import-dev`).
-   - Redirect URI: `http://localhost:5000/oauth/callback`
+   - Redirect URI: `http://127.0.0.1:5000/oauth/callback` (OSM rejects `localhost` as non-HTTPS).
    - Permissions: tick **read user preferences**, **modify the map**,
      **comment on changesets**.
    - Save; copy the resulting Client ID and Client Secret.
-4. **Create `.env`** (copy `.env.example`) and fill in:
+4. **Create `.env.dev`** (copy `.env.dev.example`) and fill in:
    ```
    OSM_CLIENT_ID=...
    OSM_CLIENT_SECRET=...
    FLASK_SECRET_KEY=<any random string>
    FERNET_KEY=<generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())">
    ```
+   For prod, also create `.env.prod` from `.env.prod.example` with a separate
+   set of OSM creds (registered on real OSM, not the dev sandbox) and its own
+   freshly generated `FERNET_KEY`.
 5. Adjust `config.toml` if your sibling DB lives somewhere else or you want a
    different default bbox.
 
@@ -79,33 +82,34 @@ The tool defaults to the OSM **dev sandbox**
 (`master.apis.dev.openstreetmap.org`). The header shows a `DEV` / `PROD`
 badge so you always know which server uploads will go to.
 
-Switch by setting `OSM_API_BASE`:
+Selection is via the `OSM_ENV` variable (default `dev`):
 
-- **DEV (default):** `OSM_API_BASE=https://master.apis.dev.openstreetmap.org`
-- **PROD (real OSM):** `OSM_API_BASE=https://api.openstreetmap.org`
+- **DEV (default):** loads `.env.dev` → `master.apis.dev.openstreetmap.org`
+- **PROD:** loads `.env.prod` → `api.openstreetmap.org`
 
 Each server has its own OAuth2 application registry, so a prod run also needs
 a prod-side `OSM_CLIENT_ID` / `OSM_CLIENT_SECRET` — register a second app on
 <https://www.openstreetmap.org/oauth2/applications> with the same redirect URI.
 
-To launch against a non-default target, set the env var inline (this wins
-over `.env`, which uses `setdefault`):
+To launch against prod:
 
 ```powershell
-# PowerShell — prod
-$env:OSM_API_BASE="https://api.openstreetmap.org"
-$env:OSM_CLIENT_ID="<prod-client-id>"
-$env:OSM_CLIENT_SECRET="<prod-client-secret>"
+# PowerShell
+$env:OSM_ENV="prod"
 python run.py
 ```
 
 ```bash
-# bash — prod
-OSM_API_BASE=https://api.openstreetmap.org \
-OSM_CLIENT_ID=<prod-client-id> \
-OSM_CLIENT_SECRET=<prod-client-secret> \
-python run.py
+# bash
+OSM_ENV=prod python run.py
 ```
+
+Only one OAuth token set is stored at a time (`data/tool.db`), so switching
+env requires re-authorizing on the new server. Each env file gets its own
+`FERNET_KEY` — they don't need to match.
+
+Inline env vars still win over the file (loading uses `setdefault`), so
+one-off overrides like `OSM_API_BASE=...` from the shell continue to work.
 
 The Geofabrik extract (Stage 2 read source) is the same in both modes — there
 is no dev-server slice from Geofabrik, and the dev sandbox has no realistic
