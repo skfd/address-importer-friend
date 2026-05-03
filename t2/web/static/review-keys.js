@@ -68,6 +68,7 @@
 
   function act(status) {
     if (document.body.classList.contains('static-export')) return;
+    if (document.body.classList.contains('run-uploaded')) return;
     if (!VIEWS.has(getView())) return;
     const rs = rows();
     const i = selectedIndex();

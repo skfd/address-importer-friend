@@ -106,6 +106,30 @@ def create_app() -> Flask:
     def _inject_source_snapshot():
         return {"source_snapshot_info": source_db.latest_snapshot_info()}
 
+    @app.context_processor
+    def _inject_run_uploaded():
+        # Expose `run_uploaded` to every template rendered for a run-scoped
+        # route, so base.html can mark the body and partials can gate writes
+        # without each route re-fetching the status.
+        rid = (request.view_args or {}).get("run_id")
+        if rid is None:
+            return {"run_uploaded": False}
+        return {"run_uploaded": _run_is_uploaded(int(rid))}
+
+    def _run_is_uploaded(run_id: int) -> bool:
+        conn = _db.connect()
+        try:
+            row = conn.execute(
+                "SELECT upload_status FROM runs WHERE run_id=?", (run_id,)
+            ).fetchone()
+        finally:
+            conn.close()
+        return bool(row and row["upload_status"] == "uploaded")
+
+    def _abort_if_uploaded(run_id: int) -> None:
+        if _run_is_uploaded(run_id):
+            abort(409, description="Run is uploaded; candidate state is read-only.")
+
     # ---- Dashboard / runs ----
 
     @app.get("/")
@@ -365,6 +389,7 @@ def create_app() -> Flask:
 
     @app.post("/runs/<int:run_id>/stage/<stage>")
     def run_stage(run_id: int, stage: str):
+        _abort_if_uploaded(run_id)
         if stage == "all":
             parts: list[str] = []
             for s in _STAGE_ORDER:
@@ -388,6 +413,7 @@ def create_app() -> Flask:
 
     @app.post("/runs/<int:run_id>/toggle/<check_id>")
     def run_toggle(run_id: int, check_id: str):
+        _abort_if_uploaded(run_id)
         enabled = request.form.get("enabled", "0") == "1"
         pipeline.set_toggle(run_id, check_id, enabled)
         toggles = _get_toggles(run_id)
@@ -395,6 +421,7 @@ def create_app() -> Flask:
 
     @app.post("/runs/<int:run_id>/sample_rate")
     def run_sample_rate(run_id: int):
+        _abort_if_uploaded(run_id)
         try:
             every_nth = int(request.form.get("every_nth", "50"))
         except ValueError:
@@ -635,6 +662,7 @@ def create_app() -> Flask:
 
     @app.post("/runs/<int:run_id>/review/<int:candidate_id>")
     def review_resolve(run_id: int, candidate_id: int):
+        _abort_if_uploaded(run_id)
         status = request.form["status"]
         note = request.form.get("note") or None
         review.resolve(run_id, candidate_id, status, actor="operator", note=note)

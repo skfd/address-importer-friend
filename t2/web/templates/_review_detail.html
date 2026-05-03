@@ -1,8 +1,10 @@
 <div class="kbd-bar">
-  <button type="button" onclick="window.t2ReviewKeys && t2ReviewKeys.act('APPROVED')" title="Approve and advance to next item">
+  <button type="button" onclick="window.t2ReviewKeys && t2ReviewKeys.act('APPROVED')" title="{{ 'Run is uploaded — decisions are read-only.' if run_uploaded else 'Approve and advance to next item' }}"
+          {% if run_uploaded %}disabled{% endif %}>
     <span class="kbd">A</span> Approve
   </button>
-  <button type="button" class="danger" onclick="window.t2ReviewKeys && t2ReviewKeys.act('REJECTED')" title="Reject and advance to next item">
+  <button type="button" class="danger" onclick="window.t2ReviewKeys && t2ReviewKeys.act('REJECTED')" title="{{ 'Run is uploaded — decisions are read-only.' if run_uploaded else 'Reject and advance to next item' }}"
+          {% if run_uploaded %}disabled{% endif %}>
     <span class="kbd">D</span> Reject
   </button>
   <span class="muted">· <span class="kbd">W</span>/<span class="kbd">S</span> prev/next · <span class="kbd">N</span>/<span class="kbd">M</span> prev/next tile</span>
@@ -236,9 +238,13 @@
      <span class="muted">— not in review queue. Use buttons below to override.</span></p>
 {% endif %}
 {% set has_decision = rs in ('AUTO_APPROVED','APPROVED','REJECTED','DEFERRED') or rs is none and candidate.stage in ('SKIPPED',) %}
+{% if run_uploaded %}
+<p class="muted"><em>Run has been uploaded — decisions are read-only.</em></p>
+{% else %}
 <form hx-post="/runs/{{ run_id }}/review/{{ candidate.candidate_id }}" hx-swap="none">
   <input type="text" name="note" placeholder="optional note" style="width:60%" value="{{ review_state.note or '' }}" title="{{ tip('field.note') }}"/>
   <button name="status" value="APPROVED" title="{{ tip('btn.approve') }}">{% if has_decision %}Change to Approved{% else %}Approve{% endif %}</button>
   <button name="status" value="REJECTED" class="danger" title="{{ tip('btn.reject') }}">{% if has_decision %}Change to Rejected{% else %}Reject{% endif %}</button>
   <button name="status" value="DEFERRED" class="secondary" title="{{ tip('btn.defer') }}">{% if has_decision %}Change to Deferred{% else %}Defer{% endif %}</button>
 </form>
+{% endif %}

@@ -8,7 +8,9 @@
       <td>
         <form hx-post="/runs/{{ run_id }}/toggle/{{ cid }}" hx-target="#toggles" class="inline">
           <input type="hidden" name="enabled" value="{{ '0' if toggles.get(cid) else '1' }}" />
-          <button class="{% if not toggles.get(cid) %}secondary{% endif %}" title="{{ tip('btn.toggle_check') }}">
+          <button class="{% if not toggles.get(cid) %}secondary{% endif %}"
+                  title="{{ 'Run is uploaded — toggles are read-only.' if run_uploaded else tip('btn.toggle_check') }}"
+                  {% if run_uploaded %}disabled{% endif %}>
             {{ 'ON' if toggles.get(cid) else 'off' }}
           </button>
         </form>

@@ -27,7 +27,10 @@
   </style>
   {% endif %}
 </head>
-<body{% if static_export.active %} class="static-export"{% endif %}>
+{% set _body_classes = [] %}
+{% if static_export.active %}{% set _ = _body_classes.append('static-export') %}{% endif %}
+{% if run_uploaded %}{% set _ = _body_classes.append('run-uploaded') %}{% endif %}
+<body{% if _body_classes %} class="{{ _body_classes|join(' ') }}"{% endif %}>
   <header>
     <span class="nav">
       <a href="/"><strong>t2 address import</strong></a>

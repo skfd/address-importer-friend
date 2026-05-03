@@ -63,9 +63,12 @@
   <form method="post" action="/runs/{{ run.run_id }}/sample_rate" class="inline">
     <label title="{{ tip('field.missing_sample_every_nth') }}">
       missing_sample every_nth
-      <input type="number" name="every_nth" min="0" value="{{ missing_sample_every_nth }}" size="6"/>
+      <input type="number" name="every_nth" min="0" value="{{ missing_sample_every_nth }}" size="6"
+             {% if run_uploaded %}disabled{% endif %}/>
     </label>
-    <button class="secondary">Save</button>
+    <button class="secondary"
+            title="{{ 'Run is uploaded — parameters are read-only.' if run_uploaded else '' }}"
+            {% if run_uploaded %}disabled{% endif %}>Save</button>
   </form>
   <p class="muted">0 disables sampling; higher values flag fewer MISSINGs for spot-check. Change before re-running checks.</p>
 </div>
