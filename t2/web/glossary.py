@@ -89,7 +89,6 @@ GLOSSARY: dict[str, str] = {
     "stage-status.done": "This stage has produced output. Re-running resumes or refreshes idempotently.",
 
     # buttons — batches
-    "btn.compose_batch": "Bundle APPROVED candidates into an upload batch.",
     "btn.export_osm": "Write a .osm XML file for manual editing in JOSM.",
     "btn.upload_api": "Upload the batch to OSM as a changeset via the API.",
 
@@ -101,7 +100,6 @@ GLOSSARY: dict[str, str] = {
 
     # form fields & metrics
     "field.mode": "josm_xml = write a .osm file for JOSM; osm_api = upload directly to OSM.",
-    "field.size": "Maximum candidates per batch (default 300).",
     "field.bbox": "Bounding box: min_lat, min_lon → max_lat, max_lon.",
     "field.source_snapshot": "OSM snapshot identifier this run was conflated against.",
     "field.note": "Optional free-text comment explaining the operator decision.",

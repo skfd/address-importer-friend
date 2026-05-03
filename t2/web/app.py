@@ -1051,8 +1051,7 @@ def create_app() -> Flask:
     @app.post("/runs/<int:run_id>/batches")
     def batch_create(run_id: int):
         mode = request.form["mode"]
-        size = int(request.form.get("size") or cfg.batch_size)
-        bid = batcher.compose(run_id, mode, size)
+        bid = batcher.compose(run_id, mode, cfg.batch_size)
         if bid is None:
             flash("No APPROVED candidates available to batch.")
             return redirect(url_for("run_view", run_id=run_id))
