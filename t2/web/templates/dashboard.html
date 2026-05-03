@@ -50,6 +50,10 @@
           {% if r.upload_status %}
           <span class="pill {% if r.upload_status == 'uploaded' %}ok{% elif r.upload_status in ('failed','needs_attention') %}bad{% else %}warn{% endif %}"
                 data-tip="{{ tip('upload.' ~ r.upload_status) }}">{{ r.upload_status }}</span>
+          {% if r.changeset_id %}
+          <a href="{{ osm_target.web_base }}/changeset/{{ r.changeset_id }}" target="_blank" rel="noopener"
+             title="Open changeset on {{ osm_target.label }} OSM">#{{ r.changeset_id }}</a>
+          {% endif %}
           {% else %}<span class="muted">—</span>{% endif %}
         </td>
         <td><a href="/runs/{{ r.run_id }}/review">review</a> · <a href="/runs/{{ r.run_id }}/audit">audit</a></td>

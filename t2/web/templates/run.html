@@ -8,6 +8,10 @@
     <a href="#upload" class="pill {% if run.upload_status == 'uploaded' %}ok{% elif run.upload_status in ('failed','needs_attention') %}bad{% else %}warn{% endif %}"
        data-tip="{{ tip('upload.' ~ run.upload_status) }}">{{ run.upload_status }}</a>
     {% endif %}
+    {% if run.changeset_id %}
+    <a href="{{ osm_target.web_base }}/changeset/{{ run.changeset_id }}" target="_blank" rel="noopener"
+       title="Open changeset on {{ osm_target.label }} OSM">cs #{{ run.changeset_id }}</a>
+    {% endif %}
     <form method="post" action="{{ url_for('runs_new') }}" class="inline" style="margin-left: auto;">
       <input type="hidden" name="name" value="{{ new_run_name }}"/>
       <input type="hidden" name="min_lat" value="{{ run.bbox_min_lat }}"/>
@@ -89,7 +93,7 @@
     <span class="pill {% if run.upload_status == 'uploaded' %}ok{% elif run.upload_status in ('failed','needs_attention') %}bad{% else %}warn{% endif %}"
           data-tip="{{ tip('upload.' ~ run.upload_status) }}">{{ run.upload_status }}</span>
     {% if run.upload_mode %}· mode <code>{{ run.upload_mode }}</code>{% endif %}
-    {% if run.changeset_id %}· changeset <a href="https://master.apis.dev.openstreetmap.org/changeset/{{ run.changeset_id }}" target="_blank">#{{ run.changeset_id }}</a>{% endif %}
+    {% if run.changeset_id %}· changeset <a href="{{ osm_target.web_base }}/changeset/{{ run.changeset_id }}" target="_blank" rel="noopener">#{{ run.changeset_id }}</a>{% endif %}
     {% if run.client_token %}· token <code>{{ run.client_token }}</code>{% endif %}
   </p>
   {% if run.upload_error_msg %}<p class="flash">{{ run.upload_error_msg }}</p>{% endif %}
@@ -180,7 +184,7 @@
           {% else %}—{% endif %}
         </td>
         <td><span class="pill {% if it.stage == 'UPLOADED' %}ok{% else %}warn{% endif %}">{{ it.stage }}</span></td>
-        <td>{% if it.osm_node_id %}<a href="https://master.apis.dev.openstreetmap.org/node/{{ it.osm_node_id }}" target="_blank" rel="noopener">{{ it.osm_node_id }}</a>{% else %}—{% endif %}</td>
+        <td>{% if it.osm_node_id %}<a href="{{ osm_target.web_base }}/node/{{ it.osm_node_id }}" target="_blank" rel="noopener">{{ it.osm_node_id }}</a>{% else %}—{% endif %}</td>
       </tr>
       {% endfor %}
     </tbody>

@@ -96,10 +96,17 @@ def create_app() -> Flask:
         _target_label, _target_class = "PROD", "prod"
     else:
         _target_label, _target_class = "OTHER", "other"
+    # Prod: api.openstreetmap.org is API-only; the website lives at www.
+    # Dev sandbox: same host serves API and website.
+    if _target_class == "prod":
+        _web_base = "https://www.openstreetmap.org"
+    else:
+        _web_base = (cfg.osm_api_base or "").rstrip("/")
     app.jinja_env.globals["osm_target"] = {
         "label": _target_label,
         "class": _target_class,
         "api_base": cfg.osm_api_base,
+        "web_base": _web_base,
     }
 
     @app.context_processor
