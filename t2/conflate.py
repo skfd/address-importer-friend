@@ -21,8 +21,50 @@ STREET_SUFFIXES = {
     "GARDENS": "GDNS", "GROVE": "GRV", "HEIGHTS": "HTS",
     "PATHWAY": "PTWY", "CIRCUIT": "CRCT", "BRIDGE": "BDGE", "LAWN": "LWN",
     "PARK": "PK", "ROADWAY": "RDWY", "CLOSE": "CS", "WOODS": "WDS",
+    "GREEN": "GRN",
 }
 DIRS = {"NORTH": "N", "SOUTH": "S", "EAST": "E", "WEST": "W"}
+
+# Hardcoded source-name -> OSM-canonical-name overrides for known street
+# names where the City source and OSM disagree on the actual name. Two
+# shapes show up in practice:
+#   - proper-noun spacing differences the normalizer can't bridge
+#     (source "Deane Field Cres" vs OSM "Deanefield Crescent"), and
+#   - outright suffix corrections where the source has the street type
+#     wrong (source "Kathleen Ave" sits on what OSM and signage call
+#     "Kathleen Crescent").
+# Applied at ingest, so the candidate's street_raw and street_norm — and
+# therefore both conflation matching and the uploaded addr:street tag —
+# carry the OSM name local mappers already know. Suffixes stay in the
+# source short form (Rd / Cres / …) since that's what the rest of the
+# pipeline emits; the normalizer bridges short<->long against OSM. Lookup
+# is case- and whitespace-insensitive on the source's `linear_name_full`
+# value. Each entry is a candidate for retirement once the source and
+# OSM converge; the `nearby_street_mismatch` review check surfaces fresh
+# candidates for inclusion.
+STREET_NAME_OVERRIDES: dict[str, str] = {
+    "Deane Field Cres": "Deanefield Cres",
+    "Golfcrest Rd": "Golf Crest Rd",
+    "Forest View Rd": "Forestview Rd",
+    "Greenhouse Rd": "Green House Rd",
+    "Kathleen Ave": "Kathleen Cres",
+    "Posthorn Grv": "Post Horn Grv",
+}
+
+_STREET_NAME_OVERRIDES_LOOKUP: dict[str, str] = {
+    " ".join(k.upper().split()): v for k, v in STREET_NAME_OVERRIDES.items()
+}
+
+
+def apply_street_override(name: str | None) -> str | None:
+    """Return the OSM-canonical street name when `name` is a known source
+    spelling variant from `STREET_NAME_OVERRIDES`; otherwise return `name`
+    unchanged. Empty/None passes through. Lookup is case-insensitive on
+    the whitespace-collapsed input."""
+    if not name:
+        return name
+    key = " ".join(name.upper().split())
+    return _STREET_NAME_OVERRIDES_LOOKUP.get(key, name)
 
 
 def normalize_street(name: str | None) -> str:

@@ -15,7 +15,7 @@ def _street_from_row(row: dict) -> str:
 
 def ingest(run_id: int, bbox: tuple[float, float, float, float], snapshot_id: int) -> int:
     """Insert new candidates into tool.db. Returns count inserted this call."""
-    from .conflate import normalize_street  # local import; conflate owns the normalizer
+    from .conflate import apply_street_override, normalize_street  # local import; conflate owns the normalizer
 
     inserted = 0
     now = datetime.now(timezone.utc).isoformat()
@@ -23,7 +23,11 @@ def ingest(run_id: int, bbox: tuple[float, float, float, float], snapshot_id: in
     try:
         conn.execute("BEGIN IMMEDIATE")
         for row in source_db.iter_active_addresses_in_bbox(bbox, snapshot_id):
-            street_raw = _street_from_row(row)
+            # Rewrite known source spelling variants (e.g. "Deane Field Cres")
+            # to the OSM canonical form before persisting, so both matching
+            # and any later upload carry the OSM name. See STREET_NAME_OVERRIDES
+            # in conflate.py.
+            street_raw = apply_street_override(_street_from_row(row))
             housenumber = row.get("address_number") or ""
             extra_raw = row.get("extra")
             try:

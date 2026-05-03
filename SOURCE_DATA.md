@@ -176,6 +176,29 @@ in `config.toml`) but a different normalized street is flagged for review
 rather than auto-approved. The reviewer either rejects the source row
 (genuine source typo) or escalates the OSM name back to local mappers.
 
+Once a variant is **confirmed** (review or local-mapper feedback agrees
+the OSM name is what local signage and the wider neighbourhood use), it
+is added to `STREET_NAME_OVERRIDES` in `t2/conflate.py` — a hardcoded
+source-name → OSM-name table applied at ingest. From then on, candidates
+on that street carry the OSM name in `street_raw` and `street_norm`, so
+they MATCH cleanly and any later upload writes the OSM name on the new
+node. Current entries (snapshot #37):
+
+| Source `linear_name_full` | OSM canonical | Notes |
+|---|---|---|
+| `Deane Field Cres` | `Deanefield Cres` | OSM has only `Deanefield Crescent` (4 features). |
+| `Golfcrest Rd` | `Golf Crest Rd` | OSM is split: `Golf Crest Road` (27) dominates `Golfcrest Road` (4). |
+| `Forest View Rd` | `Forestview Rd` | OSM has only `Forestview Road` (12). |
+| `Greenhouse Rd` | `Green House Rd` | No OSM address features yet on either spelling; OSM road geometry is named `Green House Road`. Forward-looking — first uploaded node ships under the OSM name. |
+| `Kathleen Ave` | `Kathleen Cres` | Suffix correction. Source places `2 Kathleen Ave` at coords that sit on OSM's `Kathleen Crescent`; no separate `Kathleen Avenue` exists in Toronto. |
+| `Posthorn Grv` | `Post Horn Grv` | No OSM address features yet on either spelling; OSM road geometry is named `Post Horn Grove`. Forward-looking, same shape as `Greenhouse Rd`. |
+
+Suffix part usually stays in source short form (`Rd` / `Cres` / …) — the
+normalizer bridges that against OSM's long form (`Road` / `Crescent`).
+Most overrides only rewrite the proper-noun part; `Kathleen Ave →
+Kathleen Cres` is the first that actually corrects the suffix because
+the source has the street type wrong.
+
 ## Pipeline consumption points
 
 - `t2/source_db.py:30 iter_active_addresses_in_bbox` — the read path. Today
