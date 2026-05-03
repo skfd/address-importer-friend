@@ -48,6 +48,12 @@ SPLIT_THRESHOLD = 500
 MIN_SPAN_DEG = 0.003
 # Orphan ratio at or above this triggers an "Unassigned" catch-all bucket.
 ORPHAN_BUCKET_PCT = 0.01
+# After splitting, merge under-filled tiles into border-sharing neighbours so the
+# operator never reviews a near-empty tile. Merges prefer same-parent partners and
+# results staying ≤ soft ceiling; hard ceiling caps how big a merged tile may grow.
+MERGE_FLOOR = 250
+MERGE_SOFT_CEILING = 500
+MERGE_HARD_CEILING = 750
 SCHEMA_VERSION = 1
 
 _CHUNK = 1 << 20
@@ -286,22 +292,25 @@ def _split_tile(
     is_multipolygon: bool,
     is_orphan: bool,
     used_ids: set[str],
-) -> Iterator[dict]:
+) -> Iterator[tuple[dict, Polygon]]:
     count = _count_inside(polygon, points, tree)
     if count == 0:
         return
     minx, miny, maxx, maxy = polygon.bounds
     at_floor = (maxx - minx) < min_span and (maxy - miny) < min_span
     if count <= threshold or at_floor:
-        yield _make_tile(
-            name=name,
-            parent=parent,
-            polygon=polygon,
-            count=count,
-            depth=depth,
-            is_multipolygon=is_multipolygon,
-            is_orphan=is_orphan,
-            used_ids=used_ids,
+        yield (
+            _make_tile(
+                name=name,
+                parent=parent,
+                polygon=polygon,
+                count=count,
+                depth=depth,
+                is_multipolygon=is_multipolygon,
+                is_orphan=is_orphan,
+                used_ids=used_ids,
+            ),
+            polygon,
         )
         return
     cx = (minx + maxx) / 2
@@ -348,6 +357,113 @@ def _split_tile(
                 )
 
 
+def _merge_underfilled(
+    tiles: list[dict],
+    polys: list[Polygon],
+    *,
+    floor: int,
+    soft_ceiling: int,
+    hard_ceiling: int,
+) -> tuple[list[dict], list[Polygon], dict]:
+    """Absorb tiles below ``floor`` into a border-sharing neighbour.
+
+    Only legal merges produce a single connected polygon (point-only contact
+    rejected) and stay within ``hard_ceiling``. Selection prefers same-parent
+    partners, results within ``soft_ceiling``, longest shared border, and the
+    smallest combined count among ties. The larger contributor's id/name/parent
+    survive so prior runs keyed off the survivor's id remain reachable.
+    """
+    n = len(tiles)
+    if n == 0:
+        return tiles, polys, {"merges": 0, "below_floor_remaining": 0}
+
+    tiles_w = [dict(t) for t in tiles]
+    polys_w = list(polys)
+    alive = set(range(n))
+    skipped: set[int] = set()
+
+    tree = STRtree(polys_w)
+    neighbours: list[set[int]] = [set() for _ in range(n)]
+    for i in range(n):
+        for j_obj in tree.query(polys_w[i]):
+            j = int(j_obj)
+            if j == i or j in neighbours[i]:
+                continue
+            try:
+                shared = polys_w[i].boundary.intersection(polys_w[j].boundary)
+            except Exception:
+                continue
+            if not shared.is_empty and shared.length > 0:
+                neighbours[i].add(j)
+                neighbours[j].add(i)
+
+    merges = 0
+    while True:
+        below = [
+            (tiles_w[i]["address_count"], i)
+            for i in alive
+            if i not in skipped and tiles_w[i]["address_count"] < floor
+        ]
+        if not below:
+            break
+        below.sort()
+        _, t_idx = below[0]
+
+        scored: list[tuple] = []
+        for nb_idx in neighbours[t_idx]:
+            combined = tiles_w[t_idx]["address_count"] + tiles_w[nb_idx]["address_count"]
+            if combined > hard_ceiling:
+                continue
+            union = unary_union([polys_w[t_idx], polys_w[nb_idx]])
+            if not isinstance(union, Polygon):
+                continue
+            same_parent = tiles_w[t_idx]["parent"] == tiles_w[nb_idx]["parent"]
+            within_soft = combined <= soft_ceiling
+            shared = polys_w[t_idx].boundary.intersection(polys_w[nb_idx].boundary)
+            border = shared.length if not shared.is_empty else 0.0
+            scored.append((not same_parent, not within_soft, -border, combined, nb_idx, union))
+
+        if not scored:
+            skipped.add(t_idx)
+            continue
+
+        scored.sort()
+        _, _, _, _, partner_idx, merged_poly = scored[0]
+        if tiles_w[partner_idx]["address_count"] >= tiles_w[t_idx]["address_count"]:
+            keep, drop = partner_idx, t_idx
+        else:
+            keep, drop = t_idx, partner_idx
+
+        survivor = tiles_w[keep]
+        absorbed = tiles_w[drop]
+        survivor["address_count"] = survivor["address_count"] + absorbed["address_count"]
+        survivor["bbox"] = _bounds_bbox(merged_poly)
+        survivor["polygon_latlon"] = _polygon_latlon(merged_poly)
+        survivor["is_orphan"] = bool(survivor["is_orphan"]) or bool(absorbed["is_orphan"])
+        history = survivor.setdefault("merged_from", [])
+        history.extend(absorbed.get("merged_from", []))
+        history.append(absorbed["name"])
+
+        polys_w[keep] = merged_poly
+        new_nb = (neighbours[keep] | neighbours[drop]) - {keep, drop}
+        for nb in new_nb:
+            neighbours[nb].discard(drop)
+            neighbours[nb].add(keep)
+        neighbours[keep] = new_nb
+        neighbours[drop] = set()
+        alive.discard(drop)
+        skipped.discard(keep)
+        merges += 1
+
+    final_tiles = [tiles_w[i] for i in sorted(alive)]
+    final_polys = [polys_w[i] for i in sorted(alive)]
+    below_floor_remaining = sum(1 for t in final_tiles if t["address_count"] < floor)
+    return final_tiles, final_polys, {
+        "merges": merges,
+        "below_floor_remaining": below_floor_remaining,
+    }
+
+
 def _feature_name(props: dict) -> str:
     for key in ("AREA_NAME", "area_name", "NEIGHBOURHOOD_NAME", "Neighbourhood", "name"):
         v = props.get(key)
@@ -378,12 +494,16 @@ def build_tiles(
     *,
     threshold: int = SPLIT_THRESHOLD,
     min_span: float = MIN_SPAN_DEG,
+    merge_floor: int = MERGE_FLOOR,
+    merge_soft_ceiling: int = MERGE_SOFT_CEILING,
+    merge_hard_ceiling: int = MERGE_HARD_CEILING,
 ) -> tuple[list[dict], dict]:
     points = [Point(x, y) for x, y in points_xy]
     tree = STRtree(points)
 
     used_ids: set[str] = set()
     tiles: list[dict] = []
+    polys: list[Polygon] = []
     skipped_empty: list[str] = []
     hood_geoms: list = []
 
@@ -398,7 +518,7 @@ def build_tiles(
         is_multi = len(pieces) > 1
         yielded_any = False
         if not is_multi:
-            for t in _split_tile(
+            for t, poly in _split_tile(
                 name=name,
                 parent=name,
                 polygon=pieces[0],
@@ -412,11 +532,12 @@ def build_tiles(
                 used_ids=used_ids,
             ):
                 tiles.append(t)
+                polys.append(poly)
                 yielded_any = True
         else:
             for k, piece in enumerate(pieces, start=1):
                 piece_name = f"{name}-{k}"
-                for t in _split_tile(
+                for t, poly in _split_tile(
                     name=piece_name,
                     parent=name,
                     polygon=piece,
@@ -430,6 +551,7 @@ def build_tiles(
                     used_ids=used_ids,
                 ):
                     tiles.append(t)
+                    polys.append(poly)
                     yielded_any = True
         if not yielded_any:
             skipped_empty.append(name)
@@ -451,7 +573,7 @@ def build_tiles(
         pieces = list(_iter_polygons(leftover))
         for k, piece in enumerate(pieces, start=1):
             piece_name = f"Unassigned-{k}" if len(pieces) > 1 else "Unassigned"
-            for t in _split_tile(
+            for t, poly in _split_tile(
                 name=piece_name,
                 parent="Unassigned",
                 polygon=piece,
@@ -465,8 +587,17 @@ def build_tiles(
                 used_ids=used_ids,
             ):
                 tiles.append(t)
+                polys.append(poly)
 
     assigned_after = sum(t["address_count"] for t in tiles)
+    pre_merge_count = len(tiles)
+    tiles, polys, merge_stats = _merge_underfilled(
+        tiles,
+        polys,
+        floor=merge_floor,
+        soft_ceiling=merge_soft_ceiling,
+        hard_ceiling=merge_hard_ceiling,
+    )
     stats = {
         "total_addresses": total,
         "assigned_after": assigned_after,
@@ -474,6 +605,9 @@ def build_tiles(
         "orphan_pct": (total - assigned_after) / total if total else 0.0,
         "skipped_empty": skipped_empty,
         "tile_count": len(tiles),
+        "pre_merge_tile_count": pre_merge_count,
+        "merges": merge_stats["merges"],
+        "below_floor_remaining": merge_stats["below_floor_remaining"],
     }
     return tiles, stats
 
@@ -552,6 +686,8 @@ def run(force: bool = False, dry_run: bool = False) -> dict:
         build_s = time.monotonic() - t_build
         _log(
             f"built {stats['tile_count']} tiles in {build_s:.1f}s; "
+            f"merges={stats['merges']} (pre-merge={stats['pre_merge_tile_count']}); "
+            f"below_floor_remaining={stats['below_floor_remaining']}; "
             f"orphans={stats['orphan_count']} ({stats['orphan_pct']:.2%}); "
             f"skipped_empty={len(stats['skipped_empty'])}"
         )
@@ -576,7 +712,13 @@ def run(force: bool = False, dry_run: bool = False) -> dict:
             "source_snapshot_id": snap_id,
             "neighbourhoods_sha256": geojson_sha,
             "threshold": SPLIT_THRESHOLD,
+            "merge_floor": MERGE_FLOOR,
+            "merge_soft_ceiling": MERGE_SOFT_CEILING,
+            "merge_hard_ceiling": MERGE_HARD_CEILING,
             "tile_count": stats["tile_count"],
+            "pre_merge_tile_count": stats["pre_merge_tile_count"],
+            "merges": stats["merges"],
+            "below_floor_remaining": stats["below_floor_remaining"],
             "total_addresses": stats["total_addresses"],
             "assigned_after": stats["assigned_after"],
             "orphan_count": stats["orphan_count"],
