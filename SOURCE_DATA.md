@@ -193,8 +193,12 @@ node. Current entries (snapshot #37):
 | `Kathleen Ave` | `Kathleen Cres` | Suffix correction. Source places `2 Kathleen Ave` at coords that sit on OSM's `Kathleen Crescent`; no separate `Kathleen Avenue` exists in Toronto. |
 | `Posthorn Grv` | `Post Horn Grv` | No OSM address features yet on either spelling; OSM road geometry is named `Post Horn Grove`. Forward-looking, same shape as `Greenhouse Rd`. |
 
-Suffix part usually stays in source short form (`Rd` / `Cres` / …) — the
-normalizer bridges that against OSM's long form (`Road` / `Crescent`).
+Override values keep the source's short suffix (`Rd` / `Cres` / …) so the
+lookup matches the source spelling. `expand_street_name()` (in
+`t2/conflate.py`) runs after the override at ingest and rewrites those
+shorts — and the trailing direction — to the OSM full form (`Foo Ave W`
+→ `Foo Avenue West`), so the persisted `street_raw` and the eventual
+`addr:street` upload tag both carry the long form OSM Toronto uses.
 Most overrides only rewrite the proper-noun part; `Kathleen Ave →
 Kathleen Cres` is the first that actually corrects the suffix because
 the source has the street type wrong.

@@ -25,6 +25,51 @@ STREET_SUFFIXES = {
 }
 DIRS = {"NORTH": "N", "SOUTH": "S", "EAST": "E", "WEST": "W"}
 
+# Short → full mapping for upload. The City source emits short suffix and
+# direction tokens ("Foo Ave W"), but OSM Toronto convention is the full
+# form ("Foo Avenue West"). expand_street_name() applies this at ingest so
+# both the review-page display and the uploaded addr:street tag carry the
+# full form. Multiple shorts pointing to the same long form (CRT and CT both
+# → Court) are listed because the City source actually emits both spellings.
+STREET_SUFFIX_EXPAND: dict[str, str] = {
+    "ST": "Street", "RD": "Road", "AVE": "Avenue", "BLVD": "Boulevard",
+    "DR": "Drive", "LN": "Lane", "CT": "Court", "CRT": "Court",
+    "PL": "Place", "TER": "Terrace", "CRES": "Crescent", "SQ": "Square",
+    "GTE": "Gate", "GT": "Gate", "CIR": "Circle", "CRCL": "Circle",
+    "TRL": "Trail", "PKWY": "Parkway", "HWY": "Highway", "EXPY": "Expressway",
+    "GDNS": "Gardens", "GRV": "Grove", "HTS": "Heights",
+    "PTWY": "Pathway", "CRCT": "Circuit", "BDGE": "Bridge", "LWN": "Lawn",
+    "PK": "Park", "RDWY": "Roadway", "CS": "Close", "WDS": "Woods",
+    "GRN": "Green",
+}
+
+DIRS_EXPAND: dict[str, str] = {"N": "North", "S": "South", "E": "East", "W": "West"}
+
+
+def expand_street_name(name: str | None) -> str | None:
+    """Rewrite the trailing direction and suffix tokens of `name` from the
+    City source's short form to the OSM full form ("Foo Ave W" → "Foo Avenue
+    West"). Only the last token (direction) and the token immediately before
+    it (suffix) are touched. Earlier tokens — including a leading "St "
+    standing for "Saint" in names like "St Clair Ave E" — are preserved
+    verbatim. Empty/None passes through.
+    """
+    if not name:
+        return name
+    parts = name.split()
+    if not parts:
+        return name
+    i = len(parts) - 1
+    last_key = parts[i].upper().replace(".", "")
+    if last_key in DIRS_EXPAND:
+        parts[i] = DIRS_EXPAND[last_key]
+        i -= 1
+    if i >= 0:
+        sfx_key = parts[i].upper().replace(".", "")
+        if sfx_key in STREET_SUFFIX_EXPAND:
+            parts[i] = STREET_SUFFIX_EXPAND[sfx_key]
+    return " ".join(parts)
+
 # Hardcoded source-name -> OSM-canonical-name overrides for known street
 # names where the City source and OSM disagree on the actual name. Two
 # shapes show up in practice:
@@ -35,13 +80,13 @@ DIRS = {"NORTH": "N", "SOUTH": "S", "EAST": "E", "WEST": "W"}
 #     "Kathleen Crescent").
 # Applied at ingest, so the candidate's street_raw and street_norm — and
 # therefore both conflation matching and the uploaded addr:street tag —
-# carry the OSM name local mappers already know. Suffixes stay in the
-# source short form (Rd / Cres / …) since that's what the rest of the
-# pipeline emits; the normalizer bridges short<->long against OSM. Lookup
-# is case- and whitespace-insensitive on the source's `linear_name_full`
-# value. Each entry is a candidate for retirement once the source and
-# OSM converge; the `nearby_street_mismatch` review check surfaces fresh
-# candidates for inclusion.
+# carry the OSM name local mappers already know. Override values keep the
+# source's short suffixes (Rd / Cres / …) so the lookup matches the source
+# spelling; expand_street_name() runs after the override and rewrites those
+# shorts to the OSM full form. Lookup is case- and whitespace-insensitive on
+# the source's `linear_name_full` value. Each entry is a candidate for
+# retirement once the source and OSM converge; the `nearby_street_mismatch`
+# review check surfaces fresh candidates for inclusion.
 STREET_NAME_OVERRIDES: dict[str, str] = {
     "Deane Field Cres": "Deanefield Cres",
     "Golfcrest Rd": "Golf Crest Rd",

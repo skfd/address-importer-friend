@@ -1,6 +1,6 @@
 # Toronto Address Points — OSM Import Proposal
 
-**Last revised:** 2026-05-02
+**Last revised:** 2026-05-03
 **Contact:** toronto@comentality.com
 **OSM import account:** [`skfd imports`](https://www.openstreetmap.org/user/skfd%20imports) — dedicated to this import; the maintainer's personal OSM account (`skfd`) is not used for any upload from this tooling.
 **Discussion:** [OSM Community Forum thread](https://community.openstreetmap.org/t/address-import-for-toronto/119368) · [imports@ archive](https://lists.openstreetmap.org/pipermail/imports/) (this proposal posted [date])
@@ -103,7 +103,7 @@ All uploaded elements are **nodes**. No ways, no relations. The tag set is const
 | Tag | Source | Notes |
 |---|---|---|
 | `addr:housenumber` | `address_number` | Copied verbatim after trim. Suffix letters (`46A`, `710 1/2`) preserved. |
-| `addr:street` | `linear_name_full` | Copied verbatim (mixed case, e.g. `Amelia St`). Normalisation is only used for conflation matching (`STREET`→`ST`, etc.), not for the written tag. |
+| `addr:street` | `linear_name_full` | Short suffix and trailing direction expanded to the OSM full form at ingest (`Amelia St` → `Amelia Street`, `Bloor St W` → `Bloor Street West`); the proper-noun part is copied verbatim, including a leading "St" standing for "Saint" (`St Clair Ave E` → `St Clair Avenue East`). See `STREET_SUFFIX_EXPAND` / `expand_street_name()` in `t2/conflate.py`. Normalisation is used only for conflation matching, not for the written tag. |
 | `addr:city` | static | `Toronto`. Used regardless of pre-amalgamation former municipality; see §5.1. |
 | `source` | static | `City of Toronto Open Data`. On the node *and* on the containing changeset. |
 | `addr:postcode` | enrichment | Written **only** when a same-address POI in the OSM snapshot already carries one. Never invented, never extrapolated. We adopt the postcode from the nearest same-address POI when present; absent that, we emit no postcode. Details in §6. |
@@ -162,7 +162,7 @@ Search radii are set in `config.toml` under `[conflation]`:
 - `match_radius_m = 100`
 - `match_near_m = 15`
 
-Street-name normalisation (`STREET` → `ST`, `AVENUE` → `AVE`, `NORTH` → `N`, etc.) is used **only** for matching. The source's original casing is what's written to OSM.
+Street-name normalisation (`STREET` → `ST`, `AVENUE` → `AVE`, `NORTH` → `N`, etc.) collapses both short and long forms to a single canonical short and is used **only** for matching — so an OSM neighbour spelled `Avenue` and a source row spelled `Ave` still match. For the written `addr:street` tag we go the other direction: at ingest, `expand_street_name()` rewrites the source's short suffix and trailing direction to the OSM full form (`Foo Ave W` → `Foo Avenue West`). Proper-noun casing is preserved, including a leading "St" standing for "Saint" (`St Clair Ave E` → `St Clair Avenue East`, not `Street Clair…`).
 
 The normaliser cannot bridge proper-noun spelling differences (space-vs-no-space splits like source `Deane Field Crescent` vs OSM `Deanefield Crescent`), nor outright suffix mistakes where the source has the wrong street type. For each confirmed case we add the source string to `STREET_NAME_OVERRIDES` in `t2/conflate.py`, applied at ingest so the candidate's matching key and the eventual `addr:street` upload tag both carry the OSM name local mappers already use. Current entries: `Deane Field Cres → Deanefield Cres`, `Golfcrest Rd → Golf Crest Rd`, `Forest View Rd → Forestview Rd`, `Greenhouse Rd → Green House Rd`, `Posthorn Grv → Post Horn Grv`, and the suffix correction `Kathleen Ave → Kathleen Cres`. The `nearby_street_mismatch` check (§7) surfaces fresh candidates for inclusion.
 
@@ -374,3 +374,4 @@ These are the prior OSM import proposals this document was compared against. Sec
 | 2026-05-02 | `STREET_NAME_OVERRIDES`: added `Greenhouse Rd → Green House Rd` (forward-looking — no OSM address features yet on either spelling, but the OSM road geometry is named `Green House Road`) and `Kathleen Ave → Kathleen Cres` (first suffix correction; source places `2 Kathleen Ave` at coords that sit on OSM's `Kathleen Crescent`, no separate `Kathleen Avenue` exists). Override mechanism comment broadened to cover suffix corrections, not only proper-noun splits. |
 | 2026-05-02 | `STREET_NAME_OVERRIDES`: added `Posthorn Grv → Post Horn Grv` — same forward-looking shape as `Greenhouse Rd` (no OSM address features on either spelling; OSM road geometry is named `Post Horn Grove`). |
 | 2026-05-02 | Header alignment with the wiki page: bumped `Last revised` (was lagging the changelog), added `OSM import account` and `Discussion` lines (forum thread + imports@ archive) so the dedicated-account fact and the canonical discussion venues are visible at the top rather than buried in §3. §12 References gained the imports@ pipermail archive URL alongside the existing listinfo link. |
+| 2026-05-03 | `addr:street` is now uploaded with the OSM full suffix and direction (`Foo Ave W` → `Foo Avenue West`) instead of the source's short form. New `expand_street_name()` in `t2/conflate.py` runs at ingest after `STREET_NAME_OVERRIDES`, expanding the trailing direction and the suffix immediately before it; earlier tokens — including a leading "St" standing for "Saint" — are preserved verbatim. Conflation matching is unaffected (the normalizer collapses both forms to the same canonical short). §5 tag table and §6 normalisation paragraph updated; `SOURCE_DATA.md` paragraph on override suffix form updated. |
