@@ -5,7 +5,7 @@
 Local tool that reads Toronto address points from the sibling
 [`toronto-addresses-import`](https://github.com/skfd/toronto-addresses-import) project's SQLite DB,
 conflates them against live OSM data, routes questionable items to a human
-reviewer via a web UI, and uploads approved batches to the OpenStreetMap
+reviewer via a web UI, and uploads approved candidates to the OpenStreetMap
 **dev sandbox** (`master.apis.dev.openstreetmap.org`). Every auto and manual
 action is written to an append-only audit log.
 
@@ -33,10 +33,10 @@ docs may use either term. Each one carries three orthogonal axes:
 
 - **`verdict`** — what conflation decided (`MATCH`, `MATCH_FAR`, `MISSING`, `SKIPPED`)
 - **`status`** — what the operator decided (`OPEN`, `APPROVED`, `REJECTED`, `DEFERRED`); `AUTO_APPROVED` is a synthetic status the review queue derives for clean MISSING rows that bypass manual review
-- **`stage`** — where it sits in the pipeline (`INGESTED`, `CONFLATED`, `CHECKED`, `REVIEW_PENDING`, `APPROVED`, `REJECTED`, `BATCHED`, `UPLOADED`, `FAILED`, `SKIPPED`)
+- **`stage`** — where it sits in the pipeline (`INGESTED`, `CONFLATED`, `CHECKED`, `REVIEW_PENDING`, `APPROVED`, `REJECTED`, `UPLOADED`, `FAILED`, `SKIPPED`)
 
-A **Run** is one execution of the pipeline (produces many candidates); a
-**Batch** is a bundle of `APPROVED` candidates packaged for upload.
+A **Run** is one execution of the pipeline (produces many candidates) and is
+also the unit of upload — one run becomes one OSM changeset.
 
 ## Setup
 
@@ -176,15 +176,14 @@ dashboard remains as an escape hatch for arbitrary rectangles.
 3. Open the **Review queue** — items flagged by any enabled check land here.
    Approve, reject, or defer each. MISSING candidates with no flags are
    auto-approved; MATCH candidates are auto-skipped.
-4. Back on the run page, **Compose batch** (mode `josm_xml` or `osm_api`,
-   size up to 500 for first run).
-5. On the batch page:
-   - `Export .osm (JOSM)` writes `data/batch_<id>.osm`. Open it in JOSM,
-     then upload via JOSM's own auth.
-   - `Upload via OSM API` opens a changeset on the dev server, uploads the
-     osmChange diff, and closes the changeset. Visit
-     `/oauth/start` first if you haven't authorized yet.
-6. The **Audit log** at `/runs/<id>/audit` shows every event.
+4. Back on the run page, scroll to the **Upload** card and pick one:
+   - `Upload to OSM` opens a changeset on the dev server, uploads the
+     osmChange diff, and closes the changeset. Visit `/oauth/start` first
+     if you haven't authorized yet.
+   - `Download .osm (JOSM)` writes a `.osm` file with the run's APPROVED
+     candidates; open it in JOSM and upload via JOSM's own auth, then click
+     `Mark uploaded (JOSM)` back on the run page.
+5. The **Audit log** at `/runs/<id>/audit` shows every event.
 
 ## Resumability
 
