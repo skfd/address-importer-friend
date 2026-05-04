@@ -9,7 +9,6 @@ from . import config as _config, db as _db
 _CONFIG = _config.load()
 
 STATIC_TAGS = {
-    "addr:city": "Toronto",
     "source": "City of Toronto Open Data",
 }
 

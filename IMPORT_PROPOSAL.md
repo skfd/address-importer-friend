@@ -106,7 +106,6 @@ All uploaded elements are **nodes**. No ways, no relations. The tag set is const
 |---|---|---|
 | `addr:housenumber` | `address_number` | Copied verbatim after trim. Suffix letters (`46A`, `710 1/2`) preserved. |
 | `addr:street` | `linear_name_full` | Short suffix and trailing direction expanded to the OSM full form at ingest (`Amelia St` → `Amelia Street`, `Bloor St W` → `Bloor Street West`); the proper-noun part is copied verbatim, including a leading "St" standing for "Saint" (`St Clair Ave E` → `St Clair Avenue East`). A standalone `Mc` followed by a surname token is glued (`Mc Caul St` → `McCaul Street`), matching OSM Toronto's convention. See `STREET_SUFFIX_EXPAND` / `expand_street_name()` in `t2/conflate.py`. Normalisation is used only for conflation matching, not for the written tag. |
-| `addr:city` | static | `Toronto`. Used regardless of pre-amalgamation former municipality; see §5.1. |
 | `source` | static | `City of Toronto Open Data`. On the node *and* on the containing changeset. |
 | `addr:postcode` | enrichment | Written **only** when a same-address POI in the OSM snapshot already carries one. Never invented, never extrapolated. We adopt the postcode from the nearest same-address POI when present; absent that, we emit no postcode. Details in §6. |
 | `entrance` | class-driven | `yes` — written **only** for `Structure Entrance` rows. Aligns with OSM's `entrance=yes` convention for door-level nodes. Absent on all other classes. |
@@ -114,25 +113,24 @@ All uploaded elements are **nodes**. No ways, no relations. The tag set is const
 Fields deliberately **not** emitted:
 
 - `addr:housename`, `addr:unit`, `addr:flats`, `addr:block` — source does not carry these in a reliable form.
-- `addr:country`, `addr:province`, `addr:state` — omitted per OSM Canadian convention; `addr:city` is sufficient for Toronto.
+- `addr:city` — the source's `municipality_name` reflects **pre-amalgamation** former municipalities (Toronto, East York, Etobicoke, North York, Scarborough, York), which are historical rather than current civic entities, and a uniform `addr:city=Toronto` adds no information that the bbox doesn't already imply. Pre-amalgamation municipality is kept in the internal audit trail. See §5.1.
+- `addr:country`, `addr:province`, `addr:state` — omitted per OSM Canadian convention.
 - `addr:neighbourhood`, `addr:suburb`, `addr:ward` — the source's `ward_name` and neighbourhood overlays are modelled better as OSM admin polygons than as per-node tags.
 - `ref`, `name`, `place` — none apply.
 - Any `toronto:*` / `t2:*` custom namespace — rejected on principle.
 
 ### 5.1 The `addr:city` question
 
-The source carries a `municipality_name` column that reflects the **pre-amalgamation** former municipalities (Toronto, East York, Etobicoke, North York, Scarborough, York). These are historical, not current civic entities — the City of Toronto is one city since 1998. We write `addr:city=Toronto` uniformly. The pre-amalgamation municipality is preserved in our internal audit trail but not emitted into OSM.
-
-Open question for community (§10): confirm this matches existing Toronto OSM convention. If local mappers prefer `addr:city` to carry the former-municipality string, we will change the static value per-row before Phase 1.
+The source carries a `municipality_name` column that reflects the **pre-amalgamation** former municipalities (Toronto, East York, Etobicoke, North York, Scarborough, York). These are historical, not current civic entities — the City of Toronto is one city since 1998. We do **not** emit `addr:city` at all: a uniform `Toronto` value is redundant given the bbox, and the former-municipality string is historical rather than the current civic name. The pre-amalgamation municipality is preserved in our internal audit trail (used for intra-source duplicate disambiguation; see §6) but not emitted into OSM.
 
 ### 5.2 Per-class tagging matrix
 
-| Class | `addr:housenumber` | `addr:street` | `addr:city` | `source` | `entrance` | `addr:postcode` |
-|---|---|---|---|---|---|---|
-| `Land` | yes | yes | `Toronto` | yes | — | if colocated POI has one |
-| `Structure` | yes | yes | `Toronto` | yes | — | if colocated POI has one |
-| `Structure Entrance` | yes | yes | `Toronto` | yes | `yes` | if colocated POI has one |
-| `Land Entrance` | — | — | — | — | — | — (excluded upfront) |
+| Class | `addr:housenumber` | `addr:street` | `source` | `entrance` | `addr:postcode` |
+|---|---|---|---|---|---|
+| `Land` | yes | yes | yes | — | if colocated POI has one |
+| `Structure` | yes | yes | yes | — | if colocated POI has one |
+| `Structure Entrance` | yes | yes | yes | `yes` | if colocated POI has one |
+| `Land Entrance` | — | — | — | — | — (excluded upfront) |
 
 ### 5.3 Changeset tags
 
@@ -314,12 +312,11 @@ We do not rely on `<delete>` osmChange blocks to roll ourselves back — a hand-
 
 ## 11. Open questions for the community
 
-1. **`addr:city` convention.** Is `addr:city=Toronto` the right uniform value across all former municipalities, or does local convention prefer the former-municipality name (`East York`, `Scarborough`, etc.)?
-2. **Changeset comment template.** Current format is `Toronto Open Data address import, run=<run_name>, batch=<batch_id>`. Any information we should add or remove?
-3. **Post-import monitoring.** How long after the final batch should we commit to watching for community-raised issues? Proposing 90 days.
-4. **Empty lots and recently demolished buildings.** Some source rows describe addresses where no building presently stands — empty lots awaiting construction, or recent demolitions where the City feed hasn't yet retired the record. Distinguishing a real current civic address from stale source data here requires local knowledge. Preferred handling: upload all such rows (the address is a civic record regardless of whether a structure stands), skip those without a visible building on recent imagery, or route them through per-tile review with a local mapper?
-5. **`Structure Entrance` placement against building walls.** Source `Structure Entrance` points sit at the City's recorded door coordinate, which is usually on or near a building outline but not snapped to it. The current pipeline emits the node verbatim at that lat/lon — standalone, not a member of any building way. Three options: (a) leave as-is and let the JOSM operator drag/join each entrance onto the wall manually; (b) snap the coordinate to the nearest building-way segment within a small threshold (e.g. 5–10 m) so the node visually sits on the wall but remains standalone — the operator can still J-key join it; (c) snap *and* insert the node into the building way (modifies an existing OSM way, which exits this import's create-only scope per §2). Preference from the community on (a) vs (b)? Option (c) would require its own proposal.
-6. **Address ranges (`4611-4619 Steeles Ave W`).** Source has 1,639 active rows where `lo_num ≠ hi_num`, plus 49 lettered ranges (`49A-59A`, `361A-415A` … `361J-415J`) where the same letter sits on both endpoints. There is no parity flag and no enumerated unit list — the source stores only the two endpoints and a single `(latitude, longitude)`. The current pipeline `SKIP`s every range row; reviewers can opt in per-item, in which case the verbatim string is uploaded as `addr:housenumber=4611-4619` on a single node at the source's coordinate. Three options: (a) keep skipping by default (current behaviour); (b) upload the verbatim range string on the single source-provided coordinate; (c) expand into one node per implied housenumber (e.g. `{4611, 4613, 4615, 4617, 4619}`) — coordinates would have to be synthesised since the source gives only one point per range. Two facts that bear on (c): 98.7% of range rows have matching parity on `lo_num`/`hi_num` (so a step-2 expansion is well-defined), but 22 rows are cluster-style sequential numbering (`1-96 Red Cedarway`, the eleven `Cantle Path` blocks) where the implied step is 1, and 49 rows are lettered subdivisions of larger complexes where multiple parallel rows share the same numeric span. Preference between (a), (b), and (c)? Option (c) would also need a convention for coordinate placement (single point with all nodes stacked, jittered, or interpolated along the centreline).
+1. **Changeset comment template.** Current format is `Toronto Open Data address import, run=<run_name>, batch=<batch_id>`. Any information we should add or remove?
+2. **Post-import monitoring.** How long after the final batch should we commit to watching for community-raised issues? Proposing 90 days.
+3. **Empty lots and recently demolished buildings.** Some source rows describe addresses where no building presently stands — empty lots awaiting construction, or recent demolitions where the City feed hasn't yet retired the record. Distinguishing a real current civic address from stale source data here requires local knowledge. Preferred handling: upload all such rows (the address is a civic record regardless of whether a structure stands), skip those without a visible building on recent imagery, or route them through per-tile review with a local mapper?
+4. **`Structure Entrance` placement against building walls.** Source `Structure Entrance` points sit at the City's recorded door coordinate, which is usually on or near a building outline but not snapped to it. The current pipeline emits the node verbatim at that lat/lon — standalone, not a member of any building way. Three options: (a) leave as-is and let the JOSM operator drag/join each entrance onto the wall manually; (b) snap the coordinate to the nearest building-way segment within a small threshold (e.g. 5–10 m) so the node visually sits on the wall but remains standalone — the operator can still J-key join it; (c) snap *and* insert the node into the building way (modifies an existing OSM way, which exits this import's create-only scope per §2). Preference from the community on (a) vs (b)? Option (c) would require its own proposal.
+5. **Address ranges (`4611-4619 Steeles Ave W`).** Source has 1,639 active rows where `lo_num ≠ hi_num`, plus 49 lettered ranges (`49A-59A`, `361A-415A` … `361J-415J`) where the same letter sits on both endpoints. There is no parity flag and no enumerated unit list — the source stores only the two endpoints and a single `(latitude, longitude)`. The current pipeline `SKIP`s every range row; reviewers can opt in per-item, in which case the verbatim string is uploaded as `addr:housenumber=4611-4619` on a single node at the source's coordinate. Three options: (a) keep skipping by default (current behaviour); (b) upload the verbatim range string on the single source-provided coordinate; (c) expand into one node per implied housenumber (e.g. `{4611, 4613, 4615, 4617, 4619}`) — coordinates would have to be synthesised since the source gives only one point per range. Two facts that bear on (c): 98.7% of range rows have matching parity on `lo_num`/`hi_num` (so a step-2 expansion is well-defined), but 22 rows are cluster-style sequential numbering (`1-96 Red Cedarway`, the eleven `Cantle Path` blocks) where the implied step is 1, and 49 rows are lettered subdivisions of larger complexes where multiple parallel rows share the same numeric span. Preference between (a), (b), and (c)? Option (c) would also need a convention for coordinate placement (single point with all nodes stacked, jittered, or interpolated along the centreline).
 
 Answers to each will be incorporated into the wiki page and, where they change pipeline behaviour, into `config.toml` and the relevant code.
 
