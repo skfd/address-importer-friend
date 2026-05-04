@@ -344,25 +344,25 @@ def create_app() -> Flask:
         conn = _db.connect()
         try:
             rows = conn.execute(
-                "SELECT run_id, bbox_min_lat, bbox_min_lon, bbox_max_lat, bbox_max_lon "
+                "SELECT run_id, upload_status, bbox_min_lat, bbox_min_lon, bbox_max_lat, bbox_max_lon "
                 "FROM runs ORDER BY created_at DESC, run_id DESC"
             ).fetchall()
         finally:
             conn.close()
-        latest_by_bbox: dict[tuple, int] = {}
+        latest_by_bbox: dict[tuple, tuple[int, str | None]] = {}
         for r in rows:
             key = (
                 round(r["bbox_min_lat"], 6), round(r["bbox_min_lon"], 6),
                 round(r["bbox_max_lat"], 6), round(r["bbox_max_lon"], 6),
             )
-            latest_by_bbox.setdefault(key, r["run_id"])
+            latest_by_bbox.setdefault(key, (r["run_id"], r["upload_status"]))
         step = 1 if direction == "next" else -1
         i = cur_idx + step
         while 0 <= i < len(tiles):
             key = tuple(tiles[i]["bbox"])
             hit = latest_by_bbox.get(key)
-            if hit is not None:
-                return jsonify({"run_id": hit})
+            if hit is not None and hit[1] != "uploaded":
+                return jsonify({"run_id": hit[0]})
             i += step
         return jsonify({"run_id": None})
 
