@@ -51,7 +51,11 @@ def _global_pairs() -> list[tuple[str, str]]:
         ("/", "index.html"),
         ("/map", "map/index.html"),
         ("/data", "data/index.html"),
+        ("/streets", "streets/index.html"),
         ("/osm", "osm/index.html"),
+        ("/osm/multi", "osm/multi/index.html"),
+        ("/osm/multi/corners", "osm/multi/corners/index.html"),
+        ("/osm/multi/all", "osm/multi/all/index.html"),
     ]
 
 

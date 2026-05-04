@@ -99,7 +99,11 @@ def _output_paths(run_id: int, candidates: list[dict], tile_id: str | None) -> l
         (f"/runs/{run_id}/ranges", f"runs/{run_id}/ranges/index.html"),
         (f"/runs/{run_id}/audit", f"runs/{run_id}/audit/index.html"),
         ("/data", "data/index.html"),
+        ("/streets", "streets/index.html"),
         ("/osm", "osm/index.html"),
+        ("/osm/multi", "osm/multi/index.html"),
+        ("/osm/multi/corners", "osm/multi/corners/index.html"),
+        ("/osm/multi/all", "osm/multi/all/index.html"),
     ]
     if tile_id:
         pairs.append((f"/tiles/{tile_id}", f"tiles/{tile_id}/index.html"))
