@@ -54,6 +54,7 @@ def changeset_tags(run_id: int) -> dict[str, str]:
         "bot": "no",
         "created_by": "t2-address-import",
         "import:client_token": token,
+        "import_plan": "https://wiki.openstreetmap.org/wiki/Toronto/Import/AddressPoints",
     }
 
 

@@ -144,6 +144,7 @@ Each changeset opened against the OSM API carries:
 | `bot` | `no` |
 | `created_by` | `t2-address-import` |
 | `import:client_token` | random per-batch UUID — used only for server-side idempotent retry after a network failure; looked up before reopening a changeset so a dropped connection never results in two parallel uploads of the same batch |
+| `import_plan` | `https://wiki.openstreetmap.org/wiki/Toronto/Import/AddressPoints` |
 
 The `import=yes` / `bot=no` combination matches the OSM Wiki's guidance: these are one-shot, human-reviewed imports, not ongoing automated edits.
 
@@ -375,3 +376,4 @@ These are the prior OSM import proposals this document was compared against. Sec
 | 2026-05-02 | Header alignment with the wiki page: bumped `Last revised` (was lagging the changelog), added `OSM import account` and `Discussion` lines (forum thread + imports@ archive) so the dedicated-account fact and the canonical discussion venues are visible at the top rather than buried in §3. §12 References gained the imports@ pipermail archive URL alongside the existing listinfo link. |
 | 2026-05-03 | `addr:street` is now uploaded with the OSM full suffix and direction (`Foo Ave W` → `Foo Avenue West`) instead of the source's short form. New `expand_street_name()` in `t2/conflate.py` runs at ingest after `STREET_NAME_OVERRIDES`, expanding the trailing direction and the suffix immediately before it; earlier tokens — including a leading "St" standing for "Saint" — are preserved verbatim. Conflation matching is unaffected (the normalizer collapses both forms to the same canonical short). §5 tag table and §6 normalisation paragraph updated; `SOURCE_DATA.md` paragraph on override suffix form updated. |
 | 2026-05-03 | Tile partition: cut review-tile count from 2,493 to 1,297 by adding a merge pass after the quadtree split. `t2/tiles_build.py` now absorbs any tile below 250 addresses into a border-sharing neighbour (preferring same-parent partner, then within the 500-address soft ceiling, longest shared border, smallest combined count; hard ceiling 750). Floor of 250 is now hit by every tile; median tile rose from 193 → 394 addresses. Goal is operator review time: every reviewed tile is now a meaningful unit of work rather than a single-digit straggler. The pilot tile `high-park-swansea-sw-se` is unmerged and unchanged (250 addresses, same bbox); §1 and §3 tile counts updated. |
+| 2026-05-04 | §5.3 Changeset tags: added `import_plan=https://wiki.openstreetmap.org/wiki/Toronto/Import/AddressPoints` so every changeset links back to the import plan. |
