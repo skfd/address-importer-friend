@@ -11,11 +11,11 @@ action is written to an append-only audit log.
 
 ## Status
 
-Live status of the [import proposal](IMPORT_PROPOSAL.md) against the [OSM Import Guidelines](https://wiki.openstreetmap.org/wiki/Import/Guidelines) workflow:
+Live status of the [import proposal](IMPORT_PROPOSAL.mediawiki) against the [OSM Import Guidelines](https://wiki.openstreetmap.org/wiki/Import/Guidelines) workflow:
 
 | Stage | State |
 |---|---|
-| Draft proposal | Complete (last revised 2026-04-29) |
+| Draft proposal | Complete (last revised 2026-05-04) |
 | OSM Community Forum discussion | Open — [thread](https://community.openstreetmap.org/t/address-import-for-toronto/119368) |
 | Wiki page (`Toronto/Import/AddressPoints`) | Not yet published |
 | `imports@openstreetmap.org` announcement | Not yet posted |

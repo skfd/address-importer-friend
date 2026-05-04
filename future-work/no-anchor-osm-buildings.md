@@ -18,7 +18,7 @@ These are not findable by the project's conflation logic
 to be equal, see `t2/conflate.py:159`), so the import will classify a City
 candidate sitting on top of one of these as `MISSING` and upload a new
 node — creating a colocated duplicate. This duplicate-creation path is
-acknowledged in `IMPORT_PROPOSAL.md` §6 alongside the interpolation-
+acknowledged in `IMPORT_PROPOSAL.mediawiki` § Conflation alongside the interpolation-
 endpoint and multi-value-housenumber cases, with the same disposition:
 accept transient duplication, fix in a follow-up.
 

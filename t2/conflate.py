@@ -203,7 +203,7 @@ def _is_poi_node(el: dict) -> bool:
 
     `entrance=*` is intentionally NOT in POI_TAG_KEYS: an entrance node with
     addr:* is a canonical address (just door-level rather than parcel-level)
-    and must remain a valid match target. See IMPORT_PROPOSAL.md §6.
+    and must remain a valid match target. See IMPORT_PROPOSAL.mediawiki § Conflation.
     """
     if el.get("type") != "node":
         return False

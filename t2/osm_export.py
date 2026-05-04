@@ -32,7 +32,7 @@ def _ensure_client_token(run_id: int) -> str:
 
 
 def changeset_tags(run_id: int) -> dict[str, str]:
-    """Per-run changeset-level tags (matches IMPORT_PROPOSAL.md §5.3).
+    """Per-run changeset-level tags (matches IMPORT_PROPOSAL.mediawiki § Tagging plan / Changeset tags).
 
     Used for both API uploads (applied to the changeset) and JOSM exports
     (embedded as a header comment so the operator can paste them into JOSM's

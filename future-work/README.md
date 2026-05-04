@@ -19,4 +19,4 @@ at the date they were written.
   MapRoulette challenge for the ~1,580 OSM buildings with
   `addr:housenumber` but no `addr:street`. These can't be matched by
   conflation and are an acknowledged duplicate-creation path
-  (`IMPORT_PROPOSAL.md` §6).
+  (`IMPORT_PROPOSAL.mediawiki` § Conflation).
