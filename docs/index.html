@@ -22,22 +22,38 @@
     <h2 style="margin-top:0">Pilot run snapshot</h2>
     <p>
       A full, read-only mirror of one completed pilot run of the Flask review UI
-      — the Phase 1 tile <code>high-park-swansea-sw-se</code>. Reviewer-facing
+      — the Phase 1 tile <code>south-riverdale-nw-nw-ne</code>. Reviewer-facing
       pages are present (dashboard, run overview, review queue, per-candidate
       detail with Leaflet map, approved / skipped / ranges lists, audit log,
-      per-tile map view, OSM extract). Interactive actions are visibly disabled;
+      per-tile map view). Interactive actions are visibly disabled;
       a banner explains why.
     </p>
     <p>
-      <a href="pilot/runs/1589/"><strong>Open the pilot run →</strong></a>
+      <a href="pilot/runs/676/"><strong>Open the pilot run →</strong></a>
     </p>
     <p class="muted" style="font-size:.9rem">
       Entry points: <a href="pilot/">dashboard</a> ·
-      <a href="pilot/runs/1589/review/">review queue</a> ·
-      <a href="pilot/runs/1589/audit/">audit log</a> ·
-      <a href="pilot/tiles/high-park-swansea-sw-se/">per-tile map</a> ·
-      <a href="pilot/osm/">OSM extract</a>
+      <a href="pilot/runs/676/review/">review queue</a> ·
+      <a href="pilot/runs/676/audit/">audit log</a> ·
+      <a href="pilot/tiles/south-riverdale-nw-nw-ne/">per-tile map</a>
     </p>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">Data exploration</h2>
+    <p>
+      City-wide views of the OSM extract and Toronto open-data snapshot used by
+      the import tool. Useful for sanity-checking coverage, multi-addressed
+      buildings, corner cases, and street-name overlaps before scoping a tile.
+    </p>
+    <ul>
+      <li><a href="pilot/streets/">Streets</a> — source vs. OSM street-name overlap (matched / missing / extra).</li>
+      <li><a href="pilot/source/multi/">Source lists</a> — Toronto open-data ranges and half-numbers per street.</li>
+      <li><a href="pilot/osm/">OSM extract</a> — addresses currently in OSM within the Toronto bbox.</li>
+      <li><a href="pilot/osm/multi/">Multi-addresses</a> — OSM nodes/ways tagged with more than one address.</li>
+      <li><a href="pilot/osm/multi/corners/">Corners</a> — corner-lot multi-addresses (two streets).</li>
+      <li><a href="pilot/data/">Data</a> — raw datasets behind the pages above.</li>
+    </ul>
   </div>
 
   <div class="card">
