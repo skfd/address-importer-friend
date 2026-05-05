@@ -33,12 +33,12 @@
 <body{% if _body_classes %} class="{{ _body_classes|join(' ') }}"{% endif %}>
   <header>
     <span class="nav">
-      <a href="/"><strong>t2 address import</strong></a>
+      <a href="{% if static_export.active %}/__landing__{% else %}/{% endif %}"><strong>t2 address import</strong></a>
       {% if not static_export.active %}<span class="osm-target osm-target-{{ osm_target.class }}" title="OSM API: {{ osm_target.api_base }}">{{ osm_target.label }}</span>{% endif %}
       {% if not static_export.active or static_export.multi %}<a href="/map">Map</a>{% endif %}
       <a href="/osm">OSM extract</a>
       <a href="/streets">Streets</a>
-      <a href="/source/multi">Source lists</a>
+      <a href="/source/multi">Toronto Open Data ranges</a>
       <a href="/osm/multi">Multi-addresses</a>
       <a href="/osm/multi/corners">Corners</a>
       <a href="/data">Data</a>

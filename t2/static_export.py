@@ -166,6 +166,14 @@ def _rewrite_links(html: str, output_path: str, url_to_path: dict[str, str]) -> 
             return m.group(0)
         if not url.startswith("/"):
             return m.group(0)
+        # Sentinel for the GitHub Pages landing page (one level above the
+        # export root). The export tree is published under <site>/pilot/, so
+        # walking up past the page's directory and once more lands on
+        # <site>/index.html.
+        if url == "/__landing__":
+            here_parts = [p for p in Path(output_path).parent.parts if p not in (".", "")]
+            up = "../" * (len(here_parts) + 1)
+            return f"{prefix}{quote}{up}index.html{quote}"
         split = urlsplit(url)
         path = split.path
         alias = _VIEW_ALIAS_RE.match(path)
