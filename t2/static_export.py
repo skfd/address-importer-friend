@@ -100,6 +100,7 @@ def _output_paths(run_id: int, candidates: list[dict], tile_id: str | None) -> l
         (f"/runs/{run_id}/audit", f"runs/{run_id}/audit/index.html"),
         ("/data", "data/index.html"),
         ("/streets", "streets/index.html"),
+        ("/source/multi", "source/multi/index.html"),
         ("/osm", "osm/index.html"),
         ("/osm/multi", "osm/multi/index.html"),
         ("/osm/multi/corners", "osm/multi/corners/index.html"),

@@ -7,7 +7,7 @@ from pathlib import Path
 
 from flask import Flask, abort, flash, g, jsonify, redirect, render_template, request, send_file, send_from_directory, url_for
 
-from .. import audit, candidates, config as _config, db as _db, multi_addresses as _multi_addresses, multi_fixes as _multi_fixes, osm_client, osm_export, osm_refresh, pipeline, ranges as _ranges, review, run_for_all, source_db, streets as _streets, tag_diff, tiles_build
+from .. import audit, candidates, config as _config, db as _db, multi_addresses as _multi_addresses, multi_fixes as _multi_fixes, osm_client, osm_export, osm_refresh, pipeline, ranges as _ranges, review, run_for_all, source_db, source_multi as _source_multi, streets as _streets, tag_diff, tiles_build
 from ..conflate import _proposed_tags, _is_poi_node, POI_TAG_KEYS, normalize_street
 from ..checks import REGISTRY
 from .glossary import GLOSSARY
@@ -1229,6 +1229,11 @@ def create_app() -> Flask:
             status=status,
             log_tail=log_tail,
         )
+
+    @app.get("/source/multi")
+    def source_multi_view():
+        stats = _source_multi.collect()
+        return render_template("source_multi.html", stats=stats)
 
     @app.get("/osm/multi")
     def osm_multi_view():
