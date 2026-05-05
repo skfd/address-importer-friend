@@ -1,0 +1,711 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Skipped</title>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="../../../assets/detail-map.js"></script>
+  <script src="../../../assets/review-keys.js" defer></script>
+  <link rel="stylesheet" href="../../../assets/site.css">
+  
+  <style>
+    .static-banner { background: #fef3c7; border-bottom: 2px solid #f59e0b;
+                     padding: .6rem 1.2rem; font-size: .88rem; color: #78350f;
+                     text-align: center; }
+    .static-banner a { color: #78350f; font-weight: 600; }
+    body.static-export form[method="post"],
+    body.static-export [hx-post] { opacity: .6; cursor: not-allowed; }
+    body.static-export form[method="post"] button,
+    body.static-export form[method="post"] input[type="submit"],
+    body.static-export form[method="post"] select,
+    body.static-export form[method="post"] input[type="text"],
+    body.static-export form[method="post"] input[type="number"],
+    body.static-export [hx-post] button,
+    body.static-export [hx-post] input[type="checkbox"] { pointer-events: none; }
+  </style>
+  
+</head>
+
+
+
+<body class="static-export run-uploaded">
+  <header>
+    <span class="nav">
+      <a href="../../../index.html"><strong>t2 address import</strong></a>
+      
+      
+      <a href="../../../osm/index.html">OSM extract</a>
+      <a href="../../../streets/index.html">Streets</a>
+      <a href="../../../source/multi/index.html">Source lists</a>
+      <a href="../../../osm/multi/index.html">Multi-addresses</a>
+      <a href="../../../osm/multi/corners/index.html">Corners</a>
+      <a href="../../../data/index.html">Data</a>
+      
+    </span>
+    <span class="meta">
+      <a href="https://github.com/skfd/toronto-2-address-import" target="_blank" rel="noopener">GitHub</a>
+      <span class="sep">·</span>
+      <a href="https://community.openstreetmap.org/t/address-import-for-toronto/119368" target="_blank" rel="noopener">OSM discussion</a>
+      <span class="sep">·</span>
+      <a href="https://github.com/skfd/toronto-2-address-import/blob/main/LICENSE" target="_blank" rel="noopener">MIT</a>
+      <span class="sep">·</span>
+      <a href="https://open.toronto.ca/open-data-licence/" target="_blank" rel="noopener">Toronto Open Data</a>
+      &amp;
+      &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OSM</a>
+    </span>
+  </header>
+  
+  <div class="static-banner">
+    Static snapshot of run <strong>south-riverdale-nw-nw-ne-batch-2026-05-03</strong>
+    as of 2026-05-04 —
+    pilot evidence for the
+    <a href="https://github.com/skfd/toronto-2-address-import/blob/main/IMPORT_PROPOSAL.mediawiki" target="_blank" rel="noopener">Toronto address import proposal</a>.
+    Interactive actions (stages, review decisions, uploads) are disabled.
+    <a href="https://github.com/skfd/toronto-2-address-import" target="_blank" rel="noopener">Run the live tool</a>
+    to exercise them.
+  </div>
+  <script>
+    // Teach the page to behave on the static site, where Flask isn't around
+    // to partial-render HX-Request responses or route absolute hx-get paths.
+    // Three things we need to undo / substitute:
+    //   1. Disable htmx's history machinery entirely. hx-push-url="true"
+    //      would rewrite the address bar to the clicked row's relative
+    //      hx-get target (.../<view>/<cid>/index.html). On the next click
+    //      the sibling rows' relative hx-gets then resolve against that new
+    //      path, producing a nested .../<view>/<cid1>/<cid2>/index.html
+    //      that 404s.
+    //   2. Extract the target fragment from full-page responses — we can't
+    //      branch on HX-Request, so every hx-get returns the whole page;
+    //      adding hx-select=<target> with hx-swap=outerHTML pulls out just
+    //      the fragment htmx would have otherwise inlined verbatim.
+    //   3. Neuter POST forms / hx-post actions so the disabled visual
+    //      doesn't lie if someone clicks through the pointer-events guard.
+    if (window.htmx && window.htmx.config) window.htmx.config.historyEnabled = false;
+    (function () {
+      function each(scope, selector, fn) {
+        if (scope.matches && scope.matches(selector)) fn(scope);
+        if (scope.querySelectorAll) scope.querySelectorAll(selector).forEach(fn);
+      }
+      function process(scope) {
+        if (!scope) return;
+        each(scope, 'form[method="post"], form[method="POST"]', function (f) {
+          f.addEventListener('submit', function (e) { e.preventDefault(); });
+        });
+        each(scope, '[hx-post]', function (el) { el.removeAttribute('hx-post'); });
+        each(scope, '[hx-get][hx-target]', function (el) {
+          if (el.getAttribute('hx-push-url') === 'true') el.removeAttribute('hx-push-url');
+          if (el.hasAttribute('hx-select')) return;
+          el.setAttribute('hx-select', el.getAttribute('hx-target'));
+          el.setAttribute('hx-swap', 'outerHTML');
+        });
+      }
+      document.addEventListener('DOMContentLoaded', function () { process(document); });
+      document.addEventListener('htmx:afterSwap', function (evt) { process(evt.target); });
+    })();
+  </script>
+  
+  <main>
+    
+      
+    
+    
+<div class="card">
+  <h2>Skipped <span class="muted">(run #676, 21)</span></h2>
+  <p><a href="../index.html">← run</a></p>
+  <p class="muted">Not uploaded. <code>MATCH</code> = already in OSM. <code>SKIPPED</code> = address range (kept for reference only). Click an item to review details and override the decision.</p>
+  
+    
+<form id="skipped-filters"
+      hx-get="index.html"
+      hx-trigger="change"
+      hx-target="#skipped-list"
+      hx-swap="outerHTML"
+      hx-push-url="true"
+      hx-include="this"
+      hx-vals='{"partial": "1"}'>
+  
+  <div>
+    <span class="muted" style="margin-right:.4rem;">Verdict:</span>
+    
+      <label><input type="checkbox" name="verdicts" value="MATCH"
+                    > MATCH</label>
+    
+      <label><input type="checkbox" name="verdicts" value="MATCH_FAR"
+                    > MATCH_FAR</label>
+    
+      <label><input type="checkbox" name="verdicts" value="MISSING"
+                    > MISSING</label>
+    
+      <label><input type="checkbox" name="verdicts" value="SKIPPED"
+                    > SKIPPED</label>
+    
+    <label style="margin-left:.6rem;"><input type="checkbox" name="poi_ack" value="1"
+                  > POI acknowledged</label>
+    <label><input type="checkbox" name="postcode_from_poi" value="1"
+                  > Postcode from POI</label>
+    <label data-tip="Show only Structure Entrance rows (door candidates) — hides Land/Structure parcel rows."><input type="checkbox" name="door_only" value="1"
+                  > Doors only</label>
+  </div>
+  
+</form>
+
+<script>
+  (function(){
+    const form = document.getElementById("skipped-filters");
+    if (!form) return;
+    form.addEventListener('htmx:configRequest', function(evt){
+      const p = evt.detail.parameters;
+      for (const field of ['statuses', 'verdicts', 'reasons']) {
+        const boxes = form.querySelectorAll('input[name="' + field + '"]:checked');
+        if (boxes.length || form.querySelector('input[name="' + field + '"]')) {
+          p[field] = Array.from(boxes).map(b => b.value).join(',');
+        }
+      }
+      for (const field of ['auto', 'poi_ack', 'postcode_from_poi', 'door_only']) {
+        if (form.querySelector('input[name="' + field + '"]') &&
+            !form.querySelector('input[name="' + field + '"]:checked')) {
+          p[field] = '0';
+        }
+      }
+    });
+  })();
+</script>
+  
+</div>
+
+<div class="grid-2">
+  <div class="card" id="skipped-list" style="max-height: 70vh; overflow: auto;">
+  
+    <div style="border-bottom:1px solid #eee; padding:.3rem 0;"
+         >
+      <strong>177 De Grassi St</strong>
+      
+      
+      
+      
+      <a href="https://www.openstreetmap.org/?mlat=43.66416&mlon=-79.3474#map=19/43.66416/-79.3474"
+         target="_blank" rel="noopener" class="muted" onclick="event.stopPropagation()"
+         title="Open in OpenStreetMap">OSM↗</a>
+      
+      <br>
+      
+        <span class="pill ok" data-tip="Same housenumber+street already in OSM within the near threshold — skip.">MATCH</span>
+        <span class="muted">already in OSM</span>
+      
+      
+        <span class="muted">· way #1422568667 · <span data-tip="Distance in metres to the nearest OSM feature.">3.2 m</span></span>
+      
+      
+      
+      
+    </div>
+  
+    <div style="border-bottom:1px solid #eee; padding:.3rem 0;"
+         >
+      <strong>185 De Grassi St</strong>
+      
+      
+      
+      
+      <a href="https://www.openstreetmap.org/?mlat=43.66432&mlon=-79.34747#map=19/43.66432/-79.34747"
+         target="_blank" rel="noopener" class="muted" onclick="event.stopPropagation()"
+         title="Open in OpenStreetMap">OSM↗</a>
+      
+      <br>
+      
+        <span class="pill ok" data-tip="Same housenumber+street already in OSM within the near threshold — skip.">MATCH</span>
+        <span class="muted">already in OSM</span>
+      
+      
+        <span class="muted">· way #1422568668 · <span data-tip="Distance in metres to the nearest OSM feature.">1.9 m</span></span>
+      
+      
+      
+      
+    </div>
+  
+    <div style="border-bottom:1px solid #eee; padding:.3rem 0;"
+         >
+      <strong>53 Allen Ave</strong>
+      
+      
+      
+      
+      <a href="https://www.openstreetmap.org/?mlat=43.66337&mlon=-79.3496#map=19/43.66337/-79.3496"
+         target="_blank" rel="noopener" class="muted" onclick="event.stopPropagation()"
+         title="Open in OpenStreetMap">OSM↗</a>
+      
+      <br>
+      
+        <span class="pill ok" data-tip="Same housenumber+street already in OSM within the near threshold — skip.">MATCH</span>
+        <span class="muted">already in OSM</span>
+      
+      
+        <span class="muted">· way #803077869 · <span data-tip="Distance in metres to the nearest OSM feature.">2.6 m</span></span>
+      
+      
+      
+      
+    </div>
+  
+    <div style="border-bottom:1px solid #eee; padding:.3rem 0;"
+         >
+      <strong>1000 Dundas St E</strong>
+      
+      
+      
+      
+      <a href="https://www.openstreetmap.org/?mlat=43.66395&mlon=-79.34687#map=19/43.66395/-79.34687"
+         target="_blank" rel="noopener" class="muted" onclick="event.stopPropagation()"
+         title="Open in OpenStreetMap">OSM↗</a>
+      
+      <br>
+      
+        <span class="pill ok" data-tip="Same housenumber+street already in OSM within the near threshold — skip.">MATCH</span>
+        <span class="muted">already in OSM</span>
+      
+      
+        <span class="muted">· way #801925329 · <span data-tip="Distance in metres to the nearest OSM feature.">2.8 m</span></span>
+      
+      
+      
+      
+    </div>
+  
+    <div style="border-bottom:1px solid #eee; padding:.3rem 0;"
+         >
+      <strong>125 De Grassi St</strong>
+      
+      
+      
+      
+      <a href="https://www.openstreetmap.org/?mlat=43.66303&mlon=-79.34689#map=19/43.66303/-79.34689"
+         target="_blank" rel="noopener" class="muted" onclick="event.stopPropagation()"
+         title="Open in OpenStreetMap">OSM↗</a>
+      
+      <br>
+      
+        <span class="pill ok" data-tip="Same housenumber+street already in OSM within the near threshold — skip.">MATCH</span>
+        <span class="muted">already in OSM</span>
+      
+      
+        <span class="muted">· way #687854187 · <span data-tip="Distance in metres to the nearest OSM feature.">7.0 m</span></span>
+      
+      
+      
+      
+    </div>
+  
+    <div style="border-bottom:1px solid #eee; padding:.3rem 0;"
+         >
+      <strong>886 Dundas St E</strong>
+      
+      
+      
+      
+      <a href="https://www.openstreetmap.org/?mlat=43.66284&mlon=-79.35055#map=19/43.66284/-79.35055"
+         target="_blank" rel="noopener" class="muted" onclick="event.stopPropagation()"
+         title="Open in OpenStreetMap">OSM↗</a>
+      
+      <br>
+      
+        <span class="pill ok" data-tip="Same housenumber+street already in OSM within the near threshold — skip.">MATCH</span>
+        <span class="muted">already in OSM</span>
+      
+      
+        <span class="muted">· way #796681338 · <span data-tip="Distance in metres to the nearest OSM feature.">2.9 m</span></span>
+      
+      
+      
+      
+    </div>
+  
+    <div style="border-bottom:1px solid #eee; padding:.3rem 0;"
+         >
+      <strong>179E De Grassi St</strong>
+      
+      
+      
+      
+      <a href="https://www.openstreetmap.org/?mlat=43.66419&mlon=-79.34684#map=19/43.66419/-79.34684"
+         target="_blank" rel="noopener" class="muted" onclick="event.stopPropagation()"
+         title="Open in OpenStreetMap">OSM↗</a>
+      
+      <br>
+      
+        <span class="pill ok" data-tip="Same housenumber+street already in OSM within the near threshold — skip.">MATCH</span>
+        <span class="muted">already in OSM</span>
+      
+      
+        <span class="muted">· way #1431067759 · <span data-tip="Distance in metres to the nearest OSM feature.">2.1 m</span></span>
+      
+      
+      
+      
+    </div>
+  
+    <div style="border-bottom:1px solid #eee; padding:.3rem 0;"
+         >
+      <strong>257 Broadview Ave</strong>
+      
+      
+      
+      
+      <a href="https://www.openstreetmap.org/?mlat=43.66297&mlon=-79.35134#map=19/43.66297/-79.35134"
+         target="_blank" rel="noopener" class="muted" onclick="event.stopPropagation()"
+         title="Open in OpenStreetMap">OSM↗</a>
+      
+      <br>
+      
+        <span class="pill ok" data-tip="Same housenumber+street already in OSM within the near threshold — skip.">MATCH</span>
+        <span class="muted">already in OSM</span>
+      
+      
+        <span class="muted">· node #13164211310 · <span data-tip="Distance in metres to the nearest OSM feature.">6.7 m</span></span>
+      
+      
+      
+      
+    </div>
+  
+    <div style="border-bottom:1px solid #eee; padding:.3rem 0;"
+         >
+      <strong>179G De Grassi St</strong>
+      
+      
+      
+      
+      <a href="https://www.openstreetmap.org/?mlat=43.66424&mlon=-79.34673#map=19/43.66424/-79.34673"
+         target="_blank" rel="noopener" class="muted" onclick="event.stopPropagation()"
+         title="Open in OpenStreetMap">OSM↗</a>
+      
+      <br>
+      
+        <span class="pill ok" data-tip="Same housenumber+street already in OSM within the near threshold — skip.">MATCH</span>
+        <span class="muted">already in OSM</span>
+      
+      
+        <span class="muted">· way #1431067761 · <span data-tip="Distance in metres to the nearest OSM feature.">1.7 m</span></span>
+      
+      
+      
+      
+    </div>
+  
+    <div style="border-bottom:1px solid #eee; padding:.3rem 0;"
+         >
+      <strong>179H De Grassi St</strong>
+      
+      
+      
+      
+      <a href="https://www.openstreetmap.org/?mlat=43.66426&mlon=-79.34669#map=19/43.66426/-79.34669"
+         target="_blank" rel="noopener" class="muted" onclick="event.stopPropagation()"
+         title="Open in OpenStreetMap">OSM↗</a>
+      
+      <br>
+      
+        <span class="pill ok" data-tip="Same housenumber+street already in OSM within the near threshold — skip.">MATCH</span>
+        <span class="muted">already in OSM</span>
+      
+      
+        <span class="muted">· way #1431067762 · <span data-tip="Distance in metres to the nearest OSM feature.">2.3 m</span></span>
+      
+      
+      
+      
+    </div>
+  
+    <div style="border-bottom:1px solid #eee; padding:.3rem 0;"
+         >
+      <strong>969 Dundas St E</strong>
+      
+      
+      
+      
+      <a href="https://www.openstreetmap.org/?mlat=43.66318&mlon=-79.3476#map=19/43.66318/-79.3476"
+         target="_blank" rel="noopener" class="muted" onclick="event.stopPropagation()"
+         title="Open in OpenStreetMap">OSM↗</a>
+      
+      <br>
+      
+        <span class="pill ok" data-tip="Same housenumber+street already in OSM within the near threshold — skip.">MATCH</span>
+        <span class="muted">already in OSM</span>
+      
+      
+        <span class="muted">· way #801925226 · <span data-tip="Distance in metres to the nearest OSM feature.">2.4 m</span></span>
+      
+      
+      
+      
+    </div>
+  
+    <div style="border-bottom:1px solid #eee; padding:.3rem 0;"
+         >
+      <strong>645 Gerrard St E</strong>
+      
+      
+      
+      
+      <a href="https://www.openstreetmap.org/?mlat=43.66579&mlon=-79.35029#map=19/43.66579/-79.35029"
+         target="_blank" rel="noopener" class="muted" onclick="event.stopPropagation()"
+         title="Open in OpenStreetMap">OSM↗</a>
+      
+      <br>
+      
+        <span class="pill ok" data-tip="Same housenumber+street already in OSM within the near threshold — skip.">MATCH</span>
+        <span class="muted">already in OSM</span>
+      
+      
+        <span class="muted">· node #13275652310 · <span data-tip="Distance in metres to the nearest OSM feature.">5.0 m</span></span>
+      
+      
+      
+      
+    </div>
+  
+    <div style="border-bottom:1px solid #eee; padding:.3rem 0;"
+         >
+      <strong>966 Dundas St E</strong>
+      
+      
+      
+      
+      <a href="https://www.openstreetmap.org/?mlat=43.6635&mlon=-79.34777#map=19/43.6635/-79.34777"
+         target="_blank" rel="noopener" class="muted" onclick="event.stopPropagation()"
+         title="Open in OpenStreetMap">OSM↗</a>
+      
+      <br>
+      
+        <span class="pill ok" data-tip="Same housenumber+street already in OSM within the near threshold — skip.">MATCH</span>
+        <span class="muted">already in OSM</span>
+      
+      
+        <span class="muted">· way #801925191 · <span data-tip="Distance in metres to the nearest OSM feature.">2.7 m</span></span>
+      
+      
+      
+      
+    </div>
+  
+    <div style="border-bottom:1px solid #eee; padding:.3rem 0;"
+         >
+      <strong>160 Boulton Ave</strong>
+      
+      
+      
+      
+      <a href="https://www.openstreetmap.org/?mlat=43.66383&mlon=-79.34876#map=19/43.66383/-79.34876"
+         target="_blank" rel="noopener" class="muted" onclick="event.stopPropagation()"
+         title="Open in OpenStreetMap">OSM↗</a>
+      
+      <br>
+      
+        <span class="pill ok" data-tip="Same housenumber+street already in OSM within the near threshold — skip.">MATCH</span>
+        <span class="muted">already in OSM</span>
+      
+      
+        <span class="muted">· way #219969590 · <span data-tip="Distance in metres to the nearest OSM feature.">5.3 m</span></span>
+      
+      
+      
+      
+    </div>
+  
+    <div style="border-bottom:1px solid #eee; padding:.3rem 0;"
+         >
+      <strong>717 Gerrard St E</strong>
+      
+      
+      
+      
+      <a href="https://www.openstreetmap.org/?mlat=43.66625&mlon=-79.3479#map=19/43.66625/-79.3479"
+         target="_blank" rel="noopener" class="muted" onclick="event.stopPropagation()"
+         title="Open in OpenStreetMap">OSM↗</a>
+      
+      <br>
+      
+        <span class="pill ok" data-tip="Same housenumber+street already in OSM within the near threshold — skip.">MATCH</span>
+        <span class="muted">already in OSM</span>
+      
+      
+        <span class="muted">· node #13275652323 · <span data-tip="Distance in metres to the nearest OSM feature.">10.8 m</span></span>
+      
+      
+      
+      
+    </div>
+  
+    <div style="border-bottom:1px solid #eee; padding:.3rem 0;"
+         >
+      <strong>179F De Grassi St</strong>
+      
+      
+      
+      
+      <a href="https://www.openstreetmap.org/?mlat=43.66421&mlon=-79.3468#map=19/43.66421/-79.3468"
+         target="_blank" rel="noopener" class="muted" onclick="event.stopPropagation()"
+         title="Open in OpenStreetMap">OSM↗</a>
+      
+      <br>
+      
+        <span class="pill ok" data-tip="Same housenumber+street already in OSM within the near threshold — skip.">MATCH</span>
+        <span class="muted">already in OSM</span>
+      
+      
+        <span class="muted">· way #1431067760 · <span data-tip="Distance in metres to the nearest OSM feature.">0.6 m</span></span>
+      
+      
+      
+      
+    </div>
+  
+    <div style="border-bottom:1px solid #eee; padding:.3rem 0;"
+         >
+      <strong>175 De Grassi St</strong>
+      
+      
+      
+      
+      <a href="https://www.openstreetmap.org/?mlat=43.66413&mlon=-79.34739#map=19/43.66413/-79.34739"
+         target="_blank" rel="noopener" class="muted" onclick="event.stopPropagation()"
+         title="Open in OpenStreetMap">OSM↗</a>
+      
+      <br>
+      
+        <span class="pill ok" data-tip="Same housenumber+street already in OSM within the near threshold — skip.">MATCH</span>
+        <span class="muted">already in OSM</span>
+      
+      
+        <span class="muted">· way #1422568666 · <span data-tip="Distance in metres to the nearest OSM feature.">2.0 m</span></span>
+      
+      
+      
+      
+    </div>
+  
+    <div style="border-bottom:1px solid #eee; padding:.3rem 0;"
+         >
+      <strong>155 Boulton Ave</strong>
+      
+      
+      
+      
+      <a href="https://www.openstreetmap.org/?mlat=43.66342&mlon=-79.34804#map=19/43.66342/-79.34804"
+         target="_blank" rel="noopener" class="muted" onclick="event.stopPropagation()"
+         title="Open in OpenStreetMap">OSM↗</a>
+      
+      <br>
+      
+        <span class="pill ok" data-tip="Same housenumber+street already in OSM within the near threshold — skip.">MATCH</span>
+        <span class="muted">already in OSM</span>
+      
+      
+        <span class="muted">· way #219969591 · <span data-tip="Distance in metres to the nearest OSM feature.">1.6 m</span></span>
+      
+      
+      
+      
+    </div>
+  
+    <div style="border-bottom:1px solid #eee; padding:.3rem 0;"
+         >
+      <strong>181A De Grassi St</strong>
+      
+      
+      
+      
+      <a href="https://www.openstreetmap.org/?mlat=43.6644&mlon=-79.34714#map=19/43.6644/-79.34714"
+         target="_blank" rel="noopener" class="muted" onclick="event.stopPropagation()"
+         title="Open in OpenStreetMap">OSM↗</a>
+      
+      <br>
+      
+        <span class="pill ok" data-tip="Same housenumber+street already in OSM within the near threshold — skip.">MATCH</span>
+        <span class="muted">already in OSM</span>
+      
+      
+        <span class="muted">· way #801925201 · <span data-tip="Distance in metres to the nearest OSM feature.">2.1 m</span></span>
+      
+      
+      
+      
+    </div>
+  
+    <div style="border-bottom:1px solid #eee; padding:.3rem 0;"
+         >
+      <strong>701 Gerrard St E</strong>
+      
+      
+      
+      
+      <a href="https://www.openstreetmap.org/?mlat=43.66593&mlon=-79.34882#map=19/43.66593/-79.34882"
+         target="_blank" rel="noopener" class="muted" onclick="event.stopPropagation()"
+         title="Open in OpenStreetMap">OSM↗</a>
+      
+      <br>
+      
+        <span class="pill ok" data-tip="Same housenumber+street already in OSM within the near threshold — skip.">MATCH</span>
+        <span class="muted">already in OSM</span>
+      
+      
+        <span class="muted">· way #224604109 · <span data-tip="Distance in metres to the nearest OSM feature.">12.6 m</span></span>
+      
+      
+      
+      
+    </div>
+  
+    <div style="border-bottom:1px solid #eee; padding:.3rem 0;"
+         >
+      <strong>183 De Grassi St</strong>
+      
+      
+      
+      
+      <a href="https://www.openstreetmap.org/?mlat=43.6643&mlon=-79.34738#map=19/43.6643/-79.34738"
+         target="_blank" rel="noopener" class="muted" onclick="event.stopPropagation()"
+         title="Open in OpenStreetMap">OSM↗</a>
+      
+      <br>
+      
+        <span class="pill ok" data-tip="Same housenumber+street already in OSM within the near threshold — skip.">MATCH</span>
+        <span class="muted">already in OSM</span>
+      
+      
+        <span class="muted">· way #1422568669 · <span data-tip="Distance in metres to the nearest OSM feature.">6.5 m</span></span>
+      
+      
+      
+      
+    </div>
+  
+</div>
+<script>
+  (function(){
+    const sel = document.getElementById('list-selected');
+    if (!sel) return;
+    let list = sel.parentElement;
+    while (list && list !== document.body) {
+      const s = getComputedStyle(list);
+      if (s.overflowY === 'auto' || s.overflowY === 'scroll') break;
+      list = list.parentElement;
+    }
+    if (!list || list === document.body) return;
+    const offset = sel.offsetTop - list.offsetTop - (list.clientHeight - sel.clientHeight) / 2;
+    list.scrollTop = Math.max(0, offset);
+  })();
+</script>
+
+  <div class="card" id="detail">
+    
+      <p class="muted">Select an item on the left.</p>
+    
+  </div>
+</div>
+
+  </main>
+</body>
+</html>

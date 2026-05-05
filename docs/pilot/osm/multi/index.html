@@ -1,0 +1,1588 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Multi-addresses · OSM extract</title>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="../../assets/detail-map.js"></script>
+  <script src="../../assets/review-keys.js" defer></script>
+  <link rel="stylesheet" href="../../assets/site.css">
+  
+  <style>
+    .static-banner { background: #fef3c7; border-bottom: 2px solid #f59e0b;
+                     padding: .6rem 1.2rem; font-size: .88rem; color: #78350f;
+                     text-align: center; }
+    .static-banner a { color: #78350f; font-weight: 600; }
+    body.static-export form[method="post"],
+    body.static-export [hx-post] { opacity: .6; cursor: not-allowed; }
+    body.static-export form[method="post"] button,
+    body.static-export form[method="post"] input[type="submit"],
+    body.static-export form[method="post"] select,
+    body.static-export form[method="post"] input[type="text"],
+    body.static-export form[method="post"] input[type="number"],
+    body.static-export [hx-post] button,
+    body.static-export [hx-post] input[type="checkbox"] { pointer-events: none; }
+  </style>
+  
+</head>
+
+
+
+<body class="static-export">
+  <header>
+    <span class="nav">
+      <a href="../../index.html"><strong>t2 address import</strong></a>
+      
+      
+      <a href="../index.html">OSM extract</a>
+      <a href="../../streets/index.html">Streets</a>
+      <a href="../../source/multi/index.html">Source lists</a>
+      <a href="index.html">Multi-addresses</a>
+      <a href="corners/index.html">Corners</a>
+      <a href="../../data/index.html">Data</a>
+      
+    </span>
+    <span class="meta">
+      <a href="https://github.com/skfd/toronto-2-address-import" target="_blank" rel="noopener">GitHub</a>
+      <span class="sep">·</span>
+      <a href="https://community.openstreetmap.org/t/address-import-for-toronto/119368" target="_blank" rel="noopener">OSM discussion</a>
+      <span class="sep">·</span>
+      <a href="https://github.com/skfd/toronto-2-address-import/blob/main/LICENSE" target="_blank" rel="noopener">MIT</a>
+      <span class="sep">·</span>
+      <a href="https://open.toronto.ca/open-data-licence/" target="_blank" rel="noopener">Toronto Open Data</a>
+      &amp;
+      &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OSM</a>
+    </span>
+  </header>
+  
+  <div class="static-banner">
+    Static snapshot of run <strong>south-riverdale-nw-nw-ne-batch-2026-05-03</strong>
+    as of 2026-05-04 —
+    pilot evidence for the
+    <a href="https://github.com/skfd/toronto-2-address-import/blob/main/IMPORT_PROPOSAL.mediawiki" target="_blank" rel="noopener">Toronto address import proposal</a>.
+    Interactive actions (stages, review decisions, uploads) are disabled.
+    <a href="https://github.com/skfd/toronto-2-address-import" target="_blank" rel="noopener">Run the live tool</a>
+    to exercise them.
+  </div>
+  <script>
+    // Teach the page to behave on the static site, where Flask isn't around
+    // to partial-render HX-Request responses or route absolute hx-get paths.
+    // Three things we need to undo / substitute:
+    //   1. Disable htmx's history machinery entirely. hx-push-url="true"
+    //      would rewrite the address bar to the clicked row's relative
+    //      hx-get target (.../<view>/<cid>/index.html). On the next click
+    //      the sibling rows' relative hx-gets then resolve against that new
+    //      path, producing a nested .../<view>/<cid1>/<cid2>/index.html
+    //      that 404s.
+    //   2. Extract the target fragment from full-page responses — we can't
+    //      branch on HX-Request, so every hx-get returns the whole page;
+    //      adding hx-select=<target> with hx-swap=outerHTML pulls out just
+    //      the fragment htmx would have otherwise inlined verbatim.
+    //   3. Neuter POST forms / hx-post actions so the disabled visual
+    //      doesn't lie if someone clicks through the pointer-events guard.
+    if (window.htmx && window.htmx.config) window.htmx.config.historyEnabled = false;
+    (function () {
+      function each(scope, selector, fn) {
+        if (scope.matches && scope.matches(selector)) fn(scope);
+        if (scope.querySelectorAll) scope.querySelectorAll(selector).forEach(fn);
+      }
+      function process(scope) {
+        if (!scope) return;
+        each(scope, 'form[method="post"], form[method="POST"]', function (f) {
+          f.addEventListener('submit', function (e) { e.preventDefault(); });
+        });
+        each(scope, '[hx-post]', function (el) { el.removeAttribute('hx-post'); });
+        each(scope, '[hx-get][hx-target]', function (el) {
+          if (el.getAttribute('hx-push-url') === 'true') el.removeAttribute('hx-push-url');
+          if (el.hasAttribute('hx-select')) return;
+          el.setAttribute('hx-select', el.getAttribute('hx-target'));
+          el.setAttribute('hx-swap', 'outerHTML');
+        });
+      }
+      document.addEventListener('DOMContentLoaded', function () { process(document); });
+      document.addEventListener('htmx:afterSwap', function (evt) { process(evt.target); });
+    })();
+  </script>
+  
+  <main>
+    
+      
+    
+    
+
+
+
+
+
+<style>
+  .mini-tbl td, .mini-tbl th { font-size: .88rem; padding: .3rem .5rem; }
+  .mini-tbl td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .mini-tbl .bar-cell { width: 160px; }
+  .mini-tbl .hn { font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .two-col { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 1rem; }
+  .callout { background: #fffbeb; border-left: 3px solid #f59e0b; padding: .5rem .75rem;
+             border-radius: 3px; margin-bottom: .75rem; font-size: .9rem; }
+  .sep-glyph { display: inline-block; font-family: ui-monospace, Menlo, Consolas, monospace;
+               font-weight: 700; background: #1f2937; color: #fff; border-radius: 3px;
+               padding: 0 .4rem; margin-right: .35rem; }
+</style>
+
+<div class="card">
+  <h2>Multi-address housenumbers <span class="pill">3,599</span></h2>
+  
+    <p class="muted">
+      Source: <code>C:\Users\kk\Code\toronto-2-address-import\data\osm\toronto-addresses.json</code> · 94.4 MiB
+    </p>
+    <p>
+      Of <strong>264,579</strong> elements that carry
+      <code>addr:housenumber</code> (out of 334,264 total in the clipped extract),
+      <strong>3,599</strong>
+      pack more than one street number into that tag — roughly
+      1.36%.
+      Addresses counted here are non-interpolation elements whose <code>addr:housenumber</code>
+      contains <code>;</code>, <code>,</code>, or <code>N-M</code>. <code>addr:interpolation</code> ways
+      are excluded since they encode ranges by geometry, not text.
+    </p>
+    <p>
+      <a class="pill" href="all/index.html">
+        Full list of non-canonical &amp; error entries →
+      </a>
+      <a class="pill" href="corners/index.html">
+        Corner-lot &amp; multi-street-name entries →
+      </a>
+    </p>
+  
+</div>
+
+
+
+
+
+<div class="card">
+  <h3>Breakdown by separator</h3>
+  <table class="mini-tbl">
+    <thead>
+      <tr><th>Separator</th><th class="num">Count</th><th class="bar-cell"></th><th class="num">Nodes</th><th class="num">Ways</th></tr>
+    </thead>
+    <tbody>
+      
+      <tr>
+        <td><span class="sep-glyph">;</span>Semicolon (OSM-canonical)</td>
+        <td class="num">748</td>
+        <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:140px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:38.71635610766045%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+        <td class="num">34</td>
+        <td class="num">714</td>
+      </tr>
+      
+      <tr>
+        <td><span class="sep-glyph">,</span>Comma (non-canonical)</td>
+        <td class="num">1,932</td>
+        <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:140px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:100.0%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+        <td class="num">5</td>
+        <td class="num">1927</td>
+      </tr>
+      
+      <tr>
+        <td><span class="sep-glyph">-</span>Dash range (N-M)</td>
+        <td class="num">919</td>
+        <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:140px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:47.56728778467909%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+        <td class="num">98</td>
+        <td class="num">820</td>
+      </tr>
+      
+      <tr>
+        <td><span class="sep-glyph">/</span>Slash multi-value</td>
+        <td class="num">0</td>
+        <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:140px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:0.0%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+        <td class="num">0</td>
+        <td class="num">0</td>
+      </tr>
+      
+    </tbody>
+  </table>
+  <p class="muted" style="margin-top:.6rem">
+    Commas outnumber semicolons ~2.5× despite OSM documenting <code>;</code> as the canonical
+    multi-value delimiter. Tokenizers that only split on <code>;</code> will miss most of the
+    real cases in this dataset.
+  </p>
+</div>
+
+
+<div class="card">
+  <h3>Most frequent multi-address values</h3>
+  <div class="two-col">
+    
+    <div>
+      <h4 style="margin:.2rem 0 .4rem">
+        <span class="sep-glyph">;</span>Semicolon (OSM-canonical)
+        <span class="muted" style="font-weight:normal">(748 total)</span>
+      </h4>
+      
+      <table class="mini-tbl">
+        <thead><tr><th>housenumber</th><th class="num">×</th><th class="bar-cell"></th></tr></thead>
+        <tbody>
+          
+          <tr>
+            <td class="hn">66;68</td>
+            <td class="num">6</td>
+            <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:120px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:100.0%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+          </tr>
+          
+          <tr>
+            <td class="hn">60;62</td>
+            <td class="num">4</td>
+            <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:120px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:66.66666666666666%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+          </tr>
+          
+          <tr>
+            <td class="hn">209;215</td>
+            <td class="num">4</td>
+            <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:120px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:66.66666666666666%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+          </tr>
+          
+          <tr>
+            <td class="hn">58;60</td>
+            <td class="num">4</td>
+            <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:120px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:66.66666666666666%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+          </tr>
+          
+          <tr>
+            <td class="hn">127;129</td>
+            <td class="num">4</td>
+            <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:120px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:66.66666666666666%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+          </tr>
+          
+          <tr>
+            <td class="hn">78;80</td>
+            <td class="num">3</td>
+            <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:120px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:50.0%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+          </tr>
+          
+          <tr>
+            <td class="hn">16;18</td>
+            <td class="num">3</td>
+            <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:120px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:50.0%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+          </tr>
+          
+          <tr>
+            <td class="hn">4; 6</td>
+            <td class="num">3</td>
+            <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:120px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:50.0%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+          </tr>
+          
+          <tr>
+            <td class="hn">38;40</td>
+            <td class="num">3</td>
+            <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:120px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:50.0%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+          </tr>
+          
+          <tr>
+            <td class="hn">43;45</td>
+            <td class="num">3</td>
+            <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:120px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:50.0%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+          </tr>
+          
+        </tbody>
+      </table>
+    </div>
+    
+    <div>
+      <h4 style="margin:.2rem 0 .4rem">
+        <span class="sep-glyph">,</span>Comma (non-canonical)
+        <span class="muted" style="font-weight:normal">(1,932 total)</span>
+      </h4>
+      
+      <table class="mini-tbl">
+        <thead><tr><th>housenumber</th><th class="num">×</th><th class="bar-cell"></th></tr></thead>
+        <tbody>
+          
+          <tr>
+            <td class="hn">18,20</td>
+            <td class="num">24</td>
+            <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:120px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:100.0%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+          </tr>
+          
+          <tr>
+            <td class="hn">30,32</td>
+            <td class="num">22</td>
+            <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:120px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:91.66666666666666%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+          </tr>
+          
+          <tr>
+            <td class="hn">26,28</td>
+            <td class="num">22</td>
+            <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:120px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:91.66666666666666%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+          </tr>
+          
+          <tr>
+            <td class="hn">14,16</td>
+            <td class="num">22</td>
+            <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:120px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:91.66666666666666%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+          </tr>
+          
+          <tr>
+            <td class="hn">22,24</td>
+            <td class="num">22</td>
+            <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:120px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:91.66666666666666%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+          </tr>
+          
+          <tr>
+            <td class="hn">2,4</td>
+            <td class="num">20</td>
+            <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:120px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:83.33333333333334%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+          </tr>
+          
+          <tr>
+            <td class="hn">34,36</td>
+            <td class="num">20</td>
+            <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:120px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:83.33333333333334%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+          </tr>
+          
+          <tr>
+            <td class="hn">10,12</td>
+            <td class="num">20</td>
+            <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:120px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:83.33333333333334%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+          </tr>
+          
+          <tr>
+            <td class="hn">6,8</td>
+            <td class="num">18</td>
+            <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:120px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:75.0%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+          </tr>
+          
+          <tr>
+            <td class="hn">31,33</td>
+            <td class="num">17</td>
+            <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:120px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:70.83333333333334%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+          </tr>
+          
+        </tbody>
+      </table>
+    </div>
+    
+    <div>
+      <h4 style="margin:.2rem 0 .4rem">
+        <span class="sep-glyph">-</span>Dash range (N-M)
+        <span class="muted" style="font-weight:normal">(919 total)</span>
+      </h4>
+      
+      <table class="mini-tbl">
+        <thead><tr><th>housenumber</th><th class="num">×</th><th class="bar-cell"></th></tr></thead>
+        <tbody>
+          
+          <tr>
+            <td class="hn">47-49</td>
+            <td class="num">6</td>
+            <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:120px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:100.0%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+          </tr>
+          
+          <tr>
+            <td class="hn">34-36</td>
+            <td class="num">6</td>
+            <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:120px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:100.0%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+          </tr>
+          
+          <tr>
+            <td class="hn">6-8</td>
+            <td class="num">6</td>
+            <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:120px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:100.0%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+          </tr>
+          
+          <tr>
+            <td class="hn">14-16</td>
+            <td class="num">6</td>
+            <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:120px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:100.0%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+          </tr>
+          
+          <tr>
+            <td class="hn">8-10</td>
+            <td class="num">6</td>
+            <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:120px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:100.0%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+          </tr>
+          
+          <tr>
+            <td class="hn">15-17</td>
+            <td class="num">6</td>
+            <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:120px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:100.0%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+          </tr>
+          
+          <tr>
+            <td class="hn">18-20</td>
+            <td class="num">6</td>
+            <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:120px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:100.0%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+          </tr>
+          
+          <tr>
+            <td class="hn">1-3</td>
+            <td class="num">6</td>
+            <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:120px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:100.0%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+          </tr>
+          
+          <tr>
+            <td class="hn">41-43</td>
+            <td class="num">5</td>
+            <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:120px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:83.33333333333334%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+          </tr>
+          
+          <tr>
+            <td class="hn">30-32</td>
+            <td class="num">5</td>
+            <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:120px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:83.33333333333334%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+          </tr>
+          
+        </tbody>
+      </table>
+    </div>
+    
+  </div>
+</div>
+
+
+
+<div class="card">
+  <h3>Dash-range spans <span class="pill">919</span></h3>
+  <p class="muted" style="margin:.2rem 0 .6rem">
+    How far apart are the two numbers in an <code>N-M</code> housenumber?
+    Span 2 (e.g. <code>18-20</code>) dominates and matches a typical duplex pair.
+    Spans above ~100 are almost always the Canadian
+    <em>Unit ‑ Street #</em> convention squeezed into the housenumber field.
+  </p>
+  <table class="mini-tbl">
+    <thead><tr><th>span</th><th class="num">count</th><th class="bar-cell"></th><th class="num">% of ranges</th></tr></thead>
+    <tbody>
+      
+      <tr>
+        <td>≤0 (equal/reversed)</td>
+        <td class="num">1</td>
+        <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:180px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:0.15220700152207%;
+                 background:#0d9488; border-radius:3px;"></span>
+  </span></td>
+        <td class="num">0.1%</td>
+      </tr>
+      
+      <tr>
+        <td>1 (adjacent)</td>
+        <td class="num">1</td>
+        <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:180px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:0.15220700152207%;
+                 background:#0d9488; border-radius:3px;"></span>
+  </span></td>
+        <td class="num">0.1%</td>
+      </tr>
+      
+      <tr>
+        <td>2 (duplex pair)</td>
+        <td class="num">657</td>
+        <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:180px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:100.0%;
+                 background:#0d9488; border-radius:3px;"></span>
+  </span></td>
+        <td class="num">71.5%</td>
+      </tr>
+      
+      <tr>
+        <td>3-10</td>
+        <td class="num">162</td>
+        <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:180px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:24.65753424657534%;
+                 background:#0d9488; border-radius:3px;"></span>
+  </span></td>
+        <td class="num">17.6%</td>
+      </tr>
+      
+      <tr>
+        <td>11-100</td>
+        <td class="num">93</td>
+        <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:180px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:14.15525114155251%;
+                 background:#0d9488; border-radius:3px;"></span>
+  </span></td>
+        <td class="num">10.1%</td>
+      </tr>
+      
+      <tr>
+        <td>&gt;100 (suspect unit-hyphen-house)</td>
+        <td class="num">5</td>
+        <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:180px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:0.76103500761035%;
+                 background:#0d9488; border-radius:3px;"></span>
+  </span></td>
+        <td class="num">0.5%</td>
+      </tr>
+      
+    </tbody>
+  </table>
+
+  
+  <h4 style="margin:1rem 0 .3rem">Largest spans (likely mis-encoded unit prefixes)</h4>
+  <table class="mini-tbl">
+    <thead><tr><th>housenumber</th><th class="num">span</th><th>street</th><th>name</th><th class="num">osm</th></tr></thead>
+    <tbody>
+      
+      <tr>
+        <td class="hn">3600-3800</td>
+        <td class="num">200</td>
+        <td>Yonge Street</td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/node/540367575"
+             target="_blank" rel="noopener">node/540367575</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">6100-6300</td>
+        <td class="num">200</td>
+        <td>Highway 7</td>
+        <td>Vaughan Valley Centre</td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/way/429411947"
+             target="_blank" rel="noopener">way/429411947</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">280-422</td>
+        <td class="num">142</td>
+        <td>Consumers Road</td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/node/2354349084"
+             target="_blank" rel="noopener">node/2354349084</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">50-192</td>
+        <td class="num">142</td>
+        <td>Shorting Road</td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/node/2818170008"
+             target="_blank" rel="noopener">node/2818170008</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">7-110</td>
+        <td class="num">103</td>
+        <td>West Beaver Creek Rd</td>
+        <td>Bahmadi Law Professional Corporation</td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/node/4966102778"
+             target="_blank" rel="noopener">node/4966102778</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">197-291</td>
+        <td class="num">94</td>
+        <td>Carlton Street</td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/way/184503317"
+             target="_blank" rel="noopener">way/184503317</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1885-1969</td>
+        <td class="num">84</td>
+        <td>Leslie Street</td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/way/31926978"
+             target="_blank" rel="noopener">way/31926978</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">9300-9370</td>
+        <td class="num">70</td>
+        <td>Bathurst Street</td>
+        <td>Rutherford Marketplace</td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/way/172228707"
+             target="_blank" rel="noopener">way/172228707</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2776-2838</td>
+        <td class="num">62</td>
+        <td>Victoria Park Avenue</td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/node/2424896285"
+             target="_blank" rel="noopener">node/2424896285</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1515-1575</td>
+        <td class="num">60</td>
+        <td>Steeles Avenue East</td>
+        <td>Steeles Heights Shopping Centre</td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/way/38015387"
+             target="_blank" rel="noopener">way/38015387</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">285-343</td>
+        <td class="num">58</td>
+        <td>Lesmill Road</td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/node/2082810640"
+             target="_blank" rel="noopener">node/2082810640</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">805-863</td>
+        <td class="num">58</td>
+        <td>Brown&#39;s Line</td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/way/335604102"
+             target="_blank" rel="noopener">way/335604102</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">3875-3931</td>
+        <td class="num">56</td>
+        <td>Don Mills Road</td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/node/2355599061"
+             target="_blank" rel="noopener">node/2355599061</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">196-248</td>
+        <td class="num">52</td>
+        <td>North Queen Street</td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/way/58565877"
+             target="_blank" rel="noopener">way/58565877</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">5500-5550</td>
+        <td class="num">50</td>
+        <td>Lawrence Avenue East</td>
+        <td>Centennial Plaza</td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/way/14274001"
+             target="_blank" rel="noopener">way/14274001</a>
+        </td>
+      </tr>
+      
+    </tbody>
+  </table>
+  
+
+  
+  <h4 style="margin:1rem 0 .3rem">Letter-suffixed range-style values (e.g. <code>2523A-2539A</code>)</h4>
+  <table class="mini-tbl">
+    <thead><tr><th>housenumber</th><th>street</th><th>name</th><th class="num">osm</th></tr></thead>
+    <tbody>
+      
+      <tr>
+        <td class="hn">1724A-1726A</td>
+        <td>Avenue Road</td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/node/2488659607"
+             target="_blank" rel="noopener">node/2488659607</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1732A-1734A</td>
+        <td>Avenue Road</td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/node/2488659614"
+             target="_blank" rel="noopener">node/2488659614</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1732B-1734B</td>
+        <td>Avenue Road</td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/node/2488659615"
+             target="_blank" rel="noopener">node/2488659615</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2523A-2539A</td>
+        <td>Lake Shore Boulevard West</td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/node/2818261929"
+             target="_blank" rel="noopener">node/2818261929</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2523B-2539B</td>
+        <td>Lake Shore Boulevard West</td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/node/2818261930"
+             target="_blank" rel="noopener">node/2818261930</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">567-567A</td>
+        <td>Brown&#39;s Line</td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/way/658010962"
+             target="_blank" rel="noopener">way/658010962</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">603-603A</td>
+        <td>Brown&#39;s Line</td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/way/658010967"
+             target="_blank" rel="noopener">way/658010967</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">677-677A</td>
+        <td>Brown&#39;s Line</td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/way/658011313"
+             target="_blank" rel="noopener">way/658011313</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">67-75A</td>
+        <td>Green Spring Drive</td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/way/659549120"
+             target="_blank" rel="noopener">way/659549120</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">18-18A</td>
+        <td>Cherrywood Avenue</td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/way/663871774"
+             target="_blank" rel="noopener">way/663871774</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">250-250A</td>
+        <td>Broadview Avenue</td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/way/796681383"
+             target="_blank" rel="noopener">way/796681383</a>
+        </td>
+      </tr>
+      
+    </tbody>
+  </table>
+  
+</div>
+
+
+<div class="card">
+  <h3>List-length distribution</h3>
+  <p class="muted" style="margin:.2rem 0 .6rem">
+    How many numbers are packed into a single tag? Pairs are by far the most common,
+    but comma-lists on ways can enumerate an entire townhouse row.
+  </p>
+  <div class="two-col">
+    
+    <div>
+      <h4 style="margin:.2rem 0 .4rem">Comma-lists</h4>
+      
+        
+        <table class="mini-tbl">
+          <thead><tr><th>n</th><th class="num">count</th><th class="bar-cell"></th></tr></thead>
+          <tbody>
+            
+            <tr>
+              <td>2</td>
+              <td class="num">1,627</td>
+              <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:140px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:100.0%;
+                 background:#7c3aed; border-radius:3px;"></span>
+  </span></td>
+            </tr>
+            
+            <tr>
+              <td>3</td>
+              <td class="num">56</td>
+              <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:140px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:3.4419176398279046%;
+                 background:#7c3aed; border-radius:3px;"></span>
+  </span></td>
+            </tr>
+            
+            <tr>
+              <td>4</td>
+              <td class="num">64</td>
+              <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:140px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:3.9336201598033185%;
+                 background:#7c3aed; border-radius:3px;"></span>
+  </span></td>
+            </tr>
+            
+            <tr>
+              <td>5</td>
+              <td class="num">24</td>
+              <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:140px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:1.4751075599262446%;
+                 background:#7c3aed; border-radius:3px;"></span>
+  </span></td>
+            </tr>
+            
+            <tr>
+              <td>6</td>
+              <td class="num">55</td>
+              <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:140px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:3.380454824830977%;
+                 background:#7c3aed; border-radius:3px;"></span>
+  </span></td>
+            </tr>
+            
+            <tr>
+              <td>7</td>
+              <td class="num">26</td>
+              <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:140px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:1.5980331899200986%;
+                 background:#7c3aed; border-radius:3px;"></span>
+  </span></td>
+            </tr>
+            
+            <tr>
+              <td>8</td>
+              <td class="num">40</td>
+              <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:140px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:2.458512599877074%;
+                 background:#7c3aed; border-radius:3px;"></span>
+  </span></td>
+            </tr>
+            
+            <tr>
+              <td>9</td>
+              <td class="num">11</td>
+              <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:140px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:0.6760909649661955%;
+                 background:#7c3aed; border-radius:3px;"></span>
+  </span></td>
+            </tr>
+            
+            <tr>
+              <td>10</td>
+              <td class="num">13</td>
+              <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:140px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:0.7990165949600493%;
+                 background:#7c3aed; border-radius:3px;"></span>
+  </span></td>
+            </tr>
+            
+            <tr>
+              <td>11</td>
+              <td class="num">6</td>
+              <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:140px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:0.36877688998156116%;
+                 background:#7c3aed; border-radius:3px;"></span>
+  </span></td>
+            </tr>
+            
+            <tr>
+              <td>12</td>
+              <td class="num">5</td>
+              <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:140px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:0.30731407498463426%;
+                 background:#7c3aed; border-radius:3px;"></span>
+  </span></td>
+            </tr>
+            
+            <tr>
+              <td>13</td>
+              <td class="num">2</td>
+              <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:140px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:0.1229256299938537%;
+                 background:#7c3aed; border-radius:3px;"></span>
+  </span></td>
+            </tr>
+            
+            <tr>
+              <td>15</td>
+              <td class="num">2</td>
+              <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:140px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:0.1229256299938537%;
+                 background:#7c3aed; border-radius:3px;"></span>
+  </span></td>
+            </tr>
+            
+            <tr>
+              <td>44</td>
+              <td class="num">1</td>
+              <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:140px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:0.06146281499692685%;
+                 background:#7c3aed; border-radius:3px;"></span>
+  </span></td>
+            </tr>
+            
+          </tbody>
+        </table>
+      
+    </div>
+    
+    <div>
+      <h4 style="margin:.2rem 0 .4rem">Semicolon-lists</h4>
+      
+        
+        <table class="mini-tbl">
+          <thead><tr><th>n</th><th class="num">count</th><th class="bar-cell"></th></tr></thead>
+          <tbody>
+            
+            <tr>
+              <td>2</td>
+              <td class="num">613</td>
+              <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:140px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:100.0%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+            </tr>
+            
+            <tr>
+              <td>3</td>
+              <td class="num">13</td>
+              <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:140px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:2.1207177814029365%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+            </tr>
+            
+            <tr>
+              <td>4</td>
+              <td class="num">53</td>
+              <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:140px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:8.64600326264274%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+            </tr>
+            
+            <tr>
+              <td>5</td>
+              <td class="num">25</td>
+              <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:140px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:4.078303425774878%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+            </tr>
+            
+            <tr>
+              <td>6</td>
+              <td class="num">36</td>
+              <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:140px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:5.872756933115824%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+            </tr>
+            
+            <tr>
+              <td>7</td>
+              <td class="num">3</td>
+              <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:140px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:0.48939641109298526%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+            </tr>
+            
+            <tr>
+              <td>8</td>
+              <td class="num">4</td>
+              <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:140px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:0.6525285481239804%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+            </tr>
+            
+            <tr>
+              <td>17</td>
+              <td class="num">1</td>
+              <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:140px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:0.1631321370309951%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+            </tr>
+            
+          </tbody>
+        </table>
+      
+    </div>
+    
+  </div>
+</div>
+
+
+<div class="card">
+  <h3>Slash fractions <span class="pill">146</span></h3>
+  <div class="callout">
+    Entries like <code>20 1/2</code> or <code>19/21</code> look multi-valued but are
+    single addresses with half-number notation. They are reported separately so
+    tokenizers don't mis-split them. (Slash multi-value entries — e.g.
+    <code>131/151/181</code> — are in the separator table above.)
+  </div>
+  
+  <table class="mini-tbl">
+    <thead><tr><th>housenumber</th><th class="num">×</th></tr></thead>
+    <tbody>
+      
+      <tr><td class="hn">20 1/2</td><td class="num">4</td></tr>
+      
+      <tr><td class="hn">11 1/2</td><td class="num">3</td></tr>
+      
+      <tr><td class="hn">46 1/2</td><td class="num">2</td></tr>
+      
+      <tr><td class="hn">9 1/2</td><td class="num">2</td></tr>
+      
+      <tr><td class="hn">1086 1/2</td><td class="num">2</td></tr>
+      
+      <tr><td class="hn">322 1/2</td><td class="num">2</td></tr>
+      
+      <tr><td class="hn">19 1/2</td><td class="num">2</td></tr>
+      
+      <tr><td class="hn">25 1/2</td><td class="num">2</td></tr>
+      
+      <tr><td class="hn">33 1/2</td><td class="num">2</td></tr>
+      
+      <tr><td class="hn">233 1/2</td><td class="num">2</td></tr>
+      
+    </tbody>
+  </table>
+  
+</div>
+
+
+<div class="card">
+  <h3>Concrete examples</h3>
+  
+  <h4 style="margin:1rem 0 .3rem">
+    <span class="sep-glyph">;</span>Semicolon (OSM-canonical)
+  </h4>
+  <table class="mini-tbl">
+    <thead>
+      <tr><th>housenumber</th><th>street</th><th>name</th><th>building</th><th>shop / amenity</th><th class="num">osm</th></tr>
+    </thead>
+    <tbody>
+      
+      <tr>
+        <td class="hn">1357;1355</td>
+        <td>Woodbine Avenue</td>
+        <td>Coin Laundry</td>
+        <td></td>
+        <td>shop=laundry</td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/node/364869639"
+             target="_blank" rel="noopener">node/364869639</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">306;312</td>
+        <td>Yonge Street</td>
+        <td>Foot Locker</td>
+        <td></td>
+        <td>shop=shoes</td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/node/400946556"
+             target="_blank" rel="noopener">node/400946556</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">60;62</td>
+        <td>Hickory Tree Road</td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/node/859672960"
+             target="_blank" rel="noopener">node/859672960</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">209;215</td>
+        <td>Manse Road</td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/node/896553320"
+             target="_blank" rel="noopener">node/896553320</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">50;60</td>
+        <td>Brimorton Drive</td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/node/896707925"
+             target="_blank" rel="noopener">node/896707925</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">200;198</td>
+        <td>Timberbank Boulevard</td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/node/896723964"
+             target="_blank" rel="noopener">node/896723964</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">27;25</td>
+        <td>Garrybrook Drive</td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/node/896729878"
+             target="_blank" rel="noopener">node/896729878</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">19;17</td>
+        <td>Chaldean Street</td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/node/896730650"
+             target="_blank" rel="noopener">node/896730650</a>
+        </td>
+      </tr>
+      
+    </tbody>
+  </table>
+  
+  <h4 style="margin:1rem 0 .3rem">
+    <span class="sep-glyph">,</span>Comma (non-canonical)
+  </h4>
+  <table class="mini-tbl">
+    <thead>
+      <tr><th>housenumber</th><th>street</th><th>name</th><th>building</th><th>shop / amenity</th><th class="num">osm</th></tr>
+    </thead>
+    <tbody>
+      
+      <tr>
+        <td class="hn">50,90</td>
+        <td>Burnhamthorpe Road West</td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/node/7399589585"
+             target="_blank" rel="noopener">node/7399589585</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2,4</td>
+        <td>Castle View Avenue</td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/node/12083672168"
+             target="_blank" rel="noopener">node/12083672168</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">286,288</td>
+        <td>Spadina Road</td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/node/12083690370"
+             target="_blank" rel="noopener">node/12083690370</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">95,97,99</td>
+        <td>Norway Avenue</td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/node/13125721721"
+             target="_blank" rel="noopener">node/13125721721</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">50,60,70</td>
+        <td>Town Centre Court</td>
+        <td></td>
+        <td></td>
+        <td>amenity=parking_entrance</td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/node/13472710844"
+             target="_blank" rel="noopener">node/13472710844</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">31,43</td>
+        <td>Gerrard Street East</td>
+        <td>Kerr Hall North</td>
+        <td>university</td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/way/20061267"
+             target="_blank" rel="noopener">way/20061267</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">40,50</td>
+        <td>Gould Street</td>
+        <td>Recreation and Athletics Centre</td>
+        <td>university</td>
+        <td>amenity=university</td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/way/23447393"
+             target="_blank" rel="noopener">way/23447393</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">201,202,203,204,205,206</td>
+        <td>Observatory lane</td>
+        <td></td>
+        <td>residential</td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/way/33424710"
+             target="_blank" rel="noopener">way/33424710</a>
+        </td>
+      </tr>
+      
+    </tbody>
+  </table>
+  
+  <h4 style="margin:1rem 0 .3rem">
+    <span class="sep-glyph">-</span>Dash range (N-M)
+  </h4>
+  <table class="mini-tbl">
+    <thead>
+      <tr><th>housenumber</th><th>street</th><th>name</th><th>building</th><th>shop / amenity</th><th class="num">osm</th></tr>
+    </thead>
+    <tbody>
+      
+      <tr>
+        <td class="hn">137-139</td>
+        <td>Yorkville Avenue</td>
+        <td>Starbucks</td>
+        <td></td>
+        <td>amenity=cafe</td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/node/60930956"
+             target="_blank" rel="noopener">node/60930956</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">125-127</td>
+        <td>Dundas Street East</td>
+        <td>Dundas Market</td>
+        <td></td>
+        <td>shop=convenience</td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/node/281361815"
+             target="_blank" rel="noopener">node/281361815</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">35-43</td>
+        <td>Front Street East</td>
+        <td>Winners</td>
+        <td></td>
+        <td>shop=department_store</td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/node/281667560"
+             target="_blank" rel="noopener">node/281667560</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2103-2105</td>
+        <td>Weston Road</td>
+        <td>York Weston Community Services Centre</td>
+        <td></td>
+        <td>amenity=community_centre</td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/node/368123827"
+             target="_blank" rel="noopener">node/368123827</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2189-2191</td>
+        <td>Weston Road</td>
+        <td>Park&#39;s Supermarket</td>
+        <td></td>
+        <td>shop=convenience</td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/node/368127384"
+             target="_blank" rel="noopener">node/368127384</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">36-38</td>
+        <td>Wellington Street East</td>
+        <td>east thirty-six</td>
+        <td></td>
+        <td>amenity=bar</td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/node/412344987"
+             target="_blank" rel="noopener">node/412344987</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">65-69</td>
+        <td>Jarvis Street</td>
+        <td>Bombay Palace Haute Indian Cuisine</td>
+        <td></td>
+        <td>amenity=restaurant</td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/node/412347072"
+             target="_blank" rel="noopener">node/412347072</a>
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="hn">3600-3800</td>
+        <td>Yonge Street</td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="num muted">
+          <a href="https://www.openstreetmap.org/node/540367575"
+             target="_blank" rel="noopener">node/540367575</a>
+        </td>
+      </tr>
+      
+    </tbody>
+  </table>
+  
+</div>
+
+
+
+  </main>
+</body>
+</html>

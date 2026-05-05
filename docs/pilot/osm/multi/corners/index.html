@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Corner-lot addresses · OSM extract</title>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="../../../assets/detail-map.js"></script>
+  <script src="../../../assets/review-keys.js" defer></script>
+  <link rel="stylesheet" href="../../../assets/site.css">
+  
+  <style>
+    .static-banner { background: #fef3c7; border-bottom: 2px solid #f59e0b;
+                     padding: .6rem 1.2rem; font-size: .88rem; color: #78350f;
+                     text-align: center; }
+    .static-banner a { color: #78350f; font-weight: 600; }
+    body.static-export form[method="post"],
+    body.static-export [hx-post] { opacity: .6; cursor: not-allowed; }
+    body.static-export form[method="post"] button,
+    body.static-export form[method="post"] input[type="submit"],
+    body.static-export form[method="post"] select,
+    body.static-export form[method="post"] input[type="text"],
+    body.static-export form[method="post"] input[type="number"],
+    body.static-export [hx-post] button,
+    body.static-export [hx-post] input[type="checkbox"] { pointer-events: none; }
+  </style>
+  
+</head>
+
+
+
+<body class="static-export">
+  <header>
+    <span class="nav">
+      <a href="../../../index.html"><strong>t2 address import</strong></a>
+      
+      
+      <a href="../../index.html">OSM extract</a>
+      <a href="../../../streets/index.html">Streets</a>
+      <a href="../../../source/multi/index.html">Source lists</a>
+      <a href="../index.html">Multi-addresses</a>
+      <a href="index.html">Corners</a>
+      <a href="../../../data/index.html">Data</a>
+      
+    </span>
+    <span class="meta">
+      <a href="https://github.com/skfd/toronto-2-address-import" target="_blank" rel="noopener">GitHub</a>
+      <span class="sep">·</span>
+      <a href="https://community.openstreetmap.org/t/address-import-for-toronto/119368" target="_blank" rel="noopener">OSM discussion</a>
+      <span class="sep">·</span>
+      <a href="https://github.com/skfd/toronto-2-address-import/blob/main/LICENSE" target="_blank" rel="noopener">MIT</a>
+      <span class="sep">·</span>
+      <a href="https://open.toronto.ca/open-data-licence/" target="_blank" rel="noopener">Toronto Open Data</a>
+      &amp;
+      &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OSM</a>
+    </span>
+  </header>
+  
+  <div class="static-banner">
+    Static snapshot of run <strong>south-riverdale-nw-nw-ne-batch-2026-05-03</strong>
+    as of 2026-05-04 —
+    pilot evidence for the
+    <a href="https://github.com/skfd/toronto-2-address-import/blob/main/IMPORT_PROPOSAL.mediawiki" target="_blank" rel="noopener">Toronto address import proposal</a>.
+    Interactive actions (stages, review decisions, uploads) are disabled.
+    <a href="https://github.com/skfd/toronto-2-address-import" target="_blank" rel="noopener">Run the live tool</a>
+    to exercise them.
+  </div>
+  <script>
+    // Teach the page to behave on the static site, where Flask isn't around
+    // to partial-render HX-Request responses or route absolute hx-get paths.
+    // Three things we need to undo / substitute:
+    //   1. Disable htmx's history machinery entirely. hx-push-url="true"
+    //      would rewrite the address bar to the clicked row's relative
+    //      hx-get target (.../<view>/<cid>/index.html). On the next click
+    //      the sibling rows' relative hx-gets then resolve against that new
+    //      path, producing a nested .../<view>/<cid1>/<cid2>/index.html
+    //      that 404s.
+    //   2. Extract the target fragment from full-page responses — we can't
+    //      branch on HX-Request, so every hx-get returns the whole page;
+    //      adding hx-select=<target> with hx-swap=outerHTML pulls out just
+    //      the fragment htmx would have otherwise inlined verbatim.
+    //   3. Neuter POST forms / hx-post actions so the disabled visual
+    //      doesn't lie if someone clicks through the pointer-events guard.
+    if (window.htmx && window.htmx.config) window.htmx.config.historyEnabled = false;
+    (function () {
+      function each(scope, selector, fn) {
+        if (scope.matches && scope.matches(selector)) fn(scope);
+        if (scope.querySelectorAll) scope.querySelectorAll(selector).forEach(fn);
+      }
+      function process(scope) {
+        if (!scope) return;
+        each(scope, 'form[method="post"], form[method="POST"]', function (f) {
+          f.addEventListener('submit', function (e) { e.preventDefault(); });
+        });
+        each(scope, '[hx-post]', function (el) { el.removeAttribute('hx-post'); });
+        each(scope, '[hx-get][hx-target]', function (el) {
+          if (el.getAttribute('hx-push-url') === 'true') el.removeAttribute('hx-push-url');
+          if (el.hasAttribute('hx-select')) return;
+          el.setAttribute('hx-select', el.getAttribute('hx-target'));
+          el.setAttribute('hx-swap', 'outerHTML');
+        });
+      }
+      document.addEventListener('DOMContentLoaded', function () { process(document); });
+      document.addEventListener('htmx:afterSwap', function (evt) { process(evt.target); });
+    })();
+  </script>
+  
+  <main>
+    
+      
+    
+    
+
+<style>
+  .corner-tbl td, .corner-tbl th { font-size: .88rem; padding: .3rem .5rem; }
+  .corner-tbl .hn, .corner-tbl .street {
+    font-family: ui-monospace, Menlo, Consolas, monospace; white-space: nowrap;
+  }
+  .corner-tbl tbody tr:nth-child(odd) { background: #fafafa; }
+  .muted-small { color: #6b7280; font-size: .82rem; }
+</style>
+
+<div class="card">
+  <h2>Corner-lot &amp; multi-street-name addresses
+    <span class="pill">0</span>
+  </h2>
+
+  
+    <p class="muted" style="margin-bottom:.4rem">
+      Source: <code>C:\Users\kk\Code\toronto-2-address-import\data\osm\toronto-addresses.json</code> ·
+      <a href="../index.html">← back to summary</a>
+    </p>
+
+    <p>
+      A building on a corner lot often has two valid street addresses — one
+      off each street. OSM encodes this by packing both street names into
+      <code>addr:street</code> separated by <code>;</code>, with matching
+      numbers in <code>addr:housenumber</code> (also <code>;</code>-separated).
+      Example: <code>addr:street=Rowatson Road;Fareham Crescent</code> with
+      <code>addr:housenumber=55;50</code>.
+    </p>
+    <p>
+      Comma in <code>addr:street</code> is a different signal. It usually
+      means a single address where trailing bits (city, suite, unit) were
+      dumped into the street tag instead of their own tag — not a real
+      multi-street case.
+    </p>
+    <p class="muted-small">
+      Clue: this page simply enumerates every element in the clipped extract
+      whose <code>addr:street</code> contains <code>;</code> or <code>,</code>.
+      Click any row to open it on openstreetmap.org.
+    </p>
+  
+</div>
+
+
+
+<div class="card">
+  <h3>Corner lots (<code>;</code> in <code>addr:street</code>)
+    <span class="pill">0</span>
+  </h3>
+  <p class="muted-small" style="margin:.2rem 0 .6rem">
+    Canonical multi-value addresses: both a semicolon-separated street tag
+    and (usually) a matching semicolon-separated housenumber.
+  </p>
+  
+    <p class="muted">none</p>
+  
+</div>
+
+<div class="card">
+  <h3>Comma in street (likely malformed, not corner lots)
+    <span class="pill">0</span>
+  </h3>
+  <p class="muted-small" style="margin:.2rem 0 .6rem">
+    These are typically single addresses where the mapper stuffed extra
+    locality/suite information into <code>addr:street</code>. The fix is
+    usually to move that suffix to <code>addr:city</code>,
+    <code>addr:unit</code>, or drop it entirely.
+  </p>
+  
+    <p class="muted">none</p>
+  
+</div>
+
+
+
+
+  </main>
+</body>
+</html>

@@ -1,0 +1,3958 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Source lists · ranges & half-numbers</title>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="../../assets/detail-map.js"></script>
+  <script src="../../assets/review-keys.js" defer></script>
+  <link rel="stylesheet" href="../../assets/site.css">
+  
+  <style>
+    .static-banner { background: #fef3c7; border-bottom: 2px solid #f59e0b;
+                     padding: .6rem 1.2rem; font-size: .88rem; color: #78350f;
+                     text-align: center; }
+    .static-banner a { color: #78350f; font-weight: 600; }
+    body.static-export form[method="post"],
+    body.static-export [hx-post] { opacity: .6; cursor: not-allowed; }
+    body.static-export form[method="post"] button,
+    body.static-export form[method="post"] input[type="submit"],
+    body.static-export form[method="post"] select,
+    body.static-export form[method="post"] input[type="text"],
+    body.static-export form[method="post"] input[type="number"],
+    body.static-export [hx-post] button,
+    body.static-export [hx-post] input[type="checkbox"] { pointer-events: none; }
+  </style>
+  
+</head>
+
+
+
+<body class="static-export">
+  <header>
+    <span class="nav">
+      <a href="../../index.html"><strong>t2 address import</strong></a>
+      
+      
+      <a href="../../osm/index.html">OSM extract</a>
+      <a href="../../streets/index.html">Streets</a>
+      <a href="index.html">Source lists</a>
+      <a href="../../osm/multi/index.html">Multi-addresses</a>
+      <a href="../../osm/multi/corners/index.html">Corners</a>
+      <a href="../../data/index.html">Data</a>
+      
+    </span>
+    <span class="meta">
+      <a href="https://github.com/skfd/toronto-2-address-import" target="_blank" rel="noopener">GitHub</a>
+      <span class="sep">·</span>
+      <a href="https://community.openstreetmap.org/t/address-import-for-toronto/119368" target="_blank" rel="noopener">OSM discussion</a>
+      <span class="sep">·</span>
+      <a href="https://github.com/skfd/toronto-2-address-import/blob/main/LICENSE" target="_blank" rel="noopener">MIT</a>
+      <span class="sep">·</span>
+      <a href="https://open.toronto.ca/open-data-licence/" target="_blank" rel="noopener">Toronto Open Data</a>
+      &amp;
+      &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OSM</a>
+    </span>
+  </header>
+  
+  <div class="static-banner">
+    Static snapshot of run <strong>south-riverdale-nw-nw-ne-batch-2026-05-03</strong>
+    as of 2026-05-04 —
+    pilot evidence for the
+    <a href="https://github.com/skfd/toronto-2-address-import/blob/main/IMPORT_PROPOSAL.mediawiki" target="_blank" rel="noopener">Toronto address import proposal</a>.
+    Interactive actions (stages, review decisions, uploads) are disabled.
+    <a href="https://github.com/skfd/toronto-2-address-import" target="_blank" rel="noopener">Run the live tool</a>
+    to exercise them.
+  </div>
+  <script>
+    // Teach the page to behave on the static site, where Flask isn't around
+    // to partial-render HX-Request responses or route absolute hx-get paths.
+    // Three things we need to undo / substitute:
+    //   1. Disable htmx's history machinery entirely. hx-push-url="true"
+    //      would rewrite the address bar to the clicked row's relative
+    //      hx-get target (.../<view>/<cid>/index.html). On the next click
+    //      the sibling rows' relative hx-gets then resolve against that new
+    //      path, producing a nested .../<view>/<cid1>/<cid2>/index.html
+    //      that 404s.
+    //   2. Extract the target fragment from full-page responses — we can't
+    //      branch on HX-Request, so every hx-get returns the whole page;
+    //      adding hx-select=<target> with hx-swap=outerHTML pulls out just
+    //      the fragment htmx would have otherwise inlined verbatim.
+    //   3. Neuter POST forms / hx-post actions so the disabled visual
+    //      doesn't lie if someone clicks through the pointer-events guard.
+    if (window.htmx && window.htmx.config) window.htmx.config.historyEnabled = false;
+    (function () {
+      function each(scope, selector, fn) {
+        if (scope.matches && scope.matches(selector)) fn(scope);
+        if (scope.querySelectorAll) scope.querySelectorAll(selector).forEach(fn);
+      }
+      function process(scope) {
+        if (!scope) return;
+        each(scope, 'form[method="post"], form[method="POST"]', function (f) {
+          f.addEventListener('submit', function (e) { e.preventDefault(); });
+        });
+        each(scope, '[hx-post]', function (el) { el.removeAttribute('hx-post'); });
+        each(scope, '[hx-get][hx-target]', function (el) {
+          if (el.getAttribute('hx-push-url') === 'true') el.removeAttribute('hx-push-url');
+          if (el.hasAttribute('hx-select')) return;
+          el.setAttribute('hx-select', el.getAttribute('hx-target'));
+          el.setAttribute('hx-swap', 'outerHTML');
+        });
+      }
+      document.addEventListener('DOMContentLoaded', function () { process(document); });
+      document.addEventListener('htmx:afterSwap', function (evt) { process(evt.target); });
+    })();
+  </script>
+  
+  <main>
+    
+      
+    
+    
+
+
+
+<style>
+  .src-tbl td, .src-tbl th { font-size: .88rem; padding: .3rem .5rem; }
+  .src-tbl td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .src-tbl .bar-cell { width: 160px; }
+  .src-tbl .hn { font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .src-tbl tbody tr:nth-child(odd) { background: #fafafa; }
+  .two-col { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 1rem; }
+  .muted-small { color: #6b7280; font-size: .82rem; }
+  .callout { background: #fffbeb; border-left: 3px solid #f59e0b; padding: .5rem .75rem;
+             border-radius: 3px; margin-bottom: .75rem; font-size: .9rem; }
+</style>
+
+<div class="card">
+  <h2>Source lists <span class="pill">2,187</span></h2>
+  <p class="muted">
+    Snapshot #38
+      · <code>address-points-2026-05-04.geojson</code>
+      · downloaded 2026-05-04T13:00:14
+    · 525,413 active addresses
+  </p>
+  <p>
+    Toronto's address-points dataset is one row per point, so it doesn't pack
+    multi-values into a single tag the way OSM <code>addr:housenumber</code> does.
+    Two list-shaped exceptions show up:
+  </p>
+  <ul>
+    <li>
+      <strong>Range addresses</strong> (1,639 rows,
+      0.31% of active) —
+      a single point representing a span of housenumbers, encoded as <code>N-M</code>
+      with structured <code>lo_num</code> / <code>hi_num</code> columns.
+    </li>
+    <li>
+      <strong>Half-numbers</strong> (548 rows) —
+      addresses suffixed <code>1/2</code>, e.g. <code>2455 1/2 Queen St E</code>.
+      Single addresses, not lists, but reported here as a sibling encoding quirk.
+    </li>
+  </ul>
+  <p class="muted-small">
+    Letter sub-addresses (<code>123A</code>, <code>123B</code>, …) are not lists —
+    each is a single-row address with a sub-letter. They're not counted here.
+  </p>
+</div>
+
+
+
+<div class="card">
+  <h3>Range span distribution <span class="pill">1,639</span></h3>
+  <p class="muted-small" style="margin:.2rem 0 .6rem">
+    How far apart are the two endpoints in an <code>N-M</code> source address?
+    Span 2 (a duplex, <code>1-3</code> or <code>2-4</code>) is the modal case.
+    The long tail above 50 is townhouse rows or strip-mall complexes encoded as
+    a single point.
+  </p>
+  <table class="src-tbl">
+    <thead>
+      <tr><th>span</th><th class="num">count</th><th class="bar-cell"></th><th class="num">% of ranges</th></tr>
+    </thead>
+    <tbody>
+      
+      <tr>
+        <td>1 (adjacent)</td>
+        <td class="num">3</td>
+        <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:180px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:0.34522439585730724%;
+                 background:#0d9488; border-radius:3px;"></span>
+  </span></td>
+        <td class="num">0.2%</td>
+      </tr>
+      
+      <tr>
+        <td>2 (duplex pair)</td>
+        <td class="num">869</td>
+        <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:180px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:100.0%;
+                 background:#0d9488; border-radius:3px;"></span>
+  </span></td>
+        <td class="num">53.0%</td>
+      </tr>
+      
+      <tr>
+        <td>3-9</td>
+        <td class="num">336</td>
+        <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:180px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:38.66513233601841%;
+                 background:#0d9488; border-radius:3px;"></span>
+  </span></td>
+        <td class="num">20.5%</td>
+      </tr>
+      
+      <tr>
+        <td>10-49</td>
+        <td class="num">369</td>
+        <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:180px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:42.462600690448795%;
+                 background:#0d9488; border-radius:3px;"></span>
+  </span></td>
+        <td class="num">22.5%</td>
+      </tr>
+      
+      <tr>
+        <td>50-99</td>
+        <td class="num">53</td>
+        <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:180px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:6.098964326812428%;
+                 background:#0d9488; border-radius:3px;"></span>
+  </span></td>
+        <td class="num">3.2%</td>
+      </tr>
+      
+      <tr>
+        <td>≥100</td>
+        <td class="num">9</td>
+        <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:180px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:1.0356731875719216%;
+                 background:#0d9488; border-radius:3px;"></span>
+  </span></td>
+        <td class="num">0.5%</td>
+      </tr>
+      
+    </tbody>
+  </table>
+</div>
+
+
+<div class="card">
+  <h3>Range parity</h3>
+  <p class="muted-small" style="margin:.2rem 0 .6rem">
+    Both endpoints odd (one side of the street), both even (the other side), or mixed.
+    Mixed-parity ranges cross the street and are usually a data quirk worth eyeballing.
+  </p>
+  
+  <table class="src-tbl">
+    <tbody>
+      <tr>
+        <td>odd-only (1-3, 7-13, …)</td>
+        <td class="num">824</td>
+        <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:200px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:100.0%;
+                 background:#2563eb; border-radius:3px;"></span>
+  </span></td>
+      </tr>
+      <tr>
+        <td>even-only (2-4, 10-16, …)</td>
+        <td class="num">793</td>
+        <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:200px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:96.2378640776699%;
+                 background:#7c3aed; border-radius:3px;"></span>
+  </span></td>
+      </tr>
+      <tr>
+        <td>mixed parity</td>
+        <td class="num">22</td>
+        <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:200px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:2.669902912621359%;
+                 background:#b45309; border-radius:3px;"></span>
+  </span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  
+  <h4 style="margin:1rem 0 .3rem">Mixed-parity examples</h4>
+  <table class="src-tbl">
+    <thead>
+      <tr><th>address</th><th>street</th><th>municipality</th><th class="num">span</th></tr>
+    </thead>
+    <tbody>
+      
+      <tr>
+        <td class="hn">1-96 Red Cedarway</td>
+        <td>Red Cedarway</td>
+        <td class="muted-small">North York</td>
+        <td class="num">95</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1-82 Flax Gardenway</td>
+        <td>Flax Gardenway</td>
+        <td class="muted-small">North York</td>
+        <td class="num">81</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1-50 Driftwood Crt</td>
+        <td>Driftwood Crt</td>
+        <td class="muted-small">North York</td>
+        <td class="num">49</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1-38 Summerhill Rd</td>
+        <td>Summerhill Rd</td>
+        <td class="muted-small">Etobicoke</td>
+        <td class="num">37</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">5-36 Needle Firway</td>
+        <td>Needle Firway</td>
+        <td class="muted-small">North York</td>
+        <td class="num">31</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">10-21 Four Seasons Pl</td>
+        <td>Four Seasons Pl</td>
+        <td class="muted-small">Etobicoke</td>
+        <td class="num">11</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1-8 Arbor Dell Rd</td>
+        <td>Arbor Dell Rd</td>
+        <td class="muted-small">Etobicoke</td>
+        <td class="num">7</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">15-22 Cantle Path</td>
+        <td>Cantle Path</td>
+        <td class="muted-small">Etobicoke</td>
+        <td class="num">7</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">29-36 Cantle Path</td>
+        <td>Cantle Path</td>
+        <td class="muted-small">Etobicoke</td>
+        <td class="num">7</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">4-11 Bexhill Crt</td>
+        <td>Bexhill Crt</td>
+        <td class="muted-small">Etobicoke</td>
+        <td class="num">7</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">43-50 Cantle Path</td>
+        <td>Cantle Path</td>
+        <td class="muted-small">Etobicoke</td>
+        <td class="num">7</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">55-62 Cantle Path</td>
+        <td>Cantle Path</td>
+        <td class="muted-small">Etobicoke</td>
+        <td class="num">7</td>
+      </tr>
+      
+    </tbody>
+  </table>
+  
+</div>
+
+
+
+<div class="card">
+  <h3>Largest spans</h3>
+  <p class="muted-small" style="margin:.2rem 0 .6rem">
+    These are the apartment complexes and industrial parks that get a single
+    address point for a whole frontage. They're the rows the per-run
+    <em>Ranges</em> view splits into parity-aware coverage checks.
+  </p>
+  <table class="src-tbl">
+    <thead>
+      <tr><th class="num">span</th><th>address</th><th>street</th><th>municipality</th></tr>
+    </thead>
+    <tbody>
+      
+      <tr>
+        <td class="num">160</td>
+        <td class="hn">3401-3561 Lawrence Ave E</td>
+        <td>Lawrence Ave E</td>
+        <td class="muted-small">Scarborough</td>
+      </tr>
+      
+      <tr>
+        <td class="num">160</td>
+        <td class="hn">3401A-3561A Lawrence Ave E</td>
+        <td>Lawrence Ave E</td>
+        <td class="muted-small">Scarborough</td>
+      </tr>
+      
+      <tr>
+        <td class="num">160</td>
+        <td class="hn">3401B-3561B Lawrence Ave E</td>
+        <td>Lawrence Ave E</td>
+        <td class="muted-small">Scarborough</td>
+      </tr>
+      
+      <tr>
+        <td class="num">130</td>
+        <td class="hn">445-575 Fenmar Dr</td>
+        <td>Fenmar Dr</td>
+        <td class="muted-small">North York</td>
+      </tr>
+      
+      <tr>
+        <td class="num">126</td>
+        <td class="hn">470-596 Champagne Dr</td>
+        <td>Champagne Dr</td>
+        <td class="muted-small">North York</td>
+      </tr>
+      
+      <tr>
+        <td class="num">114</td>
+        <td class="hn">705-819 Military Trl</td>
+        <td>Military Trl</td>
+        <td class="muted-small">Scarborough</td>
+      </tr>
+      
+      <tr>
+        <td class="num">110</td>
+        <td class="hn">5845-5955 Leslie St</td>
+        <td>Leslie St</td>
+        <td class="muted-small">North York</td>
+      </tr>
+      
+      <tr>
+        <td class="num">100</td>
+        <td class="hn">10-110 Alton Towers Crcl</td>
+        <td>Alton Towers Crcl</td>
+        <td class="muted-small">Scarborough</td>
+      </tr>
+      
+      <tr>
+        <td class="num">100</td>
+        <td class="hn">200-300 Fenmar Dr</td>
+        <td>Fenmar Dr</td>
+        <td class="muted-small">North York</td>
+      </tr>
+      
+      <tr>
+        <td class="num">96</td>
+        <td class="hn">1625-1721 Flint Rd</td>
+        <td>Flint Rd</td>
+        <td class="muted-small">North York</td>
+      </tr>
+      
+      <tr>
+        <td class="num">95</td>
+        <td class="hn">1-96 Red Cedarway</td>
+        <td>Red Cedarway</td>
+        <td class="muted-small">North York</td>
+      </tr>
+      
+      <tr>
+        <td class="num">94</td>
+        <td class="hn">6-100 Parma Crt</td>
+        <td>Parma Crt</td>
+        <td class="muted-small">North York</td>
+      </tr>
+      
+      <tr>
+        <td class="num">94</td>
+        <td class="hn">7-101 York Gate Blvd</td>
+        <td>York Gate Blvd</td>
+        <td class="muted-small">North York</td>
+      </tr>
+      
+      <tr>
+        <td class="num">90</td>
+        <td class="hn">101-191 Ravel Rd</td>
+        <td>Ravel Rd</td>
+        <td class="muted-small">North York</td>
+      </tr>
+      
+      <tr>
+        <td class="num">88</td>
+        <td class="hn">2000-2088 Sheppard Ave E</td>
+        <td>Sheppard Ave E</td>
+        <td class="muted-small">North York</td>
+      </tr>
+      
+    </tbody>
+  </table>
+</div>
+
+
+
+
+
+<div class="card">
+  <h3>Streets with the most range entries</h3>
+  <p class="muted-small" style="margin:.2rem 0 .6rem">
+    Major arterials accumulate the most range-encoded points; they're typically
+    strip malls and apartment complexes lining the corridor.
+  </p>
+  <table class="src-tbl">
+    <thead><tr><th>street</th><th class="num">ranges</th><th class="bar-cell"></th></tr></thead>
+    <tbody>
+      
+      <tr>
+        <td>Lake Shore Blvd W</td>
+        <td class="num">83</td>
+        <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:160px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:100.0%;
+                 background:#0d9488; border-radius:3px;"></span>
+  </span></td>
+      </tr>
+      
+      <tr>
+        <td>Eglinton Ave W</td>
+        <td class="num">53</td>
+        <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:160px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:63.85542168674698%;
+                 background:#0d9488; border-radius:3px;"></span>
+  </span></td>
+      </tr>
+      
+      <tr>
+        <td>Yonge St</td>
+        <td class="num">43</td>
+        <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:160px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:51.80722891566265%;
+                 background:#0d9488; border-radius:3px;"></span>
+  </span></td>
+      </tr>
+      
+      <tr>
+        <td>Wilson Ave</td>
+        <td class="num">36</td>
+        <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:160px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:43.373493975903614%;
+                 background:#0d9488; border-radius:3px;"></span>
+  </span></td>
+      </tr>
+      
+      <tr>
+        <td>Weston Rd</td>
+        <td class="num">35</td>
+        <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:160px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:42.168674698795186%;
+                 background:#0d9488; border-radius:3px;"></span>
+  </span></td>
+      </tr>
+      
+      <tr>
+        <td>Danforth Ave</td>
+        <td class="num">35</td>
+        <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:160px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:42.168674698795186%;
+                 background:#0d9488; border-radius:3px;"></span>
+  </span></td>
+      </tr>
+      
+      <tr>
+        <td>Kingston Rd</td>
+        <td class="num">32</td>
+        <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:160px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:38.55421686746988%;
+                 background:#0d9488; border-radius:3px;"></span>
+  </span></td>
+      </tr>
+      
+      <tr>
+        <td>Brown&#39;s Line</td>
+        <td class="num">27</td>
+        <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:160px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:32.53012048192771%;
+                 background:#0d9488; border-radius:3px;"></span>
+  </span></td>
+      </tr>
+      
+      <tr>
+        <td>Bloor St W</td>
+        <td class="num">23</td>
+        <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:160px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:27.710843373493976%;
+                 background:#0d9488; border-radius:3px;"></span>
+  </span></td>
+      </tr>
+      
+      <tr>
+        <td>Finch Ave W</td>
+        <td class="num">21</td>
+        <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:160px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:25.301204819277107%;
+                 background:#0d9488; border-radius:3px;"></span>
+  </span></td>
+      </tr>
+      
+      <tr>
+        <td>Oakdale Rd</td>
+        <td class="num">21</td>
+        <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:160px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:25.301204819277107%;
+                 background:#0d9488; border-radius:3px;"></span>
+  </span></td>
+      </tr>
+      
+      <tr>
+        <td>Victoria Park Ave</td>
+        <td class="num">21</td>
+        <td class="bar-cell"><span style="display:inline-block; vertical-align:middle; width:160px;
+               background:#e5e7eb; border-radius:3px; height:10px;">
+    <span style="display:block; height:100%; width:25.301204819277107%;
+                 background:#0d9488; border-radius:3px;"></span>
+  </span></td>
+      </tr>
+      
+    </tbody>
+  </table>
+</div>
+
+
+
+<div class="card">
+  <h3>Half-number addresses <span class="pill">548</span></h3>
+  <div class="callout">
+    <code>1/2</code>-suffixed addresses (e.g. <code>2455 1/2 Queen St E</code>) are
+    the source's way of encoding a coach house, second-suite, or rear unit on a
+    standard lot without minting a new street number. Single points, not ranges.
+  </div>
+  
+  <table class="src-tbl">
+    <thead>
+      <tr><th>address</th><th>street</th><th>municipality</th></tr>
+    </thead>
+    <tbody>
+      
+      <tr>
+        <td class="hn">29 1/2 Abbott Ave</td>
+        <td>Abbott Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">11 1/2 Aberdeen Ave</td>
+        <td>Aberdeen Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">84 1/2 Adelaide St E</td>
+        <td>Adelaide St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">342 1/2 Adelaide St W</td>
+        <td>Adelaide St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">222 1/2 Albany Ave</td>
+        <td>Albany Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2 1/2 Alcorn Ave</td>
+        <td>Alcorn Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">40 1/2 Amelia St</td>
+        <td>Amelia St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">67 1/2 Amroth Ave</td>
+        <td>Amroth Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">11 1/2 Ancroft Pl</td>
+        <td>Ancroft Pl</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">56 1/2 Argyle St</td>
+        <td>Argyle St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">77 1/2 Argyle St</td>
+        <td>Argyle St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">79 1/2 Argyle St</td>
+        <td>Argyle St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">46 1/2 Augusta Ave</td>
+        <td>Augusta Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">27 1/2 Austin Ave</td>
+        <td>Austin Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">92 1/2 Avenue Rd</td>
+        <td>Avenue Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2043 1/2 Avenue Rd</td>
+        <td>Avenue Rd</td>
+        <td class="muted-small">North York</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2074 1/2 Avenue Rd</td>
+        <td>Avenue Rd</td>
+        <td class="muted-small">North York</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">177 1/2 Bain Ave</td>
+        <td>Bain Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">118 1/2 Baldwin St</td>
+        <td>Baldwin St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">193 1/2 Baldwin St</td>
+        <td>Baldwin St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">197 1/2 Baldwin St</td>
+        <td>Baldwin St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">20 1/2 Balsam Ave</td>
+        <td>Balsam Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">23 1/2 Balsam Ave</td>
+        <td>Balsam Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">210 1/2 Balsam Ave</td>
+        <td>Balsam Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">57 1/2 Barrington Ave</td>
+        <td>Barrington Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">271 1/2 Bartlett Ave</td>
+        <td>Bartlett Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">390 1/2 Bathurst St</td>
+        <td>Bathurst St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">859 1/2 Bathurst St</td>
+        <td>Bathurst St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">903 1/2 Bathurst St</td>
+        <td>Bathurst St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">911 1/2 Bathurst St</td>
+        <td>Bathurst St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1081 1/2 Bathurst St</td>
+        <td>Bathurst St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1083 1/2 Bathurst St</td>
+        <td>Bathurst St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1177 1/2 Bathurst St</td>
+        <td>Bathurst St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2 1/2 Battenberg Ave</td>
+        <td>Battenberg Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">16 1/2 Battenberg Ave</td>
+        <td>Battenberg Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1564 1/2 Bayview Ave</td>
+        <td>Bayview Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1574 1/2 Bayview Ave</td>
+        <td>Bayview Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">89 1/2 Beaconsfield Ave</td>
+        <td>Beaconsfield Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">136 1/2 Beaconsfield Ave</td>
+        <td>Beaconsfield Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">137 1/2 Beaconsfield Ave</td>
+        <td>Beaconsfield Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">51 1/2 Beaver Ave</td>
+        <td>Beaver Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">154 1/2 Bedford Park Ave</td>
+        <td>Bedford Park Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">83 1/2 Beech Ave</td>
+        <td>Beech Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">140 1/2 Beech Ave</td>
+        <td>Beech Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">16 1/2 Bellevue Ave</td>
+        <td>Bellevue Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">18 1/2 Bellevue Ave</td>
+        <td>Bellevue Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">20 1/2 Bellevue Ave</td>
+        <td>Bellevue Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">34 1/2 Bellwoods Ave</td>
+        <td>Bellwoods Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">36 1/2 Bellwoods Ave</td>
+        <td>Bellwoods Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">98 1/2 Bellwoods Ave</td>
+        <td>Bellwoods Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">120 1/2 Bellwoods Ave</td>
+        <td>Bellwoods Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">148 1/2 Bellwoods Ave</td>
+        <td>Bellwoods Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">18 1/2 Benlamond Ave</td>
+        <td>Benlamond Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">149 1/2 Berkeley St</td>
+        <td>Berkeley St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">42 1/2 Berryman St</td>
+        <td>Berryman St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">185 1/2 Beverley St</td>
+        <td>Beverley St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">201 1/2 Beverley St</td>
+        <td>Beverley St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">181 1/2 Bingham Ave</td>
+        <td>Bingham Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1 1/2 Birchmount Rd</td>
+        <td>Birchmount Rd</td>
+        <td class="muted-small">Scarborough</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">39 1/2 Blake St</td>
+        <td>Blake St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">41 1/2 Blake St</td>
+        <td>Blake St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">93 1/2 Bloor St W</td>
+        <td>Bloor St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">320 1/2 Bloor St W</td>
+        <td>Bloor St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">322 1/2 Bloor St W</td>
+        <td>Bloor St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">324 1/2 Bloor St W</td>
+        <td>Bloor St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">326 1/2 Bloor St W</td>
+        <td>Bloor St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">328 1/2 Bloor St W</td>
+        <td>Bloor St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">488 1/2 Bloor St W</td>
+        <td>Bloor St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">622 1/2 Bloor St W</td>
+        <td>Bloor St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">660 1/2 Bloor St W</td>
+        <td>Bloor St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">708 1/2 Bloor St W</td>
+        <td>Bloor St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">849 1/2 Bloor St W</td>
+        <td>Bloor St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">873 1/2 Bloor St W</td>
+        <td>Bloor St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">973 1/2 Bloor St W</td>
+        <td>Bloor St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">975 1/2 Bloor St W</td>
+        <td>Bloor St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">987 1/2 Bloor St W</td>
+        <td>Bloor St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">993 1/2 Bloor St W</td>
+        <td>Bloor St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2477 1/2 Bloor St W</td>
+        <td>Bloor St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2956 1/2 Bloor St W</td>
+        <td>Bloor St W</td>
+        <td class="muted-small">Etobicoke</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">103 1/2 Borden St</td>
+        <td>Borden St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">119 1/2 Borden St</td>
+        <td>Borden St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">143 1/2 Borden St</td>
+        <td>Borden St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">225 1/2 Borden St</td>
+        <td>Borden St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">58 1/2 Boultbee Ave</td>
+        <td>Boultbee Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">81 1/2 Boultbee Ave</td>
+        <td>Boultbee Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">88 1/2 Boultbee Ave</td>
+        <td>Boultbee Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">221 1/2 Broadview Ave</td>
+        <td>Broadview Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">235 1/2 Broadview Ave</td>
+        <td>Broadview Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">359 1/2 Broadview Ave</td>
+        <td>Broadview Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">786 1/2 Broadview Ave</td>
+        <td>Broadview Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">211 1/2 Brock Ave</td>
+        <td>Brock Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">227 1/2 Brock Ave</td>
+        <td>Brock Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">451 1/2 Brock Ave</td>
+        <td>Brock Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">652 1/2 Brock Ave</td>
+        <td>Brock Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">277 1/2 Brunswick Ave</td>
+        <td>Brunswick Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">212 1/2 Caledonia Rd</td>
+        <td>Caledonia Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">216 1/2 Caledonia Rd</td>
+        <td>Caledonia Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">335 1/2 Caledonia Rd</td>
+        <td>Caledonia Rd</td>
+        <td class="muted-small">York</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">23 1/2 Camden St</td>
+        <td>Camden St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">149 1/2 Campbell Ave</td>
+        <td>Campbell Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">163 1/2 Campbell Ave</td>
+        <td>Campbell Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">176 1/2 Campbell Ave</td>
+        <td>Campbell Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">103 1/2 Carlaw Ave</td>
+        <td>Carlaw Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">819 1/2 Carlaw Ave</td>
+        <td>Carlaw Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">833 1/2 Carlaw Ave</td>
+        <td>Carlaw Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">866 1/2 Carlaw Ave</td>
+        <td>Carlaw Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">198 1/2 Carlton St</td>
+        <td>Carlton St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">252 1/2 Carlton St</td>
+        <td>Carlton St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">5 1/2 Cassels Ave</td>
+        <td>Cassels Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">119 1/2 Cedric Ave</td>
+        <td>Cedric Ave</td>
+        <td class="muted-small">York</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">58 1/2 Chambers Ave</td>
+        <td>Chambers Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">146 1/2 Christie St</td>
+        <td>Christie St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">166 1/2 Christie St</td>
+        <td>Christie St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">145 1/2 Church St</td>
+        <td>Church St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">153 1/2 Church St</td>
+        <td>Church St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">485 1/2 Church St</td>
+        <td>Church St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">507 1/2 Church St</td>
+        <td>Church St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">509 1/2 Church St</td>
+        <td>Church St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2 1/2 Clinton St</td>
+        <td>Clinton St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">43 1/2 Clinton St</td>
+        <td>Clinton St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">305 1/2 Clinton St</td>
+        <td>Clinton St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">307 1/2 Clinton St</td>
+        <td>Clinton St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">428 1/2 Clinton St</td>
+        <td>Clinton St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">116 1/2 Coleman Ave</td>
+        <td>Coleman Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">153 1/2 Coleman Ave</td>
+        <td>Coleman Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">157 1/2 Coleman Ave</td>
+        <td>Coleman Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">168 1/2 Coleman Ave</td>
+        <td>Coleman Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">254 1/2 Coleridge Ave</td>
+        <td>Coleridge Ave</td>
+        <td class="muted-small">East York</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">285 1/2 College St</td>
+        <td>College St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">409 1/2 College St</td>
+        <td>College St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">430 1/2 College St</td>
+        <td>College St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">584 1/2 College St</td>
+        <td>College St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">601 1/2 College St</td>
+        <td>College St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">602 1/2 College St</td>
+        <td>College St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">836 1/2 College St</td>
+        <td>College St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">926 1/2 College St</td>
+        <td>College St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1041 1/2 College St</td>
+        <td>College St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">498 1/2 Concord Ave</td>
+        <td>Concord Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">26 1/2 Condor Ave</td>
+        <td>Condor Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">20 1/2 Cowan Ave</td>
+        <td>Cowan Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">270 1/2 Coxwell Ave</td>
+        <td>Coxwell Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">698 1/2 Coxwell Ave</td>
+        <td>Coxwell Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1034 1/2 Coxwell Ave</td>
+        <td>Coxwell Ave</td>
+        <td class="muted-small">East York</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">737 1/2 Craven Rd</td>
+        <td>Craven Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">303 1/2 Crawford St</td>
+        <td>Crawford St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">343 1/2 Crawford St</td>
+        <td>Crawford St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">349 1/2 Crawford St</td>
+        <td>Crawford St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">380 1/2 Crawford St</td>
+        <td>Crawford St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">704 1/2 Crawford St</td>
+        <td>Crawford St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">784 1/2 Crawford St</td>
+        <td>Crawford St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">128 1/2 Cumberland St</td>
+        <td>Cumberland St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">407 1/2 Danforth Ave</td>
+        <td>Danforth Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">446 1/2 Danforth Ave</td>
+        <td>Danforth Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2527 1/2 Danforth Ave</td>
+        <td>Danforth Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">580 1/2 Danforth Rd</td>
+        <td>Danforth Rd</td>
+        <td class="muted-small">Scarborough</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">485 1/2 Davenport Rd</td>
+        <td>Davenport Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1089 1/2 Davenport Rd</td>
+        <td>Davenport Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1093 1/2 Davenport Rd</td>
+        <td>Davenport Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1095 1/2 Davenport Rd</td>
+        <td>Davenport Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1097 1/2 Davenport Rd</td>
+        <td>Davenport Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1099 1/2 Davenport Rd</td>
+        <td>Davenport Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1101 1/2 Davenport Rd</td>
+        <td>Davenport Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1103 1/2 Davenport Rd</td>
+        <td>Davenport Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1115 1/2 Davenport Rd</td>
+        <td>Davenport Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">94 1/2 Dawes Rd</td>
+        <td>Dawes Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">58 1/2 De Grassi St</td>
+        <td>De Grassi St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">88 1/2 De Grassi St</td>
+        <td>De Grassi St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">90 1/2 De Grassi St</td>
+        <td>De Grassi St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">111 1/2 De Grassi St</td>
+        <td>De Grassi St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1 1/2 Delaney Cres</td>
+        <td>Delaney Cres</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">20 1/2 Delaney Cres</td>
+        <td>Delaney Cres</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">57 1/2 Delaware Ave</td>
+        <td>Delaware Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">24 1/2 Deloraine Ave</td>
+        <td>Deloraine Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">26 1/2 Dingwall Ave</td>
+        <td>Dingwall Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">243 1/2 Dovercourt Rd</td>
+        <td>Dovercourt Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">27 1/2 Dunbar Rd</td>
+        <td>Dunbar Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2222 1/2 Dundas St W</td>
+        <td>Dundas St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">4152 1/2 Dundas St W</td>
+        <td>Dundas St W</td>
+        <td class="muted-small">Etobicoke</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">237 1/2 Dunraven Dr</td>
+        <td>Dunraven Dr</td>
+        <td class="muted-small">York</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">67 1/2 Durie St</td>
+        <td>Durie St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">103 1/2 Earlscourt Ave</td>
+        <td>Earlscourt Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">511 1/2 Eastern Ave</td>
+        <td>Eastern Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">72 1/2 Eaton Ave</td>
+        <td>Eaton Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">111 1/2 Eaton Ave</td>
+        <td>Eaton Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">253 1/2 Eglinton Ave W</td>
+        <td>Eglinton Ave W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">533 1/2 Eglinton Ave W</td>
+        <td>Eglinton Ave W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1776 1/2 Eglinton Ave W</td>
+        <td>Eglinton Ave W</td>
+        <td class="muted-small">York</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">17 1/2 Eileen Ave</td>
+        <td>Eileen Ave</td>
+        <td class="muted-small">York</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">45 1/2 Ellerbeck St</td>
+        <td>Ellerbeck St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">24 1/2 Empire Ave</td>
+        <td>Empire Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">155 1/2 Euclid Ave</td>
+        <td>Euclid Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">266 1/2 Euclid Ave</td>
+        <td>Euclid Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">638 1/2 Euclid Ave</td>
+        <td>Euclid Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">640 1/2 Euclid Ave</td>
+        <td>Euclid Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">53 1/2 Fairview Ave</td>
+        <td>Fairview Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">121 1/2 Fern Ave</td>
+        <td>Fern Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">123 1/2 Fern Ave</td>
+        <td>Fern Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">128 1/2 Ferrier Ave</td>
+        <td>Ferrier Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">16 1/2 Foxley St</td>
+        <td>Foxley St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">40 1/2 Foxley St</td>
+        <td>Foxley St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">63 1/2 Frizzell Ave</td>
+        <td>Frizzell Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">82 1/2 Frizzell Ave</td>
+        <td>Frizzell Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">95 1/2 Fuller Ave</td>
+        <td>Fuller Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">54 1/2 Galley Ave</td>
+        <td>Galley Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">27 1/2 Garden Ave</td>
+        <td>Garden Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">69 1/2 Garden Ave</td>
+        <td>Garden Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1 1/2 Garfield Ave</td>
+        <td>Garfield Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">3 1/2 Geoffrey St</td>
+        <td>Geoffrey St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">279 1/2 George St</td>
+        <td>George St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">279 1/2 George St</td>
+        <td>George St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">281 1/2 George St</td>
+        <td>George St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">283 1/2 George St</td>
+        <td>George St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">454 1/2 Gerrard St E</td>
+        <td>Gerrard St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">706 1/2 Gerrard St E</td>
+        <td>Gerrard St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">728 1/2 Gerrard St E</td>
+        <td>Gerrard St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">816 1/2 Gerrard St E</td>
+        <td>Gerrard St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">938 1/2 Gerrard St E</td>
+        <td>Gerrard St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1054 1/2 Gerrard St E</td>
+        <td>Gerrard St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1248 1/2 Gerrard St E</td>
+        <td>Gerrard St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1250 1/2 Gerrard St E</td>
+        <td>Gerrard St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1430 1/2 Gerrard St E</td>
+        <td>Gerrard St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1910 1/2 Gerrard St E</td>
+        <td>Gerrard St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2129 1/2 Gerrard St E</td>
+        <td>Gerrard St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2335 1/2 Gerrard St E</td>
+        <td>Gerrard St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2337 1/2 Gerrard St E</td>
+        <td>Gerrard St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">161 1/2 Gladstone Ave</td>
+        <td>Gladstone Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">436 1/2 Gladstone Ave</td>
+        <td>Gladstone Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">26 1/2 Glasgow St</td>
+        <td>Glasgow St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">47 1/2 Glencairn Ave</td>
+        <td>Glencairn Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">82 1/2 Glencairn Ave</td>
+        <td>Glencairn Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">267 1/2 Glenholme Ave</td>
+        <td>Glenholme Ave</td>
+        <td class="muted-small">York</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">69 1/2 Gloucester St</td>
+        <td>Gloucester St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">11 1/2 Golden Ave</td>
+        <td>Golden Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">157 1/2 Golfview Ave</td>
+        <td>Golfview Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">103 1/2 Grace St</td>
+        <td>Grace St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">29 1/2 Granby St</td>
+        <td>Granby St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">31 1/2 Granby St</td>
+        <td>Granby St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">109 1/2 Granby St</td>
+        <td>Granby St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">40 1/2 Greensides Ave</td>
+        <td>Greensides Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1076 1/2 Greenwood Ave</td>
+        <td>Greenwood Ave</td>
+        <td class="muted-small">East York</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">31 1/2 Grove Ave</td>
+        <td>Grove Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">78 1/2 Gwynne Ave</td>
+        <td>Gwynne Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">136 1/2 Hallam St</td>
+        <td>Hallam St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">157 1/2 Hamilton St</td>
+        <td>Hamilton St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">163 1/2 Hampton Ave</td>
+        <td>Hampton Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">18 1/2 Hannaford St</td>
+        <td>Hannaford St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">18 1/2 Harcourt Ave</td>
+        <td>Harcourt Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">289 1/2 Harvie Ave</td>
+        <td>Harvie Ave</td>
+        <td class="muted-small">York</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">110 1/2 Havelock St</td>
+        <td>Havelock St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">83 1/2 Hazelton Ave</td>
+        <td>Hazelton Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">22 1/2 Henderson Ave</td>
+        <td>Henderson Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2 1/2 Herbert Ave</td>
+        <td>Herbert Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">31 1/2 Herbert Ave</td>
+        <td>Herbert Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">89 1/2 Hiawatha Rd</td>
+        <td>Hiawatha Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">91 1/2 Hiawatha Rd</td>
+        <td>Hiawatha Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">14 1/2 Howie Ave</td>
+        <td>Howie Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">326 1/2 Howland Ave</td>
+        <td>Howland Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">254 1/2 Indian Rd</td>
+        <td>Indian Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">197 1/2 Jones Ave</td>
+        <td>Jones Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">225 1/2 Jones Ave</td>
+        <td>Jones Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">229 1/2 Jones Ave</td>
+        <td>Jones Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">118 1/2 Kenilworth Ave</td>
+        <td>Kenilworth Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">122 1/2 Kenilworth Ave</td>
+        <td>Kenilworth Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">229 1/2 Kenilworth Ave</td>
+        <td>Kenilworth Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">52 1/2 Kennedy Ave</td>
+        <td>Kennedy Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">61 1/2 Kensington Ave</td>
+        <td>Kensington Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">14 1/2 Kenwood Ave</td>
+        <td>Kenwood Ave</td>
+        <td class="muted-small">York</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">16 1/2 Kenwood Ave</td>
+        <td>Kenwood Ave</td>
+        <td class="muted-small">York</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">533 1/2 Kingston Rd</td>
+        <td>Kingston Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">970 1/2 Kingston Rd</td>
+        <td>Kingston Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">978 1/2 Kingston Rd</td>
+        <td>Kingston Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">993 1/2 Kingston Rd</td>
+        <td>Kingston Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2448 1/2 Kingston Rd</td>
+        <td>Kingston Rd</td>
+        <td class="muted-small">Scarborough</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2857 1/2 Kingston Rd</td>
+        <td>Kingston Rd</td>
+        <td class="muted-small">Scarborough</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">4518 1/2 Kingston Rd</td>
+        <td>Kingston Rd</td>
+        <td class="muted-small">Scarborough</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">4520 1/2 Kingston Rd</td>
+        <td>Kingston Rd</td>
+        <td class="muted-small">Scarborough</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">28 1/2 Kippendavie Ave</td>
+        <td>Kippendavie Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">62 1/2 Laing St</td>
+        <td>Laing St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2914 1/2 Lake Shore Blvd W</td>
+        <td>Lake Shore Blvd W</td>
+        <td class="muted-small">Etobicoke</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2916 1/2 Lake Shore Blvd W</td>
+        <td>Lake Shore Blvd W</td>
+        <td class="muted-small">Etobicoke</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">164 1/2 Lambton Ave</td>
+        <td>Lambton Ave</td>
+        <td class="muted-small">York</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">68 1/2 Lansdowne Ave</td>
+        <td>Lansdowne Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">113 1/2 Lansdowne Ave</td>
+        <td>Lansdowne Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">128 1/2 Lansdowne Ave</td>
+        <td>Lansdowne Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">9 1/2 Lappin Ave</td>
+        <td>Lappin Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">92 1/2 Lappin Ave</td>
+        <td>Lappin Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">109 1/2 Lappin Ave</td>
+        <td>Lappin Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">267 1/2 Lappin Ave</td>
+        <td>Lappin Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">88 1/2 Lawlor Ave</td>
+        <td>Lawlor Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">211 1/2 Leslie St</td>
+        <td>Leslie St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">225 1/2 Leslie St</td>
+        <td>Leslie St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">18 1/2 Lindsey Ave</td>
+        <td>Lindsey Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">11 1/2 Lippincott St</td>
+        <td>Lippincott St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">121 1/2 Lippincott St</td>
+        <td>Lippincott St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">5 1/2 Lockwood Rd</td>
+        <td>Lockwood Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">59 1/2 Logan Ave</td>
+        <td>Logan Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">224 1/2 Logan Ave</td>
+        <td>Logan Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">607 1/2 Logan Ave</td>
+        <td>Logan Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">239 1/2 Lonsmount Dr</td>
+        <td>Lonsmount Dr</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">5 1/2 Luttrell Ave</td>
+        <td>Luttrell Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">5 1/2 MacKenzie Cres</td>
+        <td>MacKenzie Cres</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">30 1/2 Macaulay Ave</td>
+        <td>Macaulay Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">32 1/2 Macaulay Ave</td>
+        <td>Macaulay Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">110 1/2 Mackay Ave</td>
+        <td>Mackay Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">44 1/2 Maher Ave</td>
+        <td>Maher Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">136 1/2 Main St</td>
+        <td>Main St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">339 1/2 Main St</td>
+        <td>Main St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1 1/2 Major St</td>
+        <td>Major St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">439 1/2 Manning Ave</td>
+        <td>Manning Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">478 1/2 Manning Ave</td>
+        <td>Manning Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">486 1/2 Manning Ave</td>
+        <td>Manning Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">664 1/2 Manning Ave</td>
+        <td>Manning Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2 1/2 Manor Rd E</td>
+        <td>Manor Rd E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">290 1/2 Manor Rd E</td>
+        <td>Manor Rd E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">89 1/2 Maplewood Ave</td>
+        <td>Maplewood Ave</td>
+        <td class="muted-small">York</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">119 1/2 Maplewood Ave</td>
+        <td>Maplewood Ave</td>
+        <td class="muted-small">York</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">74 1/2 Markham St</td>
+        <td>Markham St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">170 1/2 Markham St</td>
+        <td>Markham St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">171 1/2 Markham St</td>
+        <td>Markham St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">226 1/2 Markham St</td>
+        <td>Markham St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">343 1/2 Markham St</td>
+        <td>Markham St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">345 1/2 Markham St</td>
+        <td>Markham St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">347 1/2 Markham St</td>
+        <td>Markham St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">392 1/2 Markham St</td>
+        <td>Markham St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">685 1/2 Markham St</td>
+        <td>Markham St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">33 1/2 Marlborough Ave</td>
+        <td>Marlborough Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2 1/2 Marshall St</td>
+        <td>Marshall St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">52 1/2 McGill St</td>
+        <td>McGill St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">54 1/2 McGill St</td>
+        <td>McGill St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">56 1/2 McGill St</td>
+        <td>McGill St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">110 1/2 McGill St</td>
+        <td>McGill St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">112 1/2 McGill St</td>
+        <td>McGill St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2 1/2 Mechanic Ave</td>
+        <td>Mechanic Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">12 1/2 Melbourne Ave</td>
+        <td>Melbourne Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">19 1/2 Melbourne Ave</td>
+        <td>Melbourne Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">20 1/2 Melbourne Ave</td>
+        <td>Melbourne Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">82 1/2 Melrose Ave</td>
+        <td>Melrose Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">3 1/2 Melville Ave</td>
+        <td>Melville Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">21 1/2 Melville Ave</td>
+        <td>Melville Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">57 1/2 Melville Ave</td>
+        <td>Melville Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">10 1/2 Mendel Ave</td>
+        <td>Mendel Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">50 1/2 Mitchell Ave</td>
+        <td>Mitchell Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1 1/2 Montrose Ave</td>
+        <td>Montrose Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">42 1/2 Morningside Ave</td>
+        <td>Morningside Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">31 1/2 Morse St</td>
+        <td>Morse St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">40 1/2 Morse St</td>
+        <td>Morse St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">128 1/2 Morse St</td>
+        <td>Morse St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">627 1/2 Mount Pleasant Rd</td>
+        <td>Mount Pleasant Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">645 1/2 Mount Pleasant Rd</td>
+        <td>Mount Pleasant Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">53 1/2 Mutual St</td>
+        <td>Mutual St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">31 1/2 Myrtle Ave</td>
+        <td>Myrtle Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">39 1/2 Nairn Ave</td>
+        <td>Nairn Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">33 1/2 Nanton Ave</td>
+        <td>Nanton Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">18 1/2 Nassau St</td>
+        <td>Nassau St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">66 1/2 Nassau St</td>
+        <td>Nassau St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">139 1/2 Niagara St</td>
+        <td>Niagara St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">141 1/2 Niagara St</td>
+        <td>Niagara St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">27 1/2 Norwood Rd</td>
+        <td>Norwood Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1545 1/2 O&#39;Connor Dr</td>
+        <td>O&#39;Connor Dr</td>
+        <td class="muted-small">East York</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">20 1/2 O&#39;Hara Ave</td>
+        <td>O&#39;Hara Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">67 1/2 O&#39;Hara Ave</td>
+        <td>O&#39;Hara Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">69 1/2 O&#39;Hara Ave</td>
+        <td>O&#39;Hara Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">503 1/2 Oakwood Ave</td>
+        <td>Oakwood Ave</td>
+        <td class="muted-small">York</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">454 1/2 Ontario St</td>
+        <td>Ontario St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">449 1/2 Oriole Pkwy</td>
+        <td>Oriole Pkwy</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">471 1/2 Oriole Pkwy</td>
+        <td>Oriole Pkwy</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2 1/2 Palmerston Ave</td>
+        <td>Palmerston Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">11 1/2 Palmerston Ave</td>
+        <td>Palmerston Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">21 1/2 Palmerston Ave</td>
+        <td>Palmerston Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">28 1/2 Palmerston Ave</td>
+        <td>Palmerston Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">178 1/2 Palmerston Ave</td>
+        <td>Palmerston Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">20 1/2 Pape Ave</td>
+        <td>Pape Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">482 1/2 Pape Ave</td>
+        <td>Pape Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">587 1/2 Pape Ave</td>
+        <td>Pape Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">776 1/2 Pape Ave</td>
+        <td>Pape Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1004 1/2 Pape Ave</td>
+        <td>Pape Ave</td>
+        <td class="muted-small">East York</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1014 1/2 Pape Ave</td>
+        <td>Pape Ave</td>
+        <td class="muted-small">East York</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1015 1/2 Pape Ave</td>
+        <td>Pape Ave</td>
+        <td class="muted-small">East York</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1016 1/2 Pape Ave</td>
+        <td>Pape Ave</td>
+        <td class="muted-small">East York</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1081 1/2 Pape Ave</td>
+        <td>Pape Ave</td>
+        <td class="muted-small">East York</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">228 1/2 Parliament St</td>
+        <td>Parliament St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">330 1/2 Parliament St</td>
+        <td>Parliament St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">411 1/2 Parliament St</td>
+        <td>Parliament St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">536 1/2 Parliament St</td>
+        <td>Parliament St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">603 1/2 Parliament St</td>
+        <td>Parliament St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">13 1/2 Perth Ave</td>
+        <td>Perth Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">31 1/2 Peveril Hill N</td>
+        <td>Peveril Hill N</td>
+        <td class="muted-small">York</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">115 1/2 Pitt Ave</td>
+        <td>Pitt Ave</td>
+        <td class="muted-small">Scarborough</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">168 1/2 Princess St</td>
+        <td>Princess St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">71 1/2 Queen St E</td>
+        <td>Queen St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">242 1/2 Queen St E</td>
+        <td>Queen St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">323 1/2 Queen St E</td>
+        <td>Queen St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">329 1/2 Queen St E</td>
+        <td>Queen St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">717 1/2 Queen St E</td>
+        <td>Queen St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1148 1/2 Queen St E</td>
+        <td>Queen St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1156 1/2 Queen St E</td>
+        <td>Queen St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1178 1/2 Queen St E</td>
+        <td>Queen St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1184 1/2 Queen St E</td>
+        <td>Queen St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1292 1/2 Queen St E</td>
+        <td>Queen St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1481 1/2 Queen St E</td>
+        <td>Queen St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1594 1/2 Queen St E</td>
+        <td>Queen St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1963 1/2 Queen St E</td>
+        <td>Queen St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1974 1/2 Queen St E</td>
+        <td>Queen St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2331 1/2 Queen St E</td>
+        <td>Queen St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2334 1/2 Queen St E</td>
+        <td>Queen St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2338 1/2 Queen St E</td>
+        <td>Queen St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2379 1/2 Queen St E</td>
+        <td>Queen St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2455 1/2 Queen St E</td>
+        <td>Queen St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">227 1/2 Queen St W</td>
+        <td>Queen St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">272 1/2 Queen St W</td>
+        <td>Queen St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">322 1/2 Queen St W</td>
+        <td>Queen St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">486 1/2 Queen St W</td>
+        <td>Queen St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">559 1/2 Queen St W</td>
+        <td>Queen St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">633 1/2 Queen St W</td>
+        <td>Queen St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">650 1/2 Queen St W</td>
+        <td>Queen St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1082 1/2 Queen St W</td>
+        <td>Queen St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1086 1/2 Queen St W</td>
+        <td>Queen St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1257 1/2 Queen St W</td>
+        <td>Queen St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1351 1/2 Queen St W</td>
+        <td>Queen St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1381 1/2 Queen St W</td>
+        <td>Queen St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1384 1/2 Queen St W</td>
+        <td>Queen St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1468 1/2 Queen St W</td>
+        <td>Queen St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1510 1/2 Queen St W</td>
+        <td>Queen St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1648 1/2 Queen St W</td>
+        <td>Queen St W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">14 1/2 Queensdale Ave</td>
+        <td>Queensdale Ave</td>
+        <td class="muted-small">East York</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">443 1/2 Rhodes Ave</td>
+        <td>Rhodes Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">77 1/2 Roncesvalles Ave</td>
+        <td>Roncesvalles Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">151 1/2 Roncesvalles Ave</td>
+        <td>Roncesvalles Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">153 1/2 Roncesvalles Ave</td>
+        <td>Roncesvalles Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">167 1/2 Roncesvalles Ave</td>
+        <td>Roncesvalles Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">317 1/2 Roncesvalles Ave</td>
+        <td>Roncesvalles Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">393 1/2 Roncesvalles Ave</td>
+        <td>Roncesvalles Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">404 1/2 Roncesvalles Ave</td>
+        <td>Roncesvalles Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">420 1/2 Roncesvalles Ave</td>
+        <td>Roncesvalles Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">11 1/2 Rose Ave</td>
+        <td>Rose Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">18 1/2 Roslin Ave</td>
+        <td>Roslin Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">69 1/2 Roslin Ave</td>
+        <td>Roslin Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">157 1/2 Roslin Ave</td>
+        <td>Roslin Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">164 1/2 Roslin Ave</td>
+        <td>Roslin Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">121 1/2 Rusholme Rd</td>
+        <td>Rusholme Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">123 1/2 Rusholme Rd</td>
+        <td>Rusholme Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">125 1/2 Rusholme Rd</td>
+        <td>Rusholme Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">359 1/2 Sackville St</td>
+        <td>Sackville St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">9 1/2 Salisbury Ave</td>
+        <td>Salisbury Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">104 1/2 Scollard St</td>
+        <td>Scollard St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">7 1/2 Shannon St</td>
+        <td>Shannon St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">171 1/2 Shaw St</td>
+        <td>Shaw St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">258 1/2 Shaw St</td>
+        <td>Shaw St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">379 1/2 Shaw St</td>
+        <td>Shaw St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">446 1/2 Shaw St</td>
+        <td>Shaw St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">821 1/2 Shaw St</td>
+        <td>Shaw St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">114 1/2 Sherbourne St</td>
+        <td>Sherbourne St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">129 1/2 Sherbourne St</td>
+        <td>Sherbourne St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">192 1/2 Sherbourne St</td>
+        <td>Sherbourne St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1 1/2 Sheridan Ave</td>
+        <td>Sheridan Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">32 1/2 Sheridan Ave</td>
+        <td>Sheridan Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">12 1/2 Sherwood Ave</td>
+        <td>Sherwood Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">35 1/2 Shudell Ave</td>
+        <td>Shudell Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">167 1/2 Silverthorn Ave</td>
+        <td>Silverthorn Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">25 1/2 Sorauren Ave</td>
+        <td>Sorauren Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">304 1/2 Sorauren Ave</td>
+        <td>Sorauren Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">111 1/2 Soudan Ave</td>
+        <td>Soudan Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">113 1/2 Soudan Ave</td>
+        <td>Soudan Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">169 1/2 Spadina Ave</td>
+        <td>Spadina Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">171 1/2 Spadina Ave</td>
+        <td>Spadina Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">175 1/2 Spadina Ave</td>
+        <td>Spadina Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">363 1/2 Spadina Ave</td>
+        <td>Spadina Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">11 1/2 Sparkhall Ave</td>
+        <td>Sparkhall Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">46 1/2 Springhurst Ave</td>
+        <td>Springhurst Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">551 1/2 St Clair Ave W</td>
+        <td>St Clair Ave W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1028 1/2 St Clair Ave W</td>
+        <td>St Clair Ave W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1040 1/2 St Clair Ave W</td>
+        <td>St Clair Ave W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1260 1/2 St Clair Ave W</td>
+        <td>St Clair Ave W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1268 1/2 St Clair Ave W</td>
+        <td>St Clair Ave W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1272 1/2 St Clair Ave W</td>
+        <td>St Clair Ave W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">1331 1/2 St Clair Ave W</td>
+        <td>St Clair Ave W</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">32 1/2 St Clair Gdns</td>
+        <td>St Clair Gdns</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">493 1/2 St Clarens Ave</td>
+        <td>St Clarens Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">509 1/2 St Clarens Ave</td>
+        <td>St Clarens Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">514 1/2 St Clarens Ave</td>
+        <td>St Clarens Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">210 1/2 St Helen&#39;s Ave</td>
+        <td>St Helen&#39;s Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">249 1/2 St Helen&#39;s Ave</td>
+        <td>St Helen&#39;s Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">355 1/2 St John&#39;s Rd</td>
+        <td>St John&#39;s Rd</td>
+        <td class="muted-small">York</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">54 1/2 St Patrick St</td>
+        <td>St Patrick St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">149 1/2 Stanley Ave</td>
+        <td>Stanley Ave</td>
+        <td class="muted-small">Etobicoke</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">142 1/2 Strachan Ave</td>
+        <td>Strachan Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">148 1/2 Strachan Ave</td>
+        <td>Strachan Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">513 1/2 Strathmore Blvd</td>
+        <td>Strathmore Blvd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">515 1/2 Strathmore Blvd</td>
+        <td>Strathmore Blvd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">53 1/2 Sumach St</td>
+        <td>Sumach St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">384 1/2 Sumach St</td>
+        <td>Sumach St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">25 1/2 Sword St</td>
+        <td>Sword St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">734 1/2 The Queensway</td>
+        <td>The Queensway</td>
+        <td class="muted-small">Etobicoke</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">33 1/2 Thorncliffe Ave</td>
+        <td>Thorncliffe Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">19 1/2 Tranby Ave</td>
+        <td>Tranby Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">21 1/2 Treford Pl</td>
+        <td>Treford Pl</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">8 1/2 Tyndall Ave</td>
+        <td>Tyndall Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">157 1/2 Tyrrel Ave</td>
+        <td>Tyrrel Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">76 1/2 Ulster St</td>
+        <td>Ulster St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">34 1/2 Victoria Park Ave</td>
+        <td>Victoria Park Ave</td>
+        <td class="muted-small">Scarborough</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">44 1/2 Victoria Park Ave</td>
+        <td>Victoria Park Ave</td>
+        <td class="muted-small">Scarborough</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">95 1/2 Victoria Park Ave</td>
+        <td>Victoria Park Ave</td>
+        <td class="muted-small">Scarborough</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">227 1/2 Victoria Park Ave</td>
+        <td>Victoria Park Ave</td>
+        <td class="muted-small">Scarborough</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">295 1/2 Victoria Park Ave</td>
+        <td>Victoria Park Ave</td>
+        <td class="muted-small">Scarborough</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">332 1/2 Victoria Park Ave</td>
+        <td>Victoria Park Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">98 1/2 Wallace Ave</td>
+        <td>Wallace Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">9 1/2 Ward St</td>
+        <td>Ward St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">36 1/2 Wardell St</td>
+        <td>Wardell St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">38 1/2 Wardell St</td>
+        <td>Wardell St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">63 1/2 Waverley Rd</td>
+        <td>Waverley Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">96 1/2 Waverley Rd</td>
+        <td>Waverley Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">98 1/2 Waverley Rd</td>
+        <td>Waverley Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">66 1/2 Wellesley St E</td>
+        <td>Wellesley St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">341 1/2 Wellesley St E</td>
+        <td>Wellesley St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">345 1/2 Wellesley St E</td>
+        <td>Wellesley St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">347 1/2 Wellesley St E</td>
+        <td>Wellesley St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">415 1/2 Wellesley St E</td>
+        <td>Wellesley St E</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">11 1/2 Wells St</td>
+        <td>Wells St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">52 1/2 West Ave</td>
+        <td>West Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">54 1/2 West Ave</td>
+        <td>West Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">110 1/2 Westminster Ave</td>
+        <td>Westminster Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">125 1/2 Winchester St</td>
+        <td>Winchester St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">143 1/2 Winchester St</td>
+        <td>Winchester St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">232 1/2 Windermere Ave</td>
+        <td>Windermere Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">233 1/2 Windermere Ave</td>
+        <td>Windermere Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">23 1/2 Winnifred Ave</td>
+        <td>Winnifred Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">29 1/2 Winnifred Ave</td>
+        <td>Winnifred Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">279 1/2 Withrow Ave</td>
+        <td>Withrow Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">303 1/2 Woodfield Rd</td>
+        <td>Woodfield Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">305 1/2 Woodfield Rd</td>
+        <td>Woodfield Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">11 1/2 Woodlee Rd</td>
+        <td>Woodlee Rd</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">85 1/2 Woodycrest Ave</td>
+        <td>Woodycrest Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">77 1/2 Wright Ave</td>
+        <td>Wright Ave</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">129 1/2 Yonge St</td>
+        <td>Yonge St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">357 1/2 Yonge St</td>
+        <td>Yonge St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">372 1/2 Yonge St</td>
+        <td>Yonge St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">502 1/2 Yonge St</td>
+        <td>Yonge St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">569 1/2 Yonge St</td>
+        <td>Yonge St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2105 1/2 Yonge St</td>
+        <td>Yonge St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2109 1/2 Yonge St</td>
+        <td>Yonge St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2443 1/2 Yonge St</td>
+        <td>Yonge St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2447 1/2 Yonge St</td>
+        <td>Yonge St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">2487 1/2 Yonge St</td>
+        <td>Yonge St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">3158 1/2 Yonge St</td>
+        <td>Yonge St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">3309 1/2 Yonge St</td>
+        <td>Yonge St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">3315 1/2 Yonge St</td>
+        <td>Yonge St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">3347 1/2 Yonge St</td>
+        <td>Yonge St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+      <tr>
+        <td class="hn">3403 1/2 Yonge St</td>
+        <td>Yonge St</td>
+        <td class="muted-small">former Toronto</td>
+      </tr>
+      
+    </tbody>
+  </table>
+  
+</div>
+
+
+  </main>
+</body>
+</html>

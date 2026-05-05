@@ -1,0 +1,6134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Audit</title>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="../../../assets/detail-map.js"></script>
+  <script src="../../../assets/review-keys.js" defer></script>
+  <link rel="stylesheet" href="../../../assets/site.css">
+  
+  <style>
+    .static-banner { background: #fef3c7; border-bottom: 2px solid #f59e0b;
+                     padding: .6rem 1.2rem; font-size: .88rem; color: #78350f;
+                     text-align: center; }
+    .static-banner a { color: #78350f; font-weight: 600; }
+    body.static-export form[method="post"],
+    body.static-export [hx-post] { opacity: .6; cursor: not-allowed; }
+    body.static-export form[method="post"] button,
+    body.static-export form[method="post"] input[type="submit"],
+    body.static-export form[method="post"] select,
+    body.static-export form[method="post"] input[type="text"],
+    body.static-export form[method="post"] input[type="number"],
+    body.static-export [hx-post] button,
+    body.static-export [hx-post] input[type="checkbox"] { pointer-events: none; }
+  </style>
+  
+</head>
+
+
+
+<body class="static-export run-uploaded">
+  <header>
+    <span class="nav">
+      <a href="../../../index.html"><strong>t2 address import</strong></a>
+      
+      
+      <a href="../../../osm/index.html">OSM extract</a>
+      <a href="../../../streets/index.html">Streets</a>
+      <a href="../../../source/multi/index.html">Source lists</a>
+      <a href="../../../osm/multi/index.html">Multi-addresses</a>
+      <a href="../../../osm/multi/corners/index.html">Corners</a>
+      <a href="../../../data/index.html">Data</a>
+      
+    </span>
+    <span class="meta">
+      <a href="https://github.com/skfd/toronto-2-address-import" target="_blank" rel="noopener">GitHub</a>
+      <span class="sep">·</span>
+      <a href="https://community.openstreetmap.org/t/address-import-for-toronto/119368" target="_blank" rel="noopener">OSM discussion</a>
+      <span class="sep">·</span>
+      <a href="https://github.com/skfd/toronto-2-address-import/blob/main/LICENSE" target="_blank" rel="noopener">MIT</a>
+      <span class="sep">·</span>
+      <a href="https://open.toronto.ca/open-data-licence/" target="_blank" rel="noopener">Toronto Open Data</a>
+      &amp;
+      &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OSM</a>
+    </span>
+  </header>
+  
+  <div class="static-banner">
+    Static snapshot of run <strong>south-riverdale-nw-nw-ne-batch-2026-05-03</strong>
+    as of 2026-05-04 —
+    pilot evidence for the
+    <a href="https://github.com/skfd/toronto-2-address-import/blob/main/IMPORT_PROPOSAL.mediawiki" target="_blank" rel="noopener">Toronto address import proposal</a>.
+    Interactive actions (stages, review decisions, uploads) are disabled.
+    <a href="https://github.com/skfd/toronto-2-address-import" target="_blank" rel="noopener">Run the live tool</a>
+    to exercise them.
+  </div>
+  <script>
+    // Teach the page to behave on the static site, where Flask isn't around
+    // to partial-render HX-Request responses or route absolute hx-get paths.
+    // Three things we need to undo / substitute:
+    //   1. Disable htmx's history machinery entirely. hx-push-url="true"
+    //      would rewrite the address bar to the clicked row's relative
+    //      hx-get target (.../<view>/<cid>/index.html). On the next click
+    //      the sibling rows' relative hx-gets then resolve against that new
+    //      path, producing a nested .../<view>/<cid1>/<cid2>/index.html
+    //      that 404s.
+    //   2. Extract the target fragment from full-page responses — we can't
+    //      branch on HX-Request, so every hx-get returns the whole page;
+    //      adding hx-select=<target> with hx-swap=outerHTML pulls out just
+    //      the fragment htmx would have otherwise inlined verbatim.
+    //   3. Neuter POST forms / hx-post actions so the disabled visual
+    //      doesn't lie if someone clicks through the pointer-events guard.
+    if (window.htmx && window.htmx.config) window.htmx.config.historyEnabled = false;
+    (function () {
+      function each(scope, selector, fn) {
+        if (scope.matches && scope.matches(selector)) fn(scope);
+        if (scope.querySelectorAll) scope.querySelectorAll(selector).forEach(fn);
+      }
+      function process(scope) {
+        if (!scope) return;
+        each(scope, 'form[method="post"], form[method="POST"]', function (f) {
+          f.addEventListener('submit', function (e) { e.preventDefault(); });
+        });
+        each(scope, '[hx-post]', function (el) { el.removeAttribute('hx-post'); });
+        each(scope, '[hx-get][hx-target]', function (el) {
+          if (el.getAttribute('hx-push-url') === 'true') el.removeAttribute('hx-push-url');
+          if (el.hasAttribute('hx-select')) return;
+          el.setAttribute('hx-select', el.getAttribute('hx-target'));
+          el.setAttribute('hx-swap', 'outerHTML');
+        });
+      }
+      document.addEventListener('DOMContentLoaded', function () { process(document); });
+      document.addEventListener('htmx:afterSwap', function (evt) { process(evt.target); });
+    })();
+  </script>
+  
+  <main>
+    
+      
+    
+    
+<div class="card">
+  <h2>Audit log <span class="muted">(run #676)</span></h2>
+  <form method="get">
+    Filter type: <input name="type" value="" placeholder="e.g. CHANGESET_UPLOADED" />
+    <button>Apply</button>
+    
+  </form>
+</div>
+
+<div class="card">
+  <table>
+    <thead><tr><th>ts</th><th>actor</th><th>type</th><th>cand</th><th>payload</th></tr></thead>
+    <tbody>
+      
+      <tr>
+        <td class="muted">2026-05-03T07:12:44.572020+00:00</td>
+        <td>operator</td>
+        <td><code>BATCH_CREATED</code></td>
+        <td></td>
+        <td class="muted">
+          
+            <code>{&#39;mode&#39;: &#39;josm_xml&#39;, &#39;size&#39;: 300, &#39;client_token&#39;: &#39;1050692e-5e82-4b80-8bd9-a2fae98fe73d&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T07:01:09.787929+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>14038277</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T07:00:57.557419+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>808500</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T07:00:56.116474+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>2375850</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T07:00:55.014702+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>3873203</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T07:00:54.339399+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>30153154</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T07:00:53.845584+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>2375881</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T07:00:49.827865+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_REJECTED</code></td>
+        <td>11046917</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;REJECTED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T07:00:29.150409+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>791926</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T07:00:27.315641+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>14210700</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T07:00:25.752408+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>762347</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T07:00:24.481970+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>2375893</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T07:00:22.364542+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>11046888</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T07:00:19.980954+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>791975</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T07:00:19.059246+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>791924</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T07:00:17.743778+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>6476400</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T07:00:16.391733+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>3873202</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T07:00:15.412839+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>3872886</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T07:00:14.221043+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>14037966</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T07:00:12.725803+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>3873200</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T07:00:08.268861+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>868500</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T07:00:05.828260+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>7576850</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T07:00:04.558099+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>30074750</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:59:55.726573+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>11046900</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:59:51.890137+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>14038279</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:59:09.001117+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>3872885</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:59:07.393419+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>762354</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:59:03.667701+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>762300</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:59:00.712445+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>791928</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:58:52.756895+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>2375886</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:58:40.571606+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>762350</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:58:33.889333+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>3872900</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:58:28.152294+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>11046850</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:58:21.885195+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>791977</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:58:15.550159+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>791922</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:58:13.965026+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>30153153</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:58:05.717116+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>881350</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:58:03.129988+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>762349</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:57:58.575559+00:00</td>
+        <td>operator</td>
+        <td><code>REVIEW_APPROVED</code></td>
+        <td>2375890</td>
+        <td class="muted">
+          
+            <code>{&#39;note&#39;: None, &#39;new_status&#39;: &#39;APPROVED&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.723537+00:00</td>
+        <td>pipeline</td>
+        <td><code>CHECK_RAN</code></td>
+        <td></td>
+        <td class="muted">
+          
+            <code>{&#39;counts&#39;: {&#39;PASS&#39;: 2241, &#39;FLAG&#39;: 38, &#39;SKIP&#39;: 1816}, &#39;check_ids&#39;: [&#39;city_duplicate&#39;, &#39;intra_source_duplicate&#39;, &#39;match_far&#39;, &#39;missing_sample&#39;, &#39;nearby_street_mismatch&#39;, &#39;potential_amenity&#39;, &#39;suffix_range&#39;]}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.723523+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762315</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.723007+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>30028776</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.722441+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>868483</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.721850+00:00</td>
+        <td>pipeline</td>
+        <td><code>CHECK_FLAGGED</code></td>
+        <td>14038277</td>
+        <td class="muted">
+          
+            <code>{&#39;check_id&#39;: &#39;city_duplicate&#39;, &#39;reason&#39;: &#39;city_duplicate&#39;, &#39;severity&#39;: &#39;info&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.721313+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>868479</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.720856+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3872899</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.719960+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>774864</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.719051+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791960</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.718558+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>2375887</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.717940+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791973</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.717307+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>789090</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.716804+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791947</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.716333+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>2375823</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.715913+00:00</td>
+        <td>pipeline</td>
+        <td><code>CHECK_FLAGGED</code></td>
+        <td>808500</td>
+        <td class="muted">
+          
+            <code>{&#39;check_id&#39;: &#39;missing_sample&#39;, &#39;reason&#39;: &#39;spot_check&#39;, &#39;severity&#39;: &#39;info&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.715531+00:00</td>
+        <td>pipeline</td>
+        <td><code>CHECK_FLAGGED</code></td>
+        <td>2375850</td>
+        <td class="muted">
+          
+            <code>{&#39;check_id&#39;: &#39;missing_sample&#39;, &#39;reason&#39;: &#39;spot_check&#39;, &#39;severity&#39;: &#39;info&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.715211+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046848</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.714883+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>868508</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.714552+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046845</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.714215+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>881354</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.713872+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791972</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.713413+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762362</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.713032+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808529</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.712780+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046856</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.712446+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>881363</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.712106+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808523</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.711858+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>4833306</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.711514+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762332</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.711215+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3872956</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.710832+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3890629</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.710376+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>7576829</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.709994+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>14204809</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.709675+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3890612</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.709228+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808471</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.708907+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808505</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.708654+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>868506</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.708340+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>868519</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.708018+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762328</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.707744+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762311</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.707473+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046830</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.707145+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046829</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.706809+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>7576840</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.706436+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3890761</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.705978+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808486</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.705520+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>30028805</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.705198+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>868491</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.704955+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>868498</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.704710+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762299</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.704426+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808482</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.704041+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>868489</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.703782+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808447</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.703537+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>805430</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.703176+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762351</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.702785+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>14673194</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.702486+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808497</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.702221+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046862</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.701759+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762298</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.701472+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>14206935</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.701114+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>2375828</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.700759+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3890626</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.699900+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808503</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.699629+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>776382</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.699288+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>881348</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.698784+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762323</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.698492+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808461</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.698165+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762310</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.697799+00:00</td>
+        <td>pipeline</td>
+        <td><code>CHECK_FLAGGED</code></td>
+        <td>3873203</td>
+        <td class="muted">
+          
+            <code>{&#39;check_id&#39;: &#39;city_duplicate&#39;, &#39;reason&#39;: &#39;city_duplicate&#39;, &#39;severity&#39;: &#39;info&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.697454+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808473</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.697124+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808464</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.696789+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>868478</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.696527+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046897</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.696189+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791934</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.695423+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>805421</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.695064+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046820</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.694662+00:00</td>
+        <td>pipeline</td>
+        <td><code>CHECK_FLAGGED</code></td>
+        <td>30153154</td>
+        <td class="muted">
+          
+            <code>{&#39;check_id&#39;: &#39;city_duplicate&#39;, &#39;reason&#39;: &#39;city_duplicate&#39;, &#39;severity&#39;: &#39;info&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.694329+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791914</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.694039+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>4833309</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.693679+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808444</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.693438+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3872960</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.692988+00:00</td>
+        <td>pipeline</td>
+        <td><code>CHECK_FLAGGED</code></td>
+        <td>2375881</td>
+        <td class="muted">
+          
+            <code>{&#39;check_id&#39;: &#39;city_duplicate&#39;, &#39;reason&#39;: &#39;city_duplicate&#39;, &#39;severity&#39;: &#39;info&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.692674+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3890628</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.692214+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046911</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.691878+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046837</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.691553+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046833</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.691216+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791974</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.690675+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>805434</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.690327+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762309</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.690041+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762329</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.689662+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046904</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.689425+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791990</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.688974+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3872895</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.688502+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>30063955</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.688221+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791971</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.687759+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>6476401</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.687453+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>805442</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.687146+00:00</td>
+        <td>pipeline</td>
+        <td><code>CHECK_FLAGGED</code></td>
+        <td>11046917</td>
+        <td class="muted">
+          
+            <code>{&#39;check_id&#39;: &#39;match_far&#39;, &#39;reason&#39;: &#39;match_far&#39;, &#39;severity&#39;: &#39;warn&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.686717+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>774865</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.686270+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762313</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.685996+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791941</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.685707+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>7576824</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.685427+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>14037967</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.684985+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>868504</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.684655+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808456</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.684412+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791966</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.683991+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791969</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.683534+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>14200313</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.683187+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808477</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.682870+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046849</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.682534+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791927</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.682247+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791952</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.681893+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3890624</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.681432+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046902</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.681033+00:00</td>
+        <td>pipeline</td>
+        <td><code>CHECK_FLAGGED</code></td>
+        <td>791926</td>
+        <td class="muted">
+          
+            <code>{&#39;check_id&#39;: &#39;city_duplicate&#39;, &#39;reason&#39;: &#39;city_duplicate&#39;, &#39;severity&#39;: &#39;info&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.680779+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808481</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.680463+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>30022541</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.680143+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3890762</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.679693+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>4833296</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.679349+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046860</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.678846+00:00</td>
+        <td>pipeline</td>
+        <td><code>CHECK_FLAGGED</code></td>
+        <td>14210700</td>
+        <td class="muted">
+          
+            <code>{&#39;check_id&#39;: &#39;missing_sample&#39;, &#39;reason&#39;: &#39;spot_check&#39;, &#39;severity&#39;: &#39;info&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.678268+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046903</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.677935+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>881359</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.677586+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046901</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.677253+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>868512</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.676934+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808445</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.676688+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046812</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.676358+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046852</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.676021+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808479</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.675331+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>14200322</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.674991+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>14210695</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.674707+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791988</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.674252+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3872958</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.673534+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808449</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.673285+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762343</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.672906+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046869</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.672443+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>868510</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.672059+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791931</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.671706+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808487</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.671376+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>789087</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.671084+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3890618</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.670623+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>30028812</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.670333+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808488</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.670007+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762356</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.669633+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3872963</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.669245+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762325</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.668960+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808498</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.668702+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>4833305</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.668360+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>881361</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.668001+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046910</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.667666+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3872955</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.667202+00:00</td>
+        <td>pipeline</td>
+        <td><code>CHECK_FLAGGED</code></td>
+        <td>762347</td>
+        <td class="muted">
+          
+            <code>{&#39;check_id&#39;: &#39;city_duplicate&#39;, &#39;reason&#39;: &#39;city_duplicate&#39;, &#39;severity&#39;: &#39;info&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.666862+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046834</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.666516+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046916</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.666049+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791942</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.665692+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3872968</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.665314+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3872892</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.664852+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>805436</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.664581+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046866</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.664127+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>30074749</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.663753+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3890622</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.663287+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>881352</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.662929+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808515</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.662634+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>805438</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.662247+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>805414</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.661816+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>2375855</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.661368+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762306</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.660958+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>30075858</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.660397+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>805413</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.659751+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808451</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.659315+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046795</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.658457+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3872939</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.657762+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791932</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.656575+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791944</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.655940+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3890609</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.655105+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762321</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.654577+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791949</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.653942+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046908</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.653348+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>868477</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.652922+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>868502</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.652480+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791991</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.651637+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>4078680</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.651029+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>881362</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.650360+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791992</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.649506+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791993</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.648656+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046857</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.647819+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3872889</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.646981+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>30054443</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.646351+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791963</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.645516+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046824</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.644921+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>30063956</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.644394+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046815</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.643764+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808502</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.643309+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>14037968</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.642441+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808493</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.641978+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>789089</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.641447+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808455</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.641004+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046819</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.640372+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>14200327</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.639723+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791967</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.638870+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791986</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.637998+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046836</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.637391+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>805420</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.636738+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>7576839</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.636009+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>14210702</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.635498+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808453</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.635050+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791921</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.634464+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3872887</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.633600+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791982</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.632953+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3897166</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.632437+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>14205757</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.631843+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046864</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.630482+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>7576842</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.629782+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>7576828</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.629269+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>805429</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.628629+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>805426</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.627984+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046858</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.627028+00:00</td>
+        <td>pipeline</td>
+        <td><code>CHECK_FLAGGED</code></td>
+        <td>2375893</td>
+        <td class="muted">
+          
+            <code>{&#39;check_id&#39;: &#39;city_duplicate&#39;, &#39;reason&#39;: &#39;city_duplicate&#39;, &#39;severity&#39;: &#39;info&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.626440+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791956</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.625599+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046821</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.624994+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>805417</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.624358+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3890614</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.623506+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791968</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.622863+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>7576825</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.622326+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>796242</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.621784+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>7576847</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.621086+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>789085</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.620545+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791945</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.619902+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>805418</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.619276+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808519</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.618795+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791939</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.617552+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>6476398</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.617002+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>30028809</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.616435+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>805424</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.615803+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>868518</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.615203+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>774866</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.614332+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791981</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.613467+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3872894</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.612616+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>805423</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.611971+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046814</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.611335+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808468</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.610719+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808475</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.610077+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>14673195</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.609533+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046855</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.608684+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046891</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.608042+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791936</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.607514+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3873204</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.606808+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762305</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.606266+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>805437</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.605586+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>7576834</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.604899+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3872957</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.604181+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>7576832</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.603497+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>4078678</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.602626+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046870</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.601784+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>6476402</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.601250+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808525</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.600772+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>868487</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.600310+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808485</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.599702+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>7576830</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.598888+00:00</td>
+        <td>pipeline</td>
+        <td><code>CHECK_FLAGGED</code></td>
+        <td>11046888</td>
+        <td class="muted">
+          
+            <code>{&#39;check_id&#39;: &#39;city_duplicate&#39;, &#39;reason&#39;: &#39;city_duplicate&#39;, &#39;severity&#39;: &#39;info&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.598339+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762361</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.597625+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808459</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.597029+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046827</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.596411+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046868</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.595459+00:00</td>
+        <td>pipeline</td>
+        <td><code>CHECK_FLAGGED</code></td>
+        <td>791975</td>
+        <td class="muted">
+          
+            <code>{&#39;check_id&#39;: &#39;city_duplicate&#39;, &#39;reason&#39;: &#39;city_duplicate&#39;, &#39;severity&#39;: &#39;info&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.594685+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>14205755</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.594053+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>776384</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.593518+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762340</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.592705+00:00</td>
+        <td>pipeline</td>
+        <td><code>CHECK_FLAGGED</code></td>
+        <td>791924</td>
+        <td class="muted">
+          
+            <code>{&#39;check_id&#39;: &#39;city_duplicate&#39;, &#39;reason&#39;: &#39;city_duplicate&#39;, &#39;severity&#39;: &#39;info&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.592228+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046846</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.591609+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>7576833</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.590917+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>30028802</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.590352+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>7576821</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.589751+00:00</td>
+        <td>pipeline</td>
+        <td><code>CHECK_FLAGGED</code></td>
+        <td>6476400</td>
+        <td class="muted">
+          
+            <code>{&#39;check_id&#39;: &#39;missing_sample&#39;, &#39;reason&#39;: &#39;spot_check&#39;, &#39;severity&#39;: &#39;info&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.589266+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046844</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.588661+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>868496</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.588215+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791953</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.587575+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>7576823</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.587059+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791935</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.586487+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>2375812</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.585889+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808476</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.585278+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762316</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.584745+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762353</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.584022+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791937</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.583459+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3873201</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.582544+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3872964</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.581809+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046892</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.581191+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762301</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.580671+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3872888</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.579797+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046818</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.579181+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046894</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.578729+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>805435</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.578205+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>4833308</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.577547+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762357</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.576837+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>30028810</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.576171+00:00</td>
+        <td>pipeline</td>
+        <td><code>CHECK_FLAGGED</code></td>
+        <td>3873202</td>
+        <td class="muted">
+          
+            <code>{&#39;check_id&#39;: &#39;city_duplicate&#39;, &#39;reason&#39;: &#39;city_duplicate&#39;, &#39;severity&#39;: &#39;info&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.575541+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808511</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.575051+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762335</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.574217+00:00</td>
+        <td>pipeline</td>
+        <td><code>CHECK_FLAGGED</code></td>
+        <td>3872886</td>
+        <td class="muted">
+          
+            <code>{&#39;check_id&#39;: &#39;city_duplicate&#39;, &#39;reason&#39;: &#39;city_duplicate&#39;, &#39;severity&#39;: &#39;info&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.573488+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046895</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.572857+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>30074752</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.572134+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>7576835</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.571414+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>868474</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.570961+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3890619</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.570062+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046843</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.569430+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762345</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.568711+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808469</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.568093+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046867</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.567173+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791983</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.566238+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>4833297</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.565576+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808521</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.564545+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>30028806</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.563367+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046832</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.562736+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3872893</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.561818+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>7576841</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.560976+00:00</td>
+        <td>pipeline</td>
+        <td><code>CHECK_FLAGGED</code></td>
+        <td>14037966</td>
+        <td class="muted">
+          
+            <code>{&#39;check_id&#39;: &#39;city_duplicate&#39;, &#39;reason&#39;: &#39;city_duplicate&#39;, &#39;severity&#39;: &#39;info&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.560402+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791923</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.559867+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3890631</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.558888+00:00</td>
+        <td>pipeline</td>
+        <td><code>CHECK_FLAGGED</code></td>
+        <td>3873200</td>
+        <td class="muted">
+          
+            <code>{&#39;check_id&#39;: &#39;missing_sample&#39;, &#39;reason&#39;: &#39;spot_check&#39;, &#39;severity&#39;: &#39;info&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.558078+00:00</td>
+        <td>pipeline</td>
+        <td><code>CHECK_FLAGGED</code></td>
+        <td>868500</td>
+        <td class="muted">
+          
+            <code>{&#39;check_id&#39;: &#39;missing_sample&#39;, &#39;reason&#39;: &#39;spot_check&#39;, &#39;severity&#39;: &#39;info&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.557669+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>881360</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.557041+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762312</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.556499+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046890</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.555873+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>13971712</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.555223+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791946</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.554539+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762346</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.553840+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>805425</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.553187+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762342</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.552468+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>774862</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.551624+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046828</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.550428+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808517</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.549924+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762331</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.549193+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>7576846</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.548473+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3872898</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.547605+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>14210699</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.547080+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046918</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.546178+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3890625</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.545312+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808531</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.544823+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762326</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.544277+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791938</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.543718+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>14200317</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.543044+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762337</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.542303+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808472</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.541690+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808512</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.541418+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762333</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.541046+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>14200343</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.540723+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3890613</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.540198+00:00</td>
+        <td>pipeline</td>
+        <td><code>CHECK_FLAGGED</code></td>
+        <td>7576850</td>
+        <td class="muted">
+          
+            <code>{&#39;check_id&#39;: &#39;missing_sample&#39;, &#39;reason&#39;: &#39;spot_check&#39;, &#39;severity&#39;: &#39;info&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.539596+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046842</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.538966+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046823</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.538334+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808458</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.537908+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791965</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.537047+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791987</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.536157+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046851</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.535526+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046905</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.535078+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046822</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.534445+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791989</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.533567+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762360</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.532838+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046899</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.532208+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046898</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.531567+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791930</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.530937+00:00</td>
+        <td>pipeline</td>
+        <td><code>CHECK_FLAGGED</code></td>
+        <td>30074750</td>
+        <td class="muted">
+          
+            <code>{&#39;check_id&#39;: &#39;missing_sample&#39;, &#39;reason&#39;: &#39;spot_check&#39;, &#39;severity&#39;: &#39;info&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.530262+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3872891</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.529314+00:00</td>
+        <td>pipeline</td>
+        <td><code>CHECK_FLAGGED</code></td>
+        <td>11046900</td>
+        <td class="muted">
+          
+            <code>{&#39;check_id&#39;: &#39;missing_sample&#39;, &#39;reason&#39;: &#39;spot_check&#39;, &#39;severity&#39;: &#39;info&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.528732+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>7576844</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.527976+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808527</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.527500+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762358</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.526788+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791917</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.526223+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791964</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.525564+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3890627</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.524702+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3890633</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.523806+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046865</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.522947+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762344</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.522214+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3872966</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.521509+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>2375824</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.520891+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762327</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.520181+00:00</td>
+        <td>pipeline</td>
+        <td><code>CHECK_FLAGGED</code></td>
+        <td>14038279</td>
+        <td class="muted">
+          
+            <code>{&#39;check_id&#39;: &#39;city_duplicate&#39;, &#39;reason&#39;: &#39;city_duplicate&#39;, &#39;severity&#39;: &#39;info&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.519616+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>796243</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.519061+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>805428</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.518576+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>2375840</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.518077+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046914</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.517210+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>7576826</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.516472+00:00</td>
+        <td>pipeline</td>
+        <td><code>CHECK_FLAGGED</code></td>
+        <td>3872885</td>
+        <td class="muted">
+          
+            <code>{&#39;check_id&#39;: &#39;city_duplicate&#39;, &#39;reason&#39;: &#39;city_duplicate&#39;, &#39;severity&#39;: &#39;info&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.515658+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791961</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.514764+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>881346</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.514100+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>774858</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.513214+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046840</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.512411+00:00</td>
+        <td>pipeline</td>
+        <td><code>CHECK_FLAGGED</code></td>
+        <td>762354</td>
+        <td class="muted">
+          
+            <code>{&#39;check_id&#39;: &#39;city_duplicate&#39;, &#39;reason&#39;: &#39;city_duplicate&#39;, &#39;severity&#39;: &#39;info&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.511762+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046847</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.511134+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>7576845</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.510393+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791978</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.509759+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762303</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.509219+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>2375891</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.508542+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791925</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.507942+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046912</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.507304+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>805416</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.506636+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791955</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.505940+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3890621</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.505027+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>30028811</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.504420+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3890630</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.503502+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808506</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.503019+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3890610</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.502086+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>14075044</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.501437+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791933</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.500884+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>805415</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.500176+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762334</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.498820+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046816</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.498207+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046861</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.497345+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762318</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.496818+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>796240</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.496254+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>14210701</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.495656+00:00</td>
+        <td>pipeline</td>
+        <td><code>CHECK_FLAGGED</code></td>
+        <td>762300</td>
+        <td class="muted">
+          
+            <code>{&#39;check_id&#39;: &#39;missing_sample&#39;, &#39;reason&#39;: &#39;spot_check&#39;, &#39;severity&#39;: &#39;info&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.495175+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>2375889</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.494510+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762308</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.494185+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>2375811</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.493528+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>868481</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.493277+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762307</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.492446+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>7576822</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.491911+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3872896</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.491045+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3890617</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.490172+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808513</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.489672+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3872965</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.488940+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>4833295</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.488253+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808490</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.487678+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3890615</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.486789+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762352</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.486007+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>30075859</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.485460+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>14210697</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.484922+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>14205305</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.484256+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>774863</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.482744+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046889</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.482108+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>7576827</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.481569+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>789088</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.480985+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762302</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.480425+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3890632</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.478895+00:00</td>
+        <td>pipeline</td>
+        <td><code>CHECK_FLAGGED</code></td>
+        <td>791928</td>
+        <td class="muted">
+          
+            <code>{&#39;check_id&#39;: &#39;city_duplicate&#39;, &#39;reason&#39;: &#39;city_duplicate&#39;, &#39;severity&#39;: &#39;info&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.478400+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046921</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.477710+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>868516</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.477070+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>868485</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.476584+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>4833312</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.475746+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>14200319</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.474953+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046919</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.473825+00:00</td>
+        <td>pipeline</td>
+        <td><code>CHECK_FLAGGED</code></td>
+        <td>2375886</td>
+        <td class="muted">
+          
+            <code>{&#39;check_id&#39;: &#39;city_duplicate&#39;, &#39;reason&#39;: &#39;city_duplicate&#39;, &#39;severity&#39;: &#39;info&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.473165+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762314</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.472609+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762304</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.472021+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808474</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.471403+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3897162</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.470827+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>3873207</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.469958+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808507</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.469469+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791976</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.468724+00:00</td>
+        <td>pipeline</td>
+        <td><code>CHECK_FLAGGED</code></td>
+        <td>762350</td>
+        <td class="muted">
+          
+            <code>{&#39;check_id&#39;: &#39;missing_sample&#39;, &#39;reason&#39;: &#39;spot_check&#39;, &#39;severity&#39;: &#39;info&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.468041+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>796241</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.467488+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>7576849</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.466757+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791920</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.466162+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>7576836</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.465399+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>7576848</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.464564+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808489</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.464090+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>7576838</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.463388+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046907</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.463144+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>762338</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.462735+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>11046915</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.462125+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>808509</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td class="muted">2026-05-03T06:44:42.461791+00:00</td>
+        <td>pipeline</td>
+        <td><code>AUTO_APPROVED</code></td>
+        <td>791984</td>
+        <td class="muted">
+          
+            <code>{&#39;verdict&#39;: &#39;MISSING&#39;}</code>
+          
+        </td>
+      </tr>
+      
+    </tbody>
+  </table>
+</div>
+
+  </main>
+</body>
+</html>
