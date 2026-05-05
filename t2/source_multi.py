@@ -12,7 +12,11 @@ ingests a new snapshot. Entry point: collect() -> dict, used by the
 """
 from __future__ import annotations
 
-from . import source_db
+import json
+import re
+
+from . import config as _config, source_db
+from .conflate import _is_poi_node, normalize_street
 
 
 _CACHE: dict[int, dict] = {}
@@ -29,12 +33,69 @@ _SPAN_BUCKETS: list[tuple[str, callable]] = [
 ]
 
 
+def _build_osm_housenumber_index(cfg) -> dict[tuple[str, str], tuple[str, int]]:
+    """Map (normalized_street, housenumber_str) -> (osm_type, osm_id).
+
+    Mirrors the filtering rules in t2.streets / t2.conflate: skip nodes that
+    are addr:interpolation members or POI nodes. Multi-value housenumbers
+    (split by ; , /) each register a separate key. First element to claim a
+    key wins, so callers get a stable representative for the link.
+    """
+    json_path = cfg.osm_extract_dir / "toronto-addresses.json"
+    if not json_path.exists():
+        return {}
+    elements = json.loads(json_path.read_text(encoding="utf-8"))
+
+    interp_node_ids: set[int] = set()
+    for el in elements:
+        if el.get("type") != "way":
+            continue
+        if "addr:interpolation" not in (el.get("tags") or {}):
+            continue
+        for nid in el.get("nodes") or ():
+            interp_node_ids.add(nid)
+
+    idx: dict[tuple[str, str], tuple[str, int]] = {}
+    for el in elements:
+        tags = el.get("tags") or {}
+        hn_raw = tags.get("addr:housenumber")
+        if not hn_raw:
+            continue
+        if el.get("type") == "node":
+            if el.get("id") in interp_node_ids:
+                continue
+            if _is_poi_node(el):
+                continue
+        street_raw = (tags.get("addr:street") or "").strip()
+        if not street_raw:
+            continue
+        norm = normalize_street(street_raw)
+        if not norm:
+            continue
+        for part in re.split(r"[;,/]", hn_raw):
+            part = part.strip()
+            if not part:
+                continue
+            key = (norm, part)
+            idx.setdefault(key, (el["type"], el["id"]))
+    return idx
+
+
+def _range_items(lo: int, hi: int, lo_p: int, hi_p: int) -> list[int]:
+    if lo_p == hi_p:
+        return list(range(lo, hi + 1, 2))
+    return list(range(lo, hi + 1))
+
+
 def collect(snapshot_id: int | None = None) -> dict:
     if snapshot_id is None:
         snapshot_id = source_db.latest_snapshot_id()
     cached = _CACHE.get(snapshot_id)
     if cached is not None:
         return cached
+
+    cfg = _config.load()
+    osm_idx = _build_osm_housenumber_index(cfg)
 
     conn = source_db.connect_readonly()
     try:
@@ -61,6 +122,7 @@ def collect(snapshot_id: int | None = None) -> dict:
 
         for r in ranges:
             span = r["hi_num"] - r["lo_num"]
+            r["span"] = span
             for (_, pred), bucket in zip(_SPAN_BUCKETS, bucket_counts):
                 if pred(span):
                     bucket["count"] += 1
@@ -73,11 +135,29 @@ def collect(snapshot_id: int | None = None) -> dict:
             else:
                 parity_counts["mixed"] += 1
                 if len(mixed_examples) < 12:
-                    mixed_examples.append({**r, "span": span})
+                    mixed_examples.append({**r})
             street = r["linear_name_full"] or "(no street)"
             street_counts[street] = street_counts.get(street, 0) + 1
 
-        biggest = [{**r, "span": r["hi_num"] - r["lo_num"]} for r in ranges[:15]]
+            items = _range_items(r["lo_num"], r["hi_num"], lo_p, hi_p)
+            r["items_total"] = len(items)
+            norm_street = normalize_street(r["linear_name_full"])
+            osm_hits = 0
+            osm_link_target: tuple[str, int] | None = None
+            if norm_street:
+                for n in items:
+                    hit = osm_idx.get((norm_street, str(n)))
+                    if hit is not None:
+                        osm_hits += 1
+                        if osm_link_target is None:
+                            osm_link_target = hit
+            r["osm_hits"] = osm_hits
+            if osm_link_target is not None:
+                kind, oid = osm_link_target
+                r["osm_url"] = f"https://www.openstreetmap.org/{kind}/{oid}"
+            else:
+                r["osm_url"] = None
+
         top_streets = sorted(street_counts.items(), key=lambda kv: -kv[1])[:12]
         top_streets = [{"street": s, "count": c} for s, c in top_streets]
 
@@ -98,17 +178,20 @@ def collect(snapshot_id: int | None = None) -> dict:
     finally:
         conn.close()
 
+    ranges_with_osm_hit = sum(1 for r in ranges if r["osm_hits"] > 0)
+
     result = {
         "snapshot_id": snapshot_id,
         "snapshot_downloaded": snap_row["downloaded"] if snap_row else None,
         "snapshot_filename": snap_row["filename"] if snap_row else None,
         "total_active": total_active,
         "ranges_total": len(ranges),
+        "ranges_with_osm_hit": ranges_with_osm_hit,
         "halves_total": len(halves),
         "span_buckets": bucket_counts,
         "parity_counts": parity_counts,
         "top_streets": top_streets,
-        "biggest_spans": biggest,
+        "ranges": ranges,
         "mixed_parity_examples": mixed_examples,
         "halves": halves,
     }

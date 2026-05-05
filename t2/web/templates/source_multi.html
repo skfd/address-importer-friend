@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Source lists · ranges & half-numbers{% endblock %}
+{% block title %}Toronto Open Data ranges · half-numbers{% endblock %}
 {% block content %}
 
 {% macro bar(count, max_count, width_px=140, color='#2563eb') -%}
@@ -24,7 +24,7 @@
 </style>
 
 <div class="card">
-  <h2>Source lists <span class="pill">{{ '{:,}'.format(stats.ranges_total + stats.halves_total) }}</span></h2>
+  <h2>Toronto Open Data ranges <span class="pill">{{ '{:,}'.format(stats.ranges_total + stats.halves_total) }}</span></h2>
   <p class="muted">
     Snapshot #{{ stats.snapshot_id }}{% if stats.snapshot_filename %}
       · <code>{{ stats.snapshot_filename }}</code>{% endif %}{% if stats.snapshot_downloaded %}
@@ -134,26 +134,42 @@
   {% endif %}
 </div>
 
-{# -- Largest spans -- #}
-{% if stats.biggest_spans %}
+{# -- All ranges -- #}
+{% if stats.ranges %}
 <div class="card">
-  <h3>Largest spans</h3>
+  <h3>All ranges <span class="pill">{{ '{:,}'.format(stats.ranges_total) }}</span></h3>
   <p class="muted-small" style="margin:.2rem 0 .6rem">
-    These are the apartment complexes and industrial parks that get a single
-    address point for a whole frontage. They're the rows the per-run
-    <em>Ranges</em> view splits into parity-aware coverage checks.
+    Every range row in the snapshot, sorted by largest span first. The
+    <em>OSM</em> column counts how many of the parity-aware items in the span
+    are already tagged on a node/way in the OSM extract on the same street;
+    the link opens one matching feature on osm.org.
+    <strong>{{ '{:,}'.format(stats.ranges_with_osm_hit) }}</strong> of
+    {{ '{:,}'.format(stats.ranges_total) }} ranges have at least one item on OSM.
   </p>
   <table class="src-tbl">
     <thead>
-      <tr><th class="num">span</th><th>address</th><th>street</th><th>municipality</th></tr>
+      <tr>
+        <th class="num">span</th>
+        <th>address</th>
+        <th>street</th>
+        <th>municipality</th>
+        <th class="num">OSM</th>
+      </tr>
     </thead>
     <tbody>
-      {% for r in stats.biggest_spans %}
+      {% for r in stats.ranges %}
       <tr>
         <td class="num">{{ '{:,}'.format(r.span) }}</td>
         <td class="hn">{{ r.address_full }}</td>
         <td>{{ r.linear_name_full }}</td>
         <td class="muted-small">{{ r.municipality_name }}</td>
+        <td class="num">
+          {%- if r.osm_url -%}
+            <a href="{{ r.osm_url }}" target="_blank" rel="noopener">{{ r.osm_hits }}/{{ r.items_total }}</a>
+          {%- else -%}
+            <span class="muted-small">0/{{ r.items_total }}</span>
+          {%- endif -%}
+        </td>
       </tr>
       {% endfor %}
     </tbody>
