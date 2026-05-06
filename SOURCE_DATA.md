@@ -62,7 +62,7 @@ the same `address_point_id` across snapshots).
 |---|---:|---|---|
 | `Land` | 479,966 | Parcel-level point. The canonical "this lot has this address". | Standalone address node (`addr:housenumber` + `addr:street`). |
 | `Structure` | 28,031 | Building centroid. | Belongs on the `building=*` polygon; we treat as an address node. |
-| `Structure Entrance` | 14,354 | Door-level point on a building outline. | Node on the building way tagged `entrance=yes`. |
+| `Structure Entrance` | 14,354 | Door-level point on a building outline. | Closest OSM analogue would be a node on the building way tagged `entrance=yes`, but this import uploads SE rows as plain address nodes — see `IMPORT_PROPOSAL.mediawiki` § Tagging plan. |
 | `Land Entrance` | 573 | Driveway / gate / parcel entry. | Usually `barrier=gate`; not an addressing concept in OSM. |
 
 ### Key finding: non-Land classes carry unique addresses

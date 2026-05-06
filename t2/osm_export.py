@@ -65,7 +65,7 @@ def _load_upload_items(run_id: int) -> list[dict]:
         rows = conn.execute(
             """
             SELECT c.candidate_id, c.local_node_id, c.osm_node_id,
-                   c.housenumber, c.street_raw, c.lat, c.lon, c.address_class,
+                   c.housenumber, c.street_raw, c.lat, c.lon,
                    cf.proposed_postcode
             FROM candidates c
             LEFT JOIN conflation cf ON cf.run_id = c.run_id AND cf.candidate_id = c.candidate_id
@@ -105,7 +105,9 @@ def _assign_local_node_ids(run_id: int, items: list[dict]) -> list[dict]:
 
 
 def build_tags(it: dict) -> dict[str, str]:
-    """Tag dict for a candidate row. Emits entrance=yes for Structure Entrance rows."""
+    """Tag dict for a candidate row. Emits a pure address node regardless of
+    address_class — Structure Entrance rows are uploaded as plain addresses,
+    not as entrance=yes nodes (see IMPORT_PROPOSAL_CHANGELOG.md 2026-05-06)."""
     tags = {
         "addr:housenumber": (it.get("housenumber") or "").strip(),
         "addr:street": (it.get("street_raw") or "").strip(),
@@ -114,8 +116,6 @@ def build_tags(it: dict) -> dict[str, str]:
     postcode = (it.get("proposed_postcode") or "").strip()
     if postcode:
         tags["addr:postcode"] = postcode
-    if it.get("address_class") == "Structure Entrance":
-        tags["entrance"] = "yes"
     return {k: v for k, v in tags.items() if v}
 
 

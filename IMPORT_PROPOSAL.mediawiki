@@ -35,7 +35,7 @@ Scope numbers (active source snapshot #28, 2026-04-18):
 |-
 | <code>Structure</code> || 28,031 || Candidate for import as a pure address node.
 |-
-| <code>Structure Entrance</code> || 14,354 || Candidate for import with <code>entrance=yes</code>.
+| <code>Structure Entrance</code> || 14,354 || Candidate for import as a pure address node. The source's "door" semantics are not preserved on upload — see [[#Tagging plan|§ Tagging plan]].
 |-
 | <code>Land Entrance</code> || 573 || '''Excluded''' from this import (driveway/gate concept, not an address).
 |-
@@ -107,7 +107,7 @@ Upload rate target is '''≤1 changeset per minute''' by manual cadence (the <co
 
 === Per-node tags written ===
 
-All uploaded elements are '''nodes'''. No ways, no relations. The tag set is constant modulo a small set of class-driven additions:
+All uploaded elements are '''nodes'''. No ways, no relations. The tag set is uniform across all address classes:
 
 {| class="wikitable"
 ! Tag !! Source !! Notes
@@ -119,9 +119,9 @@ All uploaded elements are '''nodes'''. No ways, no relations. The tag set is con
 | <code>source</code> || static || <code>City of Toronto Open Data</code>. On the node ''and'' on the containing changeset.
 |-
 | <code>addr:postcode</code> || enrichment || Written '''only''' when a same-address POI in the OSM snapshot already carries one. Never invented, never extrapolated. We adopt the postcode from the nearest same-address POI when present; absent that, we emit no postcode. Details in [[#Conflation|§ Conflation]].
-|-
-| <code>entrance</code> || class-driven || <code>yes</code> — written '''only''' for <code>Structure Entrance</code> rows. Aligns with OSM's <code>entrance=yes</code> convention for door-level nodes. Absent on all other classes.
 |}
+
+The tag set is uniform across address classes — every uploaded node is a pure address regardless of whether the source row was a parcel, a building centroid, or a door. <code>Structure Entrance</code> rows in particular are '''not''' uploaded with <code>entrance=yes</code>: the City source coordinate sits at or near a door, but standalone (un-snapped, not a member of any building way), so the door semantics aren't reliably representable in OSM without the building-way edits that this create-only import excludes (see [[#Goals and non-goals|§ Non-goals]]). The source's class is preserved in our internal audit trail but not emitted into OSM.
 
 Fields deliberately '''not''' emitted:
 
@@ -139,15 +139,15 @@ The source carries a <code>municipality_name</code> column that reflects the '''
 === Per-class tagging matrix ===
 
 {| class="wikitable"
-! Class !! addr:housenumber !! addr:street !! source !! entrance !! addr:postcode
+! Class !! addr:housenumber !! addr:street !! source !! addr:postcode
 |-
-| <code>Land</code> || yes || yes || yes || — || if colocated POI has one
+| <code>Land</code> || yes || yes || yes || if colocated POI has one
 |-
-| <code>Structure</code> || yes || yes || yes || — || if colocated POI has one
+| <code>Structure</code> || yes || yes || yes || if colocated POI has one
 |-
-| <code>Structure Entrance</code> || yes || yes || yes || <code>yes</code> || if colocated POI has one
+| <code>Structure Entrance</code> || yes || yes || yes || if colocated POI has one
 |-
-| <code>Land Entrance</code> || colspan="5" align="center" | excluded upfront
+| <code>Land Entrance</code> || colspan="4" align="center" | excluded upfront
 |}
 
 === Changeset tags ===
@@ -356,7 +356,6 @@ We do not rely on <code>&lt;delete&gt;</code> osmChange blocks to roll ourselves
 # '''Changeset comment template.''' Current format is <code>Toronto Open Data address import, run=&lt;run_name&gt;</code>. Any information we should add or remove?
 # '''Post-import monitoring.''' How long after the final upload should we commit to watching for community-raised issues? Proposing 90 days.
 # '''Empty lots and recently demolished buildings.''' Some source rows describe addresses where no building presently stands — empty lots awaiting construction, or recent demolitions where the City feed hasn't yet retired the record. Distinguishing a real current civic address from stale source data here requires local knowledge. Preferred handling: upload all such rows (the address is a civic record regardless of whether a structure stands), skip those without a visible building on recent imagery, or route them through per-tile review with a local mapper?
-# '''<code>Structure Entrance</code> placement against building walls.''' Source <code>Structure Entrance</code> points sit at the City's recorded door coordinate, which is usually on or near a building outline but not snapped to it. The current pipeline emits the node verbatim at that lat/lon — standalone, not a member of any building way. Three options: (a) leave as-is and let the JOSM operator drag/join each entrance onto the wall manually; (b) snap the coordinate to the nearest building-way segment within a small threshold (e.g. 5–10 m) so the node visually sits on the wall but remains standalone — the operator can still J-key join it; (c) snap ''and'' insert the node into the building way (modifies an existing OSM way, which exits this import's create-only scope per [[#Goals and non-goals|§ Non-goals]]). Preference from the community on (a) vs (b)? Option (c) would require its own proposal.
 # '''Address ranges (<code>4611-4619 Steeles Ave W</code>).''' Source has 1,639 active rows where <code>lo_num ≠ hi_num</code>, plus 49 lettered ranges (<code>49A-59A</code>, <code>361A-415A</code> … <code>361J-415J</code>) where the same letter sits on both endpoints. There is no parity flag and no enumerated unit list — the source stores only the two endpoints and a single <code>(latitude, longitude)</code>. The current pipeline SKIPs every range row; reviewers can opt in per-item, in which case the verbatim string is uploaded as <code>addr:housenumber=4611-4619</code> on a single node at the source's coordinate. Three options: (a) keep skipping by default (current behaviour); (b) upload the verbatim range string on the single source-provided coordinate; (c) expand into one node per implied housenumber (e.g. <code>{4611, 4613, 4615, 4617, 4619}</code>) — coordinates would have to be synthesised since the source gives only one point per range. Two facts that bear on (c): 98.7% of range rows have matching parity on <code>lo_num</code>/<code>hi_num</code> (so a step-2 expansion is well-defined), but 22 rows are cluster-style sequential numbering (<code>1-96 Red Cedarway</code>, the eleven <code>Cantle Path</code> blocks) where the implied step is 1, and 49 rows are lettered subdivisions of larger complexes where multiple parallel rows share the same numeric span. Preference between (a), (b), and (c)? Option (c) would also need a convention for coordinate placement (single point with all nodes stacked, jittered, or interpolated along the centreline).
 
 Answers to each will be incorporated into this page and, where they change pipeline behaviour, into <code>config.toml</code> and the relevant code.

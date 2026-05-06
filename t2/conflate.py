@@ -323,8 +323,6 @@ def _proposed_tags(cand_row: dict, poi_tags: dict | None = None) -> dict[str, st
         postcode = (poi_tags.get("addr:postcode") or "").strip()
     if postcode:
         tags["addr:postcode"] = postcode
-    if cand_row.get("address_class") == "Structure Entrance":
-        tags["entrance"] = "yes"
     return {k: v for k, v in tags.items() if v}
 
 
