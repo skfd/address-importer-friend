@@ -143,6 +143,7 @@ def collect(snapshot_id: int | None = None) -> dict:
             r["items_total"] = len(items)
             norm_street = normalize_street(r["linear_name_full"])
             osm_hits = 0
+            missing: list[int] = []
             osm_link_target: tuple[str, int] | None = None
             if norm_street:
                 for n in items:
@@ -151,7 +152,13 @@ def collect(snapshot_id: int | None = None) -> dict:
                         osm_hits += 1
                         if osm_link_target is None:
                             osm_link_target = hit
+                    else:
+                        missing.append(n)
+            else:
+                missing = list(items)
             r["osm_hits"] = osm_hits
+            r["missing_numbers"] = missing
+            r["missing_count"] = len(missing)
             if osm_link_target is not None:
                 kind, oid = osm_link_target
                 r["osm_url"] = f"https://www.openstreetmap.org/{kind}/{oid}"

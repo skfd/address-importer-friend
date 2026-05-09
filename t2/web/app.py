@@ -1235,6 +1235,30 @@ def create_app() -> Flask:
         stats = _source_multi.collect()
         return render_template("source_multi.html", stats=stats)
 
+    @app.get("/source/multi/partials")
+    def source_multi_partials_view():
+        try:
+            few_threshold = max(0, int(request.args.get("few_threshold", "2")))
+        except ValueError:
+            few_threshold = 2
+        stats = _source_multi.collect()
+        partials = [
+            r for r in stats["ranges"]
+            if r["osm_hits"] > 0 and r["missing_count"] > 0
+        ]
+        few = [r for r in partials if r["missing_count"] <= few_threshold]
+        many = [r for r in partials if r["missing_count"] > few_threshold]
+        few.sort(key=lambda r: (r["missing_count"], r["linear_name_full"], r["lo_num"]))
+        many.sort(key=lambda r: (-r["missing_count"], r["linear_name_full"], r["lo_num"]))
+        return render_template(
+            "source_multi_partials.html",
+            stats=stats,
+            partials_total=len(partials),
+            few=few,
+            many=many,
+            few_threshold=few_threshold,
+        )
+
     @app.get("/osm/multi")
     def osm_multi_view():
         extract_dir = cfg.osm_extract_dir
