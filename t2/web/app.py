@@ -7,7 +7,7 @@ from pathlib import Path
 
 from flask import Flask, abort, flash, g, jsonify, redirect, render_template, request, send_file, send_from_directory, url_for
 
-from .. import audit, candidates, config as _config, db as _db, multi_addresses as _multi_addresses, multi_fixes as _multi_fixes, osm_client, osm_export, osm_refresh, pipeline, ranges as _ranges, review, run_for_all, source_db, source_multi as _source_multi, streets as _streets, tag_diff, tiles_build
+from .. import audit, candidates, config as _config, db as _db, multi_addresses as _multi_addresses, multi_fixes as _multi_fixes, osm_client, osm_export, osm_refresh, pipeline, ranges as _ranges, reverse_sweep as _reverse_sweep, review, run_for_all, source_db, source_multi as _source_multi, streets as _streets, tag_diff, tiles_build
 from ..conflate import _proposed_tags, _is_poi_node, POI_TAG_KEYS, normalize_street
 from ..checks import REGISTRY
 from .glossary import GLOSSARY
@@ -1257,6 +1257,25 @@ def create_app() -> Flask:
             few=few,
             many=many,
             few_threshold=few_threshold,
+        )
+
+    @app.get("/osm/orphans")
+    def osm_orphans_view():
+        data = _reverse_sweep.collect()
+        return render_template("osm_orphans.html", data=data)
+
+    @app.get("/osm/orphans/export.csv")
+    def osm_orphans_export():
+        data = _reverse_sweep.collect()
+        if data.get("missing_extract"):
+            abort(404, description="OSM extract not built yet; run osm_refresh first.")
+        out_path = cfg.data_dir / "osm_orphans.csv"
+        _reverse_sweep.write_csv(out_path, data)
+        return send_file(
+            out_path,
+            mimetype="text/csv",
+            as_attachment=True,
+            download_name="osm_orphans.csv",
         )
 
     @app.get("/osm/multi")
