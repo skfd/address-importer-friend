@@ -15,12 +15,11 @@ Live status of the [import proposal](IMPORT_PROPOSAL.mediawiki) against the [OSM
 
 | Stage | State |
 |---|---|
-| Draft proposal | Complete (last revised 2026-05-04) |
-| OSM Community Forum discussion | Open — [thread](https://community.openstreetmap.org/t/address-import-for-toronto/119368) |
-| Wiki page (`Toronto/Import/AddressPoints`) | Not yet published |
-| `imports@openstreetmap.org` announcement | Not yet posted |
-| Two-week feedback window | Not yet started |
-| Phase 1 pilot upload (production) | Blocked on the above |
+| Draft proposal | Complete (last revised 2026-05-11) |
+| Wiki page (`Toronto/Import/AddressPoints`) | [Published 2026-05-01](https://wiki.openstreetmap.org/wiki/Toronto/Import/AddressPoints) |
+| OSM Community Forum announcement | Posted 2026-05-01 — [thread](https://community.openstreetmap.org/t/address-import-for-toronto/119368) (tagged `import`; the [Import Guidelines](https://wiki.openstreetmap.org/wiki/Import/Guidelines) route announcements through the forum now, not the deprecated `imports@` list) |
+| 14-day feedback window | Closes 2026-05-15 (measured from wiki publication; no unresolved blockers as of 2026-05-11) |
+| Phase 1 pilot upload (production) | On hold until 2026-05-15; pilot-tile review still pending |
 
 All uploads from this tool to date have used the OSM dev sandbox (`master.apis.dev.openstreetmap.org`). No production edits have been made and none will be made until the proposal has cleared the customary feedback window. The OSM account used for production uploads will be [`skfd imports`](https://www.openstreetmap.org/user/skfd%20imports) (dedicated, not the maintainer's personal account).
 
