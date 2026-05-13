@@ -1,9 +1,14 @@
-import os
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+
+# Which OSM server uploads target: "dev" (sandbox) or "prod". Picks which
+# .env file is read. run.py overwrites this from its --env/--prod flag before
+# importing the rest of t2; nothing else changes it. Deliberately a module
+# attribute, not an environment variable — see README "Targeting dev vs prod".
+OSM_ENV = "dev"
 
 
 @dataclass
@@ -35,27 +40,29 @@ class Config:
     data_dir: Path = field(default=ROOT / "data")
 
 
-def _load_env():
-    env_name = os.environ.get("OSM_ENV", "dev").strip().lower()
+def _read_env_file(path: Path) -> dict[str, str]:
+    out: dict[str, str] = {}
+    if not path.exists():
+        return out
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        out[k.strip()] = v.strip()
+    return out
+
+
+def load() -> Config:
+    env_name = OSM_ENV.strip().lower()
     if env_name not in ("dev", "prod"):
         raise ValueError(f"OSM_ENV must be 'dev' or 'prod', got {env_name!r}")
-    env_path = ROOT / f".env.{env_name}"
-    if env_path.exists():
-        for line in env_path.read_text().splitlines():
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            k, v = line.split("=", 1)
-            os.environ.setdefault(k.strip(), v.strip())
+    env = _read_env_file(ROOT / f".env.{env_name}")
     default_api = (
         "https://api.openstreetmap.org" if env_name == "prod"
         else "https://master.apis.dev.openstreetmap.org"
     )
-    os.environ.setdefault("OSM_API_BASE", default_api)
 
-
-def load() -> Config:
-    _load_env()
     toml_path = ROOT / "config.toml"
     with open(toml_path, "rb") as f:
         cfg = tomllib.load(f)
@@ -95,10 +102,10 @@ def load() -> Config:
         osm_pbf_url=osm_pbf_url,
         osm_toronto_bbox=toronto_bbox,  # type: ignore
         osm_extract_dir=extract_dir,
-        osm_api_base=os.environ.get("OSM_API_BASE", "https://master.apis.dev.openstreetmap.org"),
-        osm_client_id=os.environ.get("OSM_CLIENT_ID", ""),
-        osm_client_secret=os.environ.get("OSM_CLIENT_SECRET", ""),
-        osm_redirect_uri=os.environ.get("OSM_REDIRECT_URI", "http://127.0.0.1:5000/oauth/callback"),
-        flask_secret_key=os.environ.get("FLASK_SECRET_KEY", "dev-secret"),
-        fernet_key=os.environ.get("FERNET_KEY", ""),
+        osm_api_base=env.get("OSM_API_BASE") or default_api,
+        osm_client_id=env.get("OSM_CLIENT_ID", ""),
+        osm_client_secret=env.get("OSM_CLIENT_SECRET", ""),
+        osm_redirect_uri=env.get("OSM_REDIRECT_URI") or "http://127.0.0.1:5000/oauth/callback",
+        flask_secret_key=env.get("FLASK_SECRET_KEY") or "dev-secret",
+        fernet_key=env.get("FERNET_KEY", ""),
     )

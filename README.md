@@ -81,7 +81,7 @@ The tool defaults to the OSM **dev sandbox**
 (`master.apis.dev.openstreetmap.org`). The header shows a `DEV` / `PROD`
 badge so you always know which server uploads will go to.
 
-Selection is via the `OSM_ENV` variable (default `dev`):
+Selection is via the `--env` flag on `run.py` (default `dev`):
 
 - **DEV (default):** loads `.env.dev` → `master.apis.dev.openstreetmap.org`
 - **PROD:** loads `.env.prod` → `api.openstreetmap.org`
@@ -92,23 +92,24 @@ a prod-side `OSM_CLIENT_ID` / `OSM_CLIENT_SECRET` — register a second app on
 
 To launch against prod:
 
-```powershell
-# PowerShell
-$env:OSM_ENV="prod"
-python run.py
+```bash
+python run.py --prod        # or: python run.py --env prod
 ```
 
-```bash
-# bash
-OSM_ENV=prod python run.py
-```
+That's the only switch — `run.py --prod` is what flips the tool to production.
+The standalone CLIs (`scripts/run_one_tile.py`, `python -m t2.run_for_all`,
+`osm_refresh`, `tiles_build`, the static-export scripts) never touch the OSM
+API for uploads, so they always run against dev and take no `--env` flag.
+
+All config — `OSM_API_BASE`, `OSM_CLIENT_ID`/`OSM_CLIENT_SECRET`,
+`OSM_REDIRECT_URI`, `FLASK_SECRET_KEY`, `FERNET_KEY` — is read **only** from
+the selected `.env.{dev,prod}` file; the tool reads no environment variables
+for these. To point at a different server (a local OSM instance, a staging
+host), edit the relevant `.env` file (or create a third one).
 
 Only one OAuth token set is stored at a time (`data/tool.db`), so switching
 env requires re-authorizing on the new server. Each env file gets its own
 `FERNET_KEY` — they don't need to match.
-
-Inline env vars still win over the file (loading uses `setdefault`), so
-one-off overrides like `OSM_API_BASE=...` from the shell continue to work.
 
 The Geofabrik extract (Stage 2 read source) is the same in both modes — there
 is no dev-server slice from Geofabrik, and the dev sandbox has no realistic

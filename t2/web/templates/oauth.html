@@ -122,17 +122,15 @@ FERNET_KEY=&lt;generate with the command below&gt;</code></pre>
   <code>{{ status.redirect_uri }}</code> with a success flash.</p>
 
   <h3>Switching between dev and prod</h3>
-  <p>Selection is via the <code>OSM_ENV</code> variable (default <code>dev</code>):
-  <code>OSM_ENV=dev</code> loads <code>.env.dev</code>,
-  <code>OSM_ENV=prod</code> loads <code>.env.prod</code>.
+  <p>Selection is via the <code>--env</code> flag on <code>run.py</code>
+  (default <code>dev</code>): <code>--env dev</code> loads <code>.env.dev</code>,
+  <code>--env prod</code> (or just <code>--prod</code>) loads <code>.env.prod</code>.
   The DEV/PROD badge in the header reflects the resulting <code>OSM_API_BASE</code>.</p>
-<pre style="background:#f3f4f6; padding:.6rem .8rem; border-radius:4px; overflow:auto;"><code># PowerShell (prod)
-$env:OSM_ENV="prod"
-python run.py</code></pre>
+<pre style="background:#f3f4f6; padding:.6rem .8rem; border-radius:4px; overflow:auto;"><code>python run.py --prod</code></pre>
   <p class="muted">Only one OAuth token set is stored at a time, so switching
-  env requires re-authorizing on the new server. Inline env vars still win
-  over the file (loading uses <code>setdefault</code>) if you need a one-off
-  override.</p>
+  env requires re-authorizing on the new server. All config (API base, client
+  id/secret, redirect uri, secret keys) comes from the selected
+  <code>.env</code> file &mdash; no environment variables are read for these.</p>
 </div>
 
 {% endblock %}
