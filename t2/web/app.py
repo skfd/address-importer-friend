@@ -115,13 +115,37 @@ def create_app() -> Flask:
 
     @app.context_processor
     def _inject_run_uploaded():
-        # Expose `run_uploaded` to every template rendered for a run-scoped
-        # route, so base.html can mark the body and partials can gate writes
-        # without each route re-fetching the status.
+        # Expose `run_uploaded` + `run_upload` (status / changeset / APPROVED
+        # count) to every template rendered for a run-scoped route, so base.html
+        # can mark the body and the review-trio header (_run_upload_bar.html)
+        # can show status and gate its button without each route re-fetching.
+        # One query — same round-trip count as the prior _run_is_uploaded call.
         rid = (request.view_args or {}).get("run_id")
         if rid is None:
-            return {"run_uploaded": False}
-        return {"run_uploaded": _run_is_uploaded(int(rid))}
+            return {"run_uploaded": False, "run_upload": None}
+        conn = _db.connect()
+        try:
+            row = conn.execute(
+                """SELECT upload_status, changeset_id, upload_mode, upload_error_msg,
+                          (SELECT COUNT(*) FROM candidates
+                           WHERE run_id = r.run_id AND stage = 'APPROVED') AS approved_count
+                   FROM runs r WHERE r.run_id = ?""",
+                (int(rid),),
+            ).fetchone()
+        finally:
+            conn.close()
+        if row is None:
+            return {"run_uploaded": False, "run_upload": None}
+        return {
+            "run_uploaded": row["upload_status"] == "uploaded",
+            "run_upload": {
+                "status": row["upload_status"],
+                "changeset_id": row["changeset_id"],
+                "mode": row["upload_mode"],
+                "error": row["upload_error_msg"],
+                "approved_count": row["approved_count"],
+            },
+        }
 
     def _run_is_uploaded(run_id: int) -> bool:
         conn = _db.connect()

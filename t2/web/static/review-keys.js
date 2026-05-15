@@ -113,6 +113,52 @@
       .catch(err => console.error('review-keys:', err));
   }
 
+  // Upload chord: `g` then `u`. A bare key would fire a real, irreversible
+  // OSM changeset on one stray press, so we require a deliberate two-key
+  // sequence. The upload button's own `disabled` state (uploaded / nothing
+  // APPROVED) is the single source of truth — the chord never bypasses it.
+  let chordArmed = false;
+  let chordTimer = null;
+
+  function disarmChord() {
+    chordArmed = false;
+    if (chordTimer) { clearTimeout(chordTimer); chordTimer = null; }
+    const hint = document.getElementById('upload-chord-hint');
+    if (hint) hint.hidden = true;
+  }
+  function armChord() {
+    chordArmed = true;
+    const hint = document.getElementById('upload-chord-hint');
+    if (hint) hint.hidden = false;
+    if (chordTimer) clearTimeout(chordTimer);
+    chordTimer = setTimeout(disarmChord, 1500);
+  }
+  function uploadRun() {
+    disarmChord();
+    if (document.body.classList.contains('static-export')) return;
+    if (document.body.classList.contains('run-uploaded')) return;
+    if (!VIEWS.has(getView())) return;
+    const form = document.getElementById('upload-bar-form');
+    const btn = form && form.querySelector('button');
+    if (!form || !btn || btn.disabled) return;
+    const runId = getRunId();
+    if (runId == null) return;
+    if (btn.dataset.uploading === '1') return;
+    btn.dataset.uploading = '1';
+    btn.textContent = 'Uploading…';
+    fetch(`/runs/${runId}/upload`, { method: 'POST' })
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        window.location.reload();
+      })
+      .catch(err => {
+        btn.dataset.uploading = '0';
+        btn.textContent = 'Upload to OSM';
+        console.error('review-keys:', err);
+        alert('Upload failed: ' + err.message);
+      });
+  }
+
   function selectFirstIfHinted() {
     if (location.hash !== '#select-first') return;
     if (!VIEWS.has(getView())) return;
@@ -137,6 +183,12 @@
     if (document.body.classList.contains('static-export')) return;
     if (!VIEWS.has(getView())) return;
     const k = e.key.toLowerCase();
+    if (k === 'g') { e.preventDefault(); armChord(); return; }
+    if (chordArmed) {
+      disarmChord();
+      if (k === 'u') { e.preventDefault(); uploadRun(); return; }
+      // any other key: chord broken, fall through to normal handling
+    }
     if (k === 'w') { e.preventDefault(); selectIndex(selectedIndex() - 1); }
     else if (k === 's') { e.preventDefault(); selectIndex(selectedIndex() + 1); }
     else if (k === 'a') { e.preventDefault(); act('APPROVED'); }
