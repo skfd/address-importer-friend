@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>High Park-Swansea-SW-SE</title>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="../../assets/detail-map.js"></script>
+  <script src="../../assets/review-keys.js" defer></script>
+  <link rel="stylesheet" href="../../assets/site.css">
+  
+  <style>
+    .static-banner { background: #fef3c7; border-bottom: 2px solid #f59e0b;
+                     padding: .6rem 1.2rem; font-size: .88rem; color: #78350f;
+                     text-align: center; }
+    .static-banner a { color: #78350f; font-weight: 600; }
+    body.static-export form[method="post"],
+    body.static-export [hx-post] { opacity: .6; cursor: not-allowed; }
+    body.static-export form[method="post"] button,
+    body.static-export form[method="post"] input[type="submit"],
+    body.static-export form[method="post"] select,
+    body.static-export form[method="post"] input[type="text"],
+    body.static-export form[method="post"] input[type="number"],
+    body.static-export [hx-post] button,
+    body.static-export [hx-post] input[type="checkbox"] { pointer-events: none; }
+  </style>
+  
+</head>
+
+
+
+<body class="static-export">
+  <header>
+    <span class="nav">
+      <a href="../../../index.html"><strong>t2 address import</strong></a>
+      
+      
+      <a href="../../osm/index.html">OSM extract</a>
+      <a href="../../streets/index.html">Streets</a>
+      <a href="../../source/multi/index.html">Toronto Open Data ranges</a>
+      <a href="../../osm/multi/index.html">Multi-addresses</a>
+      <a href="../../osm/multi/corners/index.html">Corners</a>
+      <a href="/osm/orphans">OSM not in source</a>
+      <a href="../../data/index.html">Data</a>
+      
+    </span>
+    <span class="meta">
+      <a href="https://github.com/skfd/toronto-2-address-import" target="_blank" rel="noopener">GitHub</a>
+      <span class="sep">·</span>
+      <a href="https://community.openstreetmap.org/t/address-import-for-toronto/119368" target="_blank" rel="noopener">OSM discussion</a>
+      <span class="sep">·</span>
+      <a href="https://github.com/skfd/toronto-2-address-import/blob/main/LICENSE" target="_blank" rel="noopener">MIT</a>
+      <span class="sep">·</span>
+      <a href="https://open.toronto.ca/open-data-licence/" target="_blank" rel="noopener">Toronto Open Data</a>
+      &amp;
+      &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OSM</a>
+    </span>
+  </header>
+  
+  <div class="static-banner">
+    Static snapshot of run <strong>high-park-swansea-sw-se-2026-05-13</strong>
+    as of 2026-05-13 —
+    pilot evidence for the
+    <a href="https://github.com/skfd/toronto-2-address-import/blob/main/IMPORT_PROPOSAL.mediawiki" target="_blank" rel="noopener">Toronto address import proposal</a>.
+    Interactive actions (stages, review decisions, uploads) are disabled.
+    <a href="https://github.com/skfd/toronto-2-address-import" target="_blank" rel="noopener">Run the live tool</a>
+    to exercise them.
+  </div>
+  <script>
+    // Teach the page to behave on the static site, where Flask isn't around
+    // to partial-render HX-Request responses or route absolute hx-get paths.
+    // Three things we need to undo / substitute:
+    //   1. Disable htmx's history machinery entirely. hx-push-url="true"
+    //      would rewrite the address bar to the clicked row's relative
+    //      hx-get target (.../<view>/<cid>/index.html). On the next click
+    //      the sibling rows' relative hx-gets then resolve against that new
+    //      path, producing a nested .../<view>/<cid1>/<cid2>/index.html
+    //      that 404s.
+    //   2. Extract the target fragment from full-page responses — we can't
+    //      branch on HX-Request, so every hx-get returns the whole page;
+    //      adding hx-select=<target> with hx-swap=outerHTML pulls out just
+    //      the fragment htmx would have otherwise inlined verbatim.
+    //   3. Neuter POST forms / hx-post actions so the disabled visual
+    //      doesn't lie if someone clicks through the pointer-events guard.
+    if (window.htmx && window.htmx.config) window.htmx.config.historyEnabled = false;
+    (function () {
+      function each(scope, selector, fn) {
+        if (scope.matches && scope.matches(selector)) fn(scope);
+        if (scope.querySelectorAll) scope.querySelectorAll(selector).forEach(fn);
+      }
+      function process(scope) {
+        if (!scope) return;
+        each(scope, 'form[method="post"], form[method="POST"]', function (f) {
+          f.addEventListener('submit', function (e) { e.preventDefault(); });
+        });
+        each(scope, '[hx-post]', function (el) { el.removeAttribute('hx-post'); });
+        each(scope, '[hx-get][hx-target]', function (el) {
+          if (el.getAttribute('hx-push-url') === 'true') el.removeAttribute('hx-push-url');
+          if (el.hasAttribute('hx-select')) return;
+          el.setAttribute('hx-select', el.getAttribute('hx-target'));
+          el.setAttribute('hx-swap', 'outerHTML');
+        });
+      }
+      document.addEventListener('DOMContentLoaded', function () { process(document); });
+      document.addEventListener('htmx:afterSwap', function (evt) { process(evt.target); });
+    })();
+  </script>
+  
+  <main>
+    
+      
+    
+    
+<div class="card">
+  
+  <h2>
+    High Park-Swansea-SW-SE
+    <span class="muted">· tile 825/1297</span>
+    
+    
+  </h2>
+  <p class="muted">
+    parent: High Park-Swansea · depth 2 · 250 addresses
+  </p>
+  <div id="tile-preview" style="height: 280px; border-radius: 4px;"></div>
+  <script>
+    (function () {
+      const t = {"address_count": 250, "bbox": [43.633436, -79.480592, 43.639157, -79.469502], "depth": 2, "id": "high-park-swansea-sw-se", "is_multipolygon": false, "is_orphan": false, "name": "High Park-Swansea-SW-SE", "parent": "High Park-Swansea", "polygon_latlon": [[[43.634685, -79.471919], [43.634669, -79.47195], [43.634628, -79.472043], [43.634588, -79.472136], [43.634547, -79.472227], [43.634544, -79.472234], [43.634507, -79.472319], [43.6345, -79.472334], [43.634462, -79.472411], [43.634417, -79.472501], [43.634377, -79.472591], [43.634332, -79.472681], [43.634291, -79.472771], [43.634242, -79.47286], [43.634197, -79.472948], [43.634152, -79.473036], [43.634107, -79.473123], [43.634057, -79.47321], [43.634012, -79.473297], [43.633963, -79.473383], [43.633913, -79.473468], [43.633868, -79.473553], [43.633819, -79.473637], [43.633769, -79.473721], [43.633715, -79.473805], [43.633666, -79.473888], [43.633616, -79.47397], [43.633562, -79.474052], [43.633513, -79.474133], [43.633459, -79.474213], [43.633436, -79.474245], [43.633477, -79.474356], [43.633522, -79.474449], [43.633647, -79.474703], [43.633855, -79.475128], [43.634107, -79.475499], [43.634436, -79.475702], [43.634755, -79.475838], [43.635039, -79.476009], [43.635354, -79.476175], [43.635484, -79.476251], [43.635637, -79.47634], [43.635966, -79.476527], [43.636232, -79.476713], [43.636271, -79.476734], [43.636443, -79.47683], [43.636748, -79.476872], [43.636988, -79.476975], [43.637213, -79.477085], [43.637408, -79.477215], [43.637533, -79.477292], [43.637733, -79.477499], [43.637873, -79.477839], [43.637993, -79.478118], [43.638069, -79.478455], [43.638119, -79.478847], [43.638131, -79.479361], [43.638135, -79.479851], [43.638112, -79.480397], [43.638104, -79.480592], [43.639157, -79.480592], [43.639157, -79.469502], [43.635751, -79.469502], [43.634709, -79.471857], [43.634685, -79.471919]]]};
+      const b = t.bbox;
+      const map = L.map('tile-preview').fitBounds([[b[0], b[1]], [b[2], b[3]]], { padding: [20, 20] });
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        { maxZoom: 19, attribution: '© OSM' }).addTo(map);
+      L.polygon(t.polygon_latlon, {
+        color: t.is_orphan ? '#ef4444' : '#2563eb',
+        weight: 2,
+        fillOpacity: 0.1,
+      }).addTo(map);
+    })();
+  </script>
+</div>
+
+
+
+<div class="card">
+  <h3>Prior runs on this tile</h3>
+  
+    
+  
+  
+  <table>
+    <thead><tr><th>ID</th><th>Name</th><th>Created</th><th>Snapshot</th><th></th></tr></thead>
+    <tbody>
+      
+      <tr>
+        <td>1298</td>
+        <td><a href="../../runs/1298/index.html">high-park-swansea-sw-se-2026-05-13</a></td>
+        <td class="muted">2026-05-13T06:49:52.216507+00:00</td>
+        <td>42</td>
+        <td><a href="../../runs/1298/review/index.html">review</a> · <a href="../../runs/1298/audit/index.html">audit</a></td>
+      </tr>
+      
+    </tbody>
+  </table>
+  
+</div>
+
+  </main>
+</body>
+</html>

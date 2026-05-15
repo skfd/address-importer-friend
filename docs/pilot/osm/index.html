@@ -41,6 +41,7 @@
       <a href="../source/multi/index.html">Toronto Open Data ranges</a>
       <a href="multi/index.html">Multi-addresses</a>
       <a href="multi/corners/index.html">Corners</a>
+      <a href="/osm/orphans">OSM not in source</a>
       <a href="../data/index.html">Data</a>
       
     </span>
@@ -58,8 +59,8 @@
   </header>
   
   <div class="static-banner">
-    Static snapshot of run <strong>south-riverdale-nw-nw-ne-batch-2026-05-03</strong>
-    as of 2026-05-04 —
+    Static snapshot of run <strong>high-park-swansea-sw-se-2026-05-13</strong>
+    as of 2026-05-13 —
     pilot evidence for the
     <a href="https://github.com/skfd/toronto-2-address-import/blob/main/IMPORT_PROPOSAL.mediawiki" target="_blank" rel="noopener">Toronto address import proposal</a>.
     Interactive actions (stages, review decisions, uploads) are disabled.
@@ -128,32 +129,32 @@
   <table>
     <tr>
       <th>Geofabrik Last-Modified</th>
-      <td data-tip="Last-Modified header Geofabrik reported for the PBF when we last downloaded it."><code>Mon, 04 May 2026 22:56:51 GMT</code></td>
+      <td data-tip="Last-Modified header Geofabrik reported for the PBF when we last downloaded it."><code>Tue, 12 May 2026 23:08:51 GMT</code></td>
     </tr>
     <tr>
       <th>Downloaded</th>
-      <td data-tip="Wall-clock time of our last successful refresh."><code>2026-05-05T03:21:47.384602+00:00</code></td>
+      <td data-tip="Wall-clock time of our last successful refresh."><code>2026-05-13T06:30:43.994786+00:00</code></td>
     </tr>
     <tr>
       <th>PBF</th>
-      <td>892.7 MiB · sha256 <code data-tip="SHA-256 of the downloaded PBF.">486d1c87e8f54e99…</code></td>
+      <td>893.1 MiB · sha256 <code data-tip="SHA-256 of the downloaded PBF.">537d63c0a82a6c2d…</code></td>
     </tr>
     <tr>
       <th>JSON</th>
-      <td>94.39 MiB · sha256 <code data-tip="SHA-256 of the filtered address JSON.">9165fa0a08a77eeb…</code></td>
+      <td>94.41 MiB · sha256 <code data-tip="SHA-256 of the filtered address JSON.">8fdbacd60a25bc13…</code></td>
     </tr>
     <tr>
       <th>Elements</th>
       <td data-tip="Feature counts after filtering: nodes + ways kept, relations skipped (no centroid), features outside the Toronto bbox.">
-        nodes <strong>168760</strong> ·
-        ways <strong>95598</strong> ·
-        relations <strong>221</strong> ·
-        outside bbox 2357112
+        nodes <strong>168792</strong> ·
+        ways <strong>95610</strong> ·
+        relations <strong>222</strong> ·
+        outside bbox 2357394
       </td>
     </tr>
     <tr>
       <th>Filter time</th>
-      <td data-tip="Time spent running pyosmium over the PBF.">246.14s <span class="muted">(total 298.35s)</span></td>
+      <td data-tip="Time spent running pyosmium over the PBF.">400.69s <span class="muted">(total 455.5s)</span></td>
     </tr>
   </table>
   
@@ -175,36 +176,36 @@
 
 <div class="card">
   <h3>Last refresh log</h3>
-  <pre style="max-height: 20rem; overflow: auto; background: #f3f4f6; padding: .6rem; border-radius: 4px; font-size: .8rem;">[2026-05-03T03:30:01.521547+00:00] downloaded 275 MiB (30%)
-[2026-05-03T03:30:02.950929+00:00] downloaded 300 MiB (33%)
-[2026-05-03T03:30:04.429713+00:00] downloaded 325 MiB (36%)
-[2026-05-03T03:30:05.814840+00:00] downloaded 350 MiB (39%)
-[2026-05-03T03:30:07.211665+00:00] downloaded 375 MiB (42%)
-[2026-05-03T03:30:08.622971+00:00] downloaded 400 MiB (44%)
-[2026-05-03T03:30:10.011214+00:00] downloaded 425 MiB (47%)
-[2026-05-03T03:30:11.635122+00:00] downloaded 450 MiB (50%)
-[2026-05-03T03:30:13.830334+00:00] downloaded 475 MiB (53%)
-[2026-05-03T03:30:15.911845+00:00] downloaded 500 MiB (56%)
-[2026-05-03T03:30:17.311327+00:00] downloaded 525 MiB (58%)
-[2026-05-03T03:30:18.724587+00:00] downloaded 550 MiB (61%)
-[2026-05-03T03:30:20.172772+00:00] downloaded 575 MiB (64%)
-[2026-05-03T03:30:21.617030+00:00] downloaded 600 MiB (67%)
-[2026-05-03T03:30:23.066088+00:00] downloaded 625 MiB (70%)
-[2026-05-03T03:30:24.517451+00:00] downloaded 650 MiB (72%)
-[2026-05-03T03:30:25.985627+00:00] downloaded 675 MiB (75%)
-[2026-05-03T03:30:27.435813+00:00] downloaded 700 MiB (78%)
-[2026-05-03T03:30:28.901911+00:00] downloaded 725 MiB (81%)
-[2026-05-03T03:30:30.367505+00:00] downloaded 750 MiB (84%)
-[2026-05-03T03:30:31.829896+00:00] downloaded 775 MiB (86%)
-[2026-05-03T03:30:33.239815+00:00] downloaded 800 MiB (89%)
-[2026-05-03T03:30:34.768933+00:00] downloaded 825 MiB (92%)
-[2026-05-03T03:30:36.170018+00:00] downloaded 850 MiB (95%)
-[2026-05-03T03:30:37.584551+00:00] downloaded 875 MiB (98%)
-[2026-05-03T03:30:38.721147+00:00] downloaded 935974582 bytes, sha256 9e1bfb37d8f9ce19�
-[2026-05-03T03:30:38.721245+00:00] filtering with pyosmium to bbox (43.58, -79.64, 43.86, -79.11)
-[2026-05-03T03:36:58.548401+00:00] filter done in 379.8s � {&#39;nodes&#39;: 168760, &#39;ways&#39;: 95595, &#39;interp_ways&#39;: 69687, &#39;relations&#39;: 221, &#39;relations_no_geometry&#39;: 0, &#39;outside_bbox&#39;: 2357084}
-[2026-05-03T03:36:59.691472+00:00] wrote C:\Users\kk\Code\toronto-2-address-import\data\osm\toronto-addresses.json (98972481 bytes, sha256 c47a49c990bb5aba�)
-[2026-05-03T03:36:59.700776+00:00] done</pre>
+  <pre style="max-height: 20rem; overflow: auto; background: #f3f4f6; padding: .6rem; border-radius: 4px; font-size: .8rem;">[2026-05-13T06:23:26.032457+00:00] downloaded 275 MiB (30%)
+[2026-05-13T06:23:27.445724+00:00] downloaded 300 MiB (33%)
+[2026-05-13T06:23:28.843173+00:00] downloaded 325 MiB (36%)
+[2026-05-13T06:23:30.222680+00:00] downloaded 350 MiB (39%)
+[2026-05-13T06:23:31.607056+00:00] downloaded 375 MiB (41%)
+[2026-05-13T06:23:33.005079+00:00] downloaded 400 MiB (44%)
+[2026-05-13T06:23:34.426855+00:00] downloaded 425 MiB (47%)
+[2026-05-13T06:23:35.950280+00:00] downloaded 450 MiB (50%)
+[2026-05-13T06:23:37.464122+00:00] downloaded 475 MiB (53%)
+[2026-05-13T06:23:38.994036+00:00] downloaded 500 MiB (55%)
+[2026-05-13T06:23:40.450590+00:00] downloaded 525 MiB (58%)
+[2026-05-13T06:23:41.958844+00:00] downloaded 550 MiB (61%)
+[2026-05-13T06:23:43.428716+00:00] downloaded 575 MiB (64%)
+[2026-05-13T06:23:44.866714+00:00] downloaded 600 MiB (67%)
+[2026-05-13T06:23:46.278897+00:00] downloaded 625 MiB (69%)
+[2026-05-13T06:23:47.716517+00:00] downloaded 650 MiB (72%)
+[2026-05-13T06:23:49.164682+00:00] downloaded 675 MiB (75%)
+[2026-05-13T06:23:50.610849+00:00] downloaded 700 MiB (78%)
+[2026-05-13T06:23:52.056549+00:00] downloaded 725 MiB (81%)
+[2026-05-13T06:23:53.516768+00:00] downloaded 750 MiB (83%)
+[2026-05-13T06:23:55.181582+00:00] downloaded 775 MiB (86%)
+[2026-05-13T06:23:56.629893+00:00] downloaded 800 MiB (89%)
+[2026-05-13T06:23:58.083199+00:00] downloaded 825 MiB (92%)
+[2026-05-13T06:23:59.522879+00:00] downloaded 850 MiB (95%)
+[2026-05-13T06:24:00.963351+00:00] downloaded 875 MiB (97%)
+[2026-05-13T06:24:01.990382+00:00] downloaded 936468479 bytes, sha256 537d63c0a82a6c2d�
+[2026-05-13T06:24:01.990462+00:00] filtering with pyosmium to bbox (43.58, -79.64, 43.86, -79.11)
+[2026-05-13T06:30:42.682173+00:00] filter done in 400.7s � {&#39;nodes&#39;: 168792, &#39;ways&#39;: 95610, &#39;interp_ways&#39;: 69684, &#39;relations&#39;: 222, &#39;relations_no_geometry&#39;: 0, &#39;outside_bbox&#39;: 2357394}
+[2026-05-13T06:30:43.994565+00:00] wrote C:\Users\kk\Code\toronto-2-address-import\data\osm\toronto-addresses.json (98991906 bytes, sha256 8fdbacd60a25bc13�)
+[2026-05-13T06:30:44.010407+00:00] done</pre>
 </div>
 
 

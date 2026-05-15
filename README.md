@@ -15,11 +15,11 @@ Live status of the [import proposal](IMPORT_PROPOSAL.mediawiki) against the [OSM
 
 | Stage | State |
 |---|---|
-| Draft proposal | Complete (last revised 2026-05-11) |
+| Draft proposal | Complete (last revised 2026-05-13) |
 | Wiki page (`Toronto/Import/AddressPoints`) | [Published 2026-05-01](https://wiki.openstreetmap.org/wiki/Toronto/Import/AddressPoints) |
 | OSM Community Forum announcement | Posted 2026-05-01 — [thread](https://community.openstreetmap.org/t/address-import-for-toronto/119368) (tagged `import`; the [Import Guidelines](https://wiki.openstreetmap.org/wiki/Import/Guidelines) route announcements through the forum now, not the deprecated `imports@` list) |
-| 14-day feedback window | Closes 2026-05-15 (measured from wiki publication; no unresolved blockers as of 2026-05-11) |
-| Phase 1 pilot upload (production) | On hold until 2026-05-15; pilot-tile review still pending |
+| 14-day feedback window | Closes 2026-05-15 (measured from wiki publication; discussion resolved) |
+| Phase 1 pilot upload (production) | Completed 2026-05-13 — [changeset 182585291](https://www.openstreetmap.org/changeset/182585291) (tile `high-park-swansea-sw-se`, 176 uploaded, 72 skipped, 4 rejected). [Upload manifest](https://skfd.github.io/toronto-2-address-import/pilot/uploads/all.csv). One-week hold before Phase 2. |
 
 All uploads from this tool to date have used the OSM dev sandbox (`master.apis.dev.openstreetmap.org`). No production edits have been made and none will be made until the proposal has cleared the customary feedback window. The OSM account used for production uploads will be [`skfd imports`](https://www.openstreetmap.org/user/skfd%20imports) (dedicated, not the maintainer's personal account).
 
