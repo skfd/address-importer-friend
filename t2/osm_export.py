@@ -1,10 +1,11 @@
 """Emit JOSM-compatible .osm XML and osmChange XML for a run's APPROVED candidates."""
 import uuid
 import xml.etree.ElementTree as ET
+from datetime import datetime, timezone
 from pathlib import Path
 from xml.dom import minidom
 
-from . import config as _config, db as _db
+from . import audit, config as _config, db as _db
 
 _CONFIG = _config.load()
 
@@ -79,6 +80,61 @@ def _load_upload_items(run_id: int) -> list[dict]:
         conn.close()
 
 
+def skip_cross_run_duplicates(run_id: int) -> list[int]:
+    """First-come-first-served cross-run dedup.
+
+    Adjacent batch tiles overlap, so one source address point can be APPROVED
+    in several runs. Flip this run's APPROVED candidates to SKIPPED when the
+    same source candidate_id is already UPLOADED in another run, so an address
+    in an overlap band is imported exactly once. Idempotent; returns the
+    candidate_ids skipped. Called before every upload path materializes the
+    run's APPROVED set, so SKIPPED rows never enter the changeset and the
+    API path's leftover-APPROVED partial-upload check stays accurate.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    conn = _db.connect()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        rows = conn.execute(
+            """
+            SELECT c.candidate_id,
+                   w.run_id      AS won_run,
+                   w.osm_node_id AS won_osm
+            FROM candidates c
+            JOIN candidates w
+              ON w.candidate_id = c.candidate_id
+             AND w.run_id <> c.run_id
+             AND w.stage = 'UPLOADED'
+            WHERE c.run_id = ? AND c.stage = 'APPROVED'
+            GROUP BY c.candidate_id
+            """,
+            (run_id,),
+        ).fetchall()
+        skipped: list[int] = []
+        for r in rows:
+            cid = int(r["candidate_id"])
+            conn.execute(
+                "UPDATE candidates SET stage='SKIPPED', stage_updated_at=? "
+                "WHERE run_id=? AND candidate_id=?",
+                (now, run_id, cid),
+            )
+            audit.log(
+                actor="osm_export", event_type="SKIPPED_CROSS_RUN_DUPLICATE",
+                run_id=run_id, candidate_id=cid,
+                payload={"uploaded_in_run": r["won_run"],
+                         "osm_node_id": r["won_osm"]},
+                conn=conn,
+            )
+            skipped.append(cid)
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+    finally:
+        conn.close()
+    return skipped
+
+
 def _assign_local_node_ids(run_id: int, items: list[dict]) -> list[dict]:
     """Persist a stable negative local_node_id for each item that lacks one.
     Using -candidate_id keeps the id unique within the run and idempotent
@@ -140,6 +196,7 @@ def _osm_change_xml(items: list[dict]) -> bytes:
 
 
 def write_xml(run_id: int) -> Path:
+    skip_cross_run_duplicates(run_id)
     items = _assign_local_node_ids(run_id, _load_upload_items(run_id))
     raw = _osm_change_xml(items)
     pretty = minidom.parseString(raw).toprettyxml(indent="  ", encoding="utf-8")
