@@ -185,7 +185,8 @@ def run_checks(run_id: int) -> dict[str, int]:
                    c.lo_num, c.lo_num_suf, c.hi_num, c.hi_num_suf,
                    cf.verdict, cf.nearest_osm_id, cf.nearest_osm_type, cf.nearest_dist_m,
                    cf.matched_osm_tags_json,
-                   cf.dup_sibling_candidate_id, cf.dup_sibling_dist_m
+                   cf.dup_sibling_candidate_id, cf.dup_sibling_dist_m,
+                   cf.dup_group_all_match
             FROM candidates c
             LEFT JOIN conflation cf USING (run_id, candidate_id)
             WHERE c.run_id = ? AND c.stage IN ('CONFLATED', 'CHECKED', 'REVIEW_PENDING')
@@ -213,6 +214,7 @@ def run_checks(run_id: int) -> dict[str, int]:
                 matched_osm_tags=matched_tags,
                 dup_sibling_candidate_id=r["dup_sibling_candidate_id"],
                 dup_sibling_dist_m=r["dup_sibling_dist_m"],
+                dup_group_all_match=r["dup_group_all_match"],
             )
             # Ranges were skipped during conflation — auto-skip in checks too
             if cand.verdict == "SKIPPED":

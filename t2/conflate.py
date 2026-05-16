@@ -433,6 +433,7 @@ def run(run_id: int, osm_snapshot_hash: str, match_radius_m: float, match_near_m
     now = datetime.now(timezone.utc).isoformat()
 
     counts = {"MATCH": 0, "MATCH_FAR": 0, "MISSING": 0, "SKIPPED": 0}
+    verdict_by_cid: dict[int, str] = {}
     conn = _db.connect()
     try:
         land_groups = _build_land_groups(conn, run_id)
@@ -464,6 +465,7 @@ def run(run_id: int, osm_snapshot_hash: str, match_radius_m: float, match_near_m
                     cand, match_idx, poi_idx, match_radius_m, match_near_m
                 )
             counts[verdict] += 1
+            verdict_by_cid[cand["candidate_id"]] = verdict
 
             osm_tags = (matched.get("tags") if matched else None) or None
             geom = tag_diff.geom_hint(matched) if matched else None
@@ -538,6 +540,24 @@ def run(run_id: int, osm_snapshot_hash: str, match_radius_m: float, match_near_m
                     },
                     conn=conn,
                 )
+        # Suppress the intra_source_duplicate flag for Land groups whose every
+        # row already MATCHed OSM: the duplicate is then pure source noise with
+        # nothing importable, so these rows auto-SKIP instead of entering the
+        # operator queue. Any non-MATCH sibling (notably a MISSING one — the
+        # real duplicate-upload risk) leaves the whole group flagged. Members
+        # not processed this run are absent from verdict_by_cid and so read as
+        # non-MATCH, keeping the conservative (flag) behaviour.
+        for members in land_groups.values():
+            if len(members) < 2:
+                continue
+            if all(verdict_by_cid.get(cid) == "MATCH" for cid, _lat, _lon in members):
+                for cid, _lat, _lon in members:
+                    conn.execute(
+                        "UPDATE conflation SET dup_group_all_match = 1 "
+                        "WHERE run_id = ? AND candidate_id = ?",
+                        (run_id, cid),
+                    )
+
         audit.log(
             actor="pipeline",
             event_type="CONFLATE_DONE",

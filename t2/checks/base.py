@@ -28,6 +28,7 @@ class Candidate:
     matched_osm_tags: dict[str, str] | None = None
     dup_sibling_candidate_id: int | None = None
     dup_sibling_dist_m: float | None = None
+    dup_group_all_match: int | None = None  # 1 when every same-address Land sibling MATCHed OSM
 
 
 @dataclass
