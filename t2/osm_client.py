@@ -228,8 +228,10 @@ def upload(run_id: int) -> None:
         conn.close()
 
     # Drop candidates already uploaded by an overlapping tile before building
-    # the changeset, so an address point in a tile overlap is created once.
+    # the changeset, so an address point in a tile overlap is created once,
+    # then collapse same-address duplicates within this run to one node.
     osm_export.skip_cross_run_duplicates(run_id)
+    osm_export.skip_intra_run_duplicates(run_id)
 
     if not client_token:
         client_token = osm_export._ensure_client_token(run_id)
@@ -363,10 +365,11 @@ def mark_uploaded_externally(run_id: int) -> None:
     # later auditing / cross-referencing can find the upload.
     osm_export._ensure_client_token(run_id)
 
-    # The .osm the operator just uploaded via JOSM excluded cross-run
-    # duplicates (write_xml runs the same guard); re-run it here so those
-    # rows land in SKIPPED rather than being swept into UPLOADED below.
+    # The .osm the operator just uploaded via JOSM excluded cross-run and
+    # intra-run duplicates (write_xml runs the same guards); re-run them here
+    # so those rows land in SKIPPED rather than being swept into UPLOADED below.
     osm_export.skip_cross_run_duplicates(run_id)
+    osm_export.skip_intra_run_duplicates(run_id)
 
     conn = _db.connect()
     try:

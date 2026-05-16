@@ -135,6 +135,74 @@ def skip_cross_run_duplicates(run_id: int) -> list[int]:
     return skipped
 
 
+def skip_intra_run_duplicates(run_id: int) -> list[int]:
+    """Keep-one dedup within a single run's changeset.
+
+    The conflate stage already auto-skips same-address Land siblings within
+    5 m and flags wider pairs for review, but an operator can still APPROVE
+    both flagged rows (or a >5 m pair), so the changeset would create two OSM
+    nodes for one civic address. Group this run's APPROVED candidates by
+    (address_full, municipality_name) — the same key conflate uses, which
+    keeps the post-amalgamation "Municipality trap" (one address string in
+    several former municipalities) as distinct addresses — and flip every row
+    but the lowest candidate_id (the canonical keeper, matching conflate's
+    tiebreak) to SKIPPED. Idempotent; returns the candidate_ids skipped.
+
+    Scoped to one run_id (the candidates PK prefix), so it scans only that
+    run's rows — no extra index needed. Called after skip_cross_run_
+    duplicates on every upload path so the keeper is chosen among rows that
+    will actually be uploaded, and SKIPPED rows never enter the changeset.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    conn = _db.connect()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        rows = conn.execute(
+            """
+            SELECT c.candidate_id,
+                   MIN(k.candidate_id) AS kept,
+                   c.address_full      AS address_full,
+                   c.municipality_name AS municipality_name
+            FROM candidates c
+            JOIN candidates k
+              ON k.run_id = c.run_id
+             AND k.stage = 'APPROVED'
+             AND k.address_full = c.address_full
+             AND k.municipality_name IS c.municipality_name
+            WHERE c.run_id = ? AND c.stage = 'APPROVED'
+              AND c.address_full IS NOT NULL
+            GROUP BY c.candidate_id
+            HAVING c.candidate_id <> MIN(k.candidate_id)
+            ORDER BY c.candidate_id
+            """,
+            (run_id,),
+        ).fetchall()
+        skipped: list[int] = []
+        for r in rows:
+            cid = int(r["candidate_id"])
+            conn.execute(
+                "UPDATE candidates SET stage='SKIPPED', stage_updated_at=? "
+                "WHERE run_id=? AND candidate_id=?",
+                (now, run_id, cid),
+            )
+            audit.log(
+                actor="osm_export", event_type="SKIPPED_INTRA_RUN_DUPLICATE",
+                run_id=run_id, candidate_id=cid,
+                payload={"kept_candidate_id": int(r["kept"]),
+                         "address_full": r["address_full"],
+                         "municipality_name": r["municipality_name"]},
+                conn=conn,
+            )
+            skipped.append(cid)
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+    finally:
+        conn.close()
+    return skipped
+
+
 def _assign_local_node_ids(run_id: int, items: list[dict]) -> list[dict]:
     """Persist a stable negative local_node_id for each item that lacks one.
     Using -candidate_id keeps the id unique within the run and idempotent
@@ -197,6 +265,7 @@ def _osm_change_xml(items: list[dict]) -> bytes:
 
 def write_xml(run_id: int) -> Path:
     skip_cross_run_duplicates(run_id)
+    skip_intra_run_duplicates(run_id)
     items = _assign_local_node_ids(run_id, _load_upload_items(run_id))
     raw = _osm_change_xml(items)
     pretty = minidom.parseString(raw).toprettyxml(indent="  ", encoding="utf-8")
