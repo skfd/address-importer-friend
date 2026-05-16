@@ -12,6 +12,7 @@
     <a href="{{ osm_target.web_base }}/changeset/{{ run.changeset_id }}" target="_blank" rel="noopener"
        title="Open changeset on {{ osm_target.label }} OSM">cs #{{ run.changeset_id }}</a>
     {% endif %}
+    {% include "_neighbor_nav.html" %}
     <form method="post" action="{{ url_for('runs_new') }}" class="inline" style="margin-left: auto;">
       <input type="hidden" name="name" value="{{ new_run_name }}"/>
       <input type="hidden" name="min_lat" value="{{ run.bbox_min_lat }}"/>

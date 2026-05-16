@@ -98,9 +98,22 @@
       });
   }
 
+  let neighborMsgTimer = null;
+  function neighborMsg(text) {
+    const el = document.getElementById('neighbor-msg');
+    if (!el) return;
+    el.textContent = text;
+    if (neighborMsgTimer) clearTimeout(neighborMsgTimer);
+    neighborMsgTimer = setTimeout(() => { el.textContent = ''; }, 4000);
+  }
+
+  // Neighbour nav works on any run page (main run view + review trio), not
+  // just the list views — so you can press N/M (or click the buttons) right
+  // after uploading, when you're back on the run view. A null result means
+  // no adjacent tile has a run still needing review (or this run isn't
+  // tile-aligned); say so instead of failing silently.
   function jumpNeighbor(direction) {
     if (document.body.classList.contains('static-export')) return;
-    if (!VIEWS.has(getView())) return;
     const runId = getRunId();
     if (runId == null) return;
     fetch(`/runs/${runId}/neighbor?dir=${direction}`)
@@ -108,10 +121,26 @@
       .then(j => {
         if (j && j.run_id != null) {
           window.location.href = `/runs/${j.run_id}/review#select-first`;
+        } else {
+          neighborMsg(direction === 'prev'
+            ? 'No earlier neighbouring tile still needs review.'
+            : 'No further neighbouring tile still needs review.');
         }
       })
-      .catch(err => console.error('review-keys:', err));
+      .catch(err => {
+        console.error('review-keys:', err);
+        neighborMsg('Neighbour lookup failed.');
+      });
   }
+
+  // Click delegate for the visible Prev/Next buttons — same code path as
+  // the N/M hotkeys, so there is one source of truth.
+  document.addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest('[data-neighbor]');
+    if (!b) return;
+    e.preventDefault();
+    jumpNeighbor(b.getAttribute('data-neighbor'));
+  });
 
   // Upload chord: `g` then `u`. A bare key would fire a real, irreversible
   // OSM changeset on one stray press, so we require a deliberate two-key
@@ -181,8 +210,13 @@
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (isTyping(e.target)) return;
     if (document.body.classList.contains('static-export')) return;
-    if (!VIEWS.has(getView())) return;
+    if (getRunId() == null) return;
     const k = e.key.toLowerCase();
+    // Neighbour nav is allowed on any run page (incl. the main run view).
+    if (k === 'n') { e.preventDefault(); jumpNeighbor('prev'); return; }
+    if (k === 'm') { e.preventDefault(); jumpNeighbor('next'); return; }
+    // Everything below is list-driven and only applies to the review trio.
+    if (!VIEWS.has(getView())) return;
     if (k === 'g') { e.preventDefault(); armChord(); return; }
     if (chordArmed) {
       disarmChord();
@@ -193,8 +227,6 @@
     else if (k === 's') { e.preventDefault(); selectIndex(selectedIndex() + 1); }
     else if (k === 'a') { e.preventDefault(); act('APPROVED'); }
     else if (k === 'd') { e.preventDefault(); act('REJECTED'); }
-    else if (k === 'n') { e.preventDefault(); jumpNeighbor('prev'); }
-    else if (k === 'm') { e.preventDefault(); jumpNeighbor('next'); }
   });
 
   window.t2ReviewKeys = { act };

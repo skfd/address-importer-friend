@@ -1,0 +1,13 @@
+{# Prev/Next neighbouring-tile navigation. The buttons and the N/M hotkeys
+   are both wired by review-keys.js (single source of truth); #neighbor-msg
+   shows feedback when there's no eligible neighbour, instead of the old
+   silent no-op. Hidden on the static export — it has no /neighbor backend. #}
+{% if not static_export.active %}
+<span class="neighbor-nav" style="display:inline-flex; align-items:center; gap:.4rem; flex-wrap:wrap;">
+  <button type="button" class="secondary" data-neighbor="prev"
+          title="Jump to the previous neighbouring tile whose latest run still needs review (hotkey: N)">&larr; Prev tile (N)</button>
+  <button type="button" class="secondary" data-neighbor="next"
+          title="Jump to the next neighbouring tile whose latest run still needs review (hotkey: M)">Next tile (M) &rarr;</button>
+  <span class="muted" id="neighbor-msg" role="status" aria-live="polite"></span>
+</span>
+{% endif %}
