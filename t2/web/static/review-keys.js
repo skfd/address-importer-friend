@@ -70,17 +70,26 @@
     if (document.body.classList.contains('static-export')) return;
     if (document.body.classList.contains('run-uploaded')) return;
     if (!VIEWS.has(getView())) return;
-    const rs = rows();
-    const i = selectedIndex();
-    if (i < 0) return;
-    const row = rs[i];
-    const url = row.getAttribute('hx-get') || '';
-    const m = url.match(/\/(\d+)$/);
-    if (!m) return;
-    const cid = m[1];
     const runId = getRunId();
     if (runId == null) return;
-    markDecided(row, status);
+    const rs = rows();
+    const i = selectedIndex();
+    let cid, row;
+    if (i >= 0) {
+      row = rs[i];
+      const m = (row.getAttribute('hx-get') || '').match(/\/(\d+)$/);
+      if (!m) return;
+      cid = m[1];
+    } else {
+      // No list row selected — e.g. a permalink to an auto-approved
+      // candidate, which the default queue filter excludes. Fall back to
+      // the candidate shown in the detail pane (the decision form's URL).
+      const form = document.querySelector('form[hx-post*="/review/"]');
+      const m = form && (form.getAttribute('hx-post') || '').match(/\/(\d+)$/);
+      if (!m) return;
+      cid = m[1];
+    }
+    if (row) markDecided(row, status);
     fetch(`/runs/${runId}/review/${cid}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -88,11 +97,17 @@
     })
       .then(r => {
         if (!r.ok && r.status !== 204) throw new Error(`HTTP ${r.status}`);
-        const next = i + 1 < rs.length ? i + 1 : i;
-        if (next !== i) selectIndex(next);
+        if (i >= 0) {
+          const next = i + 1 < rs.length ? i + 1 : i;
+          if (next !== i) selectIndex(next);
+        } else {
+          // No queue to advance through; reload so the new decision
+          // state is visible in the Decision pane.
+          window.location.reload();
+        }
       })
       .catch(err => {
-        clearDecided(row);
+        if (row) clearDecided(row);
         console.error('review-keys:', err);
         alert('Decision failed: ' + err.message);
       });
