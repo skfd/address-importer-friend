@@ -21,6 +21,17 @@ def test_known_overrides_use_osm_canonical_name():
     assert apply_street_override("Greenhouse Rd") == "Green House Rd"
     assert apply_street_override("Kathleen Ave") == "Kathleen Cres"
     assert apply_street_override("Posthorn Grv") == "Post Horn Grv"
+    assert apply_street_override("Sunnyslope Ave") == "Sunny Slope"
+
+
+def test_suffixless_override_survives_expand_street_name():
+    # "Sunny Slope" is the OSM canonical name and has no street-type
+    # suffix; expand_street_name must not invent one or otherwise alter it,
+    # otherwise the uploaded addr:street wouldn't match OSM's existing
+    # addr:street="Sunny Slope" on the building.
+    from t2.conflate import expand_street_name
+
+    assert expand_street_name(apply_street_override("Sunnyslope Ave")) == "Sunny Slope"
 
 
 def test_override_can_change_street_suffix():

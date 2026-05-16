@@ -129,6 +129,12 @@ STREET_NAME_OVERRIDES: dict[str, str] = {
     "Greenhouse Rd": "Green House Rd",
     "Kathleen Ave": "Kathleen Cres",
     "Posthorn Grv": "Post Horn Grv",
+    # OSM's canonical name carries no street-type suffix at all (road
+    # way/27371860 name="Sunny Slope", alt_name="Sunnyslope Avenue"); the
+    # existing OSM building addresses use addr:street="Sunny Slope". This is
+    # the one entry whose value intentionally has no short suffix — don't
+    # "fix" it by appending one.
+    "Sunnyslope Ave": "Sunny Slope",
 }
 
 _STREET_NAME_OVERRIDES_LOOKUP: dict[str, str] = {
