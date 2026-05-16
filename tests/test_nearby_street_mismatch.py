@@ -39,6 +39,7 @@ def test_flags_when_nearby_osm_has_same_number_different_street():
     assert v.reason_code == "nearby_street_mismatch"
     assert v.details["count"] == 1
     assert v.details["matches"][0]["osm_street"] == "Deanefield Crescent"
+    assert v.details["matches"][0]["osm_housenumber"] == "10"
 
 
 def test_passes_when_no_osm_neighbour():

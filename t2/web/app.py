@@ -656,6 +656,29 @@ def create_app() -> Flask:
             poi_tags = None
         cand["poi_tags"] = poi_tags
         proposed = _proposed_tags(cand)
+        # MISSING candidates have no matched element, so the "OSM has" column
+        # would be empty. When nearby_street_mismatch flagged a nearby address
+        # (same housenumber, different/absent street), compare against it so the
+        # reviewer can eyeball the spelling variant side by side.
+        nearby_osm = None
+        if not osm_tags:
+            for r in results:
+                if r["check_id"] != "nearby_street_mismatch":
+                    continue
+                ms = r["details"].get("matches") or []
+                if r.get("verdict") == "FLAG" and ms:
+                    m = ms[0]  # check sorts matches nearest-first
+                    osm_tags = {
+                        "addr:housenumber": m.get("osm_housenumber")
+                        or proposed.get("addr:housenumber", ""),
+                        "addr:street": m.get("osm_street") or "",
+                    }
+                    nearby_osm = {
+                        "osm_type": m.get("osm_type"),
+                        "osm_id": m.get("osm_id"),
+                        "dist_m": m.get("dist_m"),
+                    }
+                break
         diff_rows = tag_diff.compare_tags(proposed, osm_tags)
         geom = cand.get("matched_osm_geom_hint")
         if cand.get("nearest_osm_id") and geom:
@@ -671,6 +694,7 @@ def create_app() -> Flask:
             "run_id": run_id,
             "diff_rows": diff_rows,
             "geom_label": geom_label,
+            "nearby_osm": nearby_osm,
             "review_state": review_state,
             "registry": REGISTRY,
         }

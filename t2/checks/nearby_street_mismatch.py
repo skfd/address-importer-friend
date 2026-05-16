@@ -50,6 +50,7 @@ class NearbyStreetMismatchCheck:
                 "osm_id": osm.get("id"),
                 "osm_type": osm.get("type"),
                 "osm_street": tags.get("addr:street") or "",
+                "osm_housenumber": tags.get("addr:housenumber") or "",
                 "dist_m": round(dist, 2),
             })
         if not matches:
