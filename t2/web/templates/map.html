@@ -48,6 +48,7 @@
       <span class="swatch swatch-skipped"></span> already complete
       <span class="swatch swatch-cancelled"></span> cancelled
       <span class="swatch swatch-error"></span> error
+      <span class="swatch swatch-uploaded"></span> uploaded
     </div>
     {% endif %}
     <div id="tile-map"></div>
@@ -77,6 +78,7 @@
     };
     const ORPHAN = { color: '#ef4444', fill: '#ef4444', fillOpacity: 0.05 };
     const DEFAULT = { color: '#2563eb', fill: '#2563eb', fillOpacity: 0.05 };
+    const UPLOADED = { color: '#7c3aed', fill: '#7c3aed', fillOpacity: 0.45 };
 
     const polysById = new Map();
     let current = null;
@@ -108,20 +110,34 @@
 
     function applyStatus(payload) {
       const status = payload && payload.status;
+      const uploadedSet = new Set((payload && payload.uploaded) || []);
       if (!status) {
-        banner.textContent = '';
         for (const poly of polysById.values()) {
           const t = poly._tile;
-          const base = t.is_orphan ? ORPHAN : DEFAULT;
-          poly.setStyle({ color: base.color, fillColor: base.fill, fillOpacity: base.fillOpacity });
-          poly.setTooltipContent(poly._baseTooltip);
+          if (uploadedSet.has(t.id)) {
+            poly.setStyle({ color: UPLOADED.color, fillColor: UPLOADED.fill, fillOpacity: UPLOADED.fillOpacity });
+            poly.setTooltipContent(poly._baseTooltip + ' · uploaded');
+          } else {
+            const base = t.is_orphan ? ORPHAN : DEFAULT;
+            poly.setStyle({ color: base.color, fillColor: base.fill, fillOpacity: base.fillOpacity });
+            poly.setTooltipContent(poly._baseTooltip);
+          }
         }
+        banner.textContent = uploadedSet.size ? `${uploadedSet.size} uploaded` : '';
         return false;
       }
       const tilesState = status.tiles || {};
-      let done = 0, errors = 0, running = 0, skipped = 0, cancelled = 0;
+      let done = 0, errors = 0, running = 0, skipped = 0, cancelled = 0, uploaded = 0;
       for (const [tid, poly] of polysById.entries()) {
         const entry = tilesState[tid];
+        if (uploadedSet.has(tid)) {
+          poly.setStyle({ color: UPLOADED.color, fillColor: UPLOADED.fill, fillOpacity: UPLOADED.fillOpacity });
+          let ul = poly._baseTooltip + ' · uploaded';
+          if (entry && entry.run_id) ul += ' · run ' + entry.run_id;
+          poly.setTooltipContent(ul);
+          uploaded++;
+          continue;
+        }
         if (!entry) {
           const style = STATE_COLORS.pending;
           poly.setStyle({ color: style.color, fillColor: style.fill, fillOpacity: style.fillOpacity });
@@ -143,7 +159,8 @@
         else if (st === 'cancelled') cancelled++;
       }
       const total = status.total || polysById.size;
-      const parts = [`${done + skipped}/${total} processed`];
+      const parts = [`${done + skipped + uploaded}/${total} processed`];
+      if (uploaded)  parts.push(`${uploaded} uploaded`);
       if (skipped)   parts.push(`${skipped} skipped`);
       if (errors)    parts.push(`${errors} error`);
       if (cancelled) parts.push(`${cancelled} cancelled`);

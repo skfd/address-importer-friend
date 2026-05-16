@@ -59,6 +59,39 @@ def _load_tiles(path: Path) -> tuple[list[dict], dict[str, dict], dict]:
     return tiles, by_id, meta
 
 
+def _uploaded_tile_ids(cfg) -> list[str]:
+    """Tile IDs whose bbox matches a run with upload_status='uploaded'.
+
+    Same bbox-match (rounded to 6 dp) the /tiles/<id> route uses to find a
+    tile's prior runs. Uploaded is a run fact, not a run-for-all tile state,
+    so it's derived from the DB rather than run_for_all_status.json.
+    """
+    tiles, _by_id, _meta = _load_tiles(cfg.data_dir / "tiles.json")
+    if not tiles:
+        return []
+    conn = _db.connect()
+    try:
+        rows = conn.execute(
+            "SELECT bbox_min_lat, bbox_min_lon, bbox_max_lat, bbox_max_lon "
+            "FROM runs WHERE upload_status='uploaded'"
+        ).fetchall()
+    finally:
+        conn.close()
+    uploaded = {
+        (round(r["bbox_min_lat"], 6), round(r["bbox_min_lon"], 6),
+         round(r["bbox_max_lat"], 6), round(r["bbox_max_lon"], 6))
+        for r in rows
+    }
+    if not uploaded:
+        return []
+    out = []
+    for t in tiles:
+        b = t["bbox"]
+        if (round(b[0], 6), round(b[1], 6), round(b[2], 6), round(b[3], 6)) in uploaded:
+            out.append(t["id"])
+    return out
+
+
 def _osm_element_latlon(el: dict) -> tuple[float | None, float | None]:
     if el.get("type") == "node":
         return el.get("lat"), el.get("lon")
@@ -238,7 +271,8 @@ def create_app() -> Flask:
     def run_for_all_status():
         running, pid = run_for_all.is_running(cfg)
         status = run_for_all.read_status(cfg)
-        return jsonify({"running": running, "pid": pid, "status": status})
+        return jsonify({"running": running, "pid": pid, "status": status,
+                        "uploaded": _uploaded_tile_ids(cfg)})
 
     @app.post("/map/run_all")
     def run_for_all_start():

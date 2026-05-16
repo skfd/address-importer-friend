@@ -87,6 +87,7 @@ body.static-export .kbd-bar { display: none; }
 .run-all-legend .swatch-skipped   { background: #16a34a; opacity: .35; }
 .run-all-legend .swatch-cancelled { background: #6b7280; }
 .run-all-legend .swatch-error     { background: #dc2626; }
+.run-all-legend .swatch-uploaded  { background: #7c3aed; }
 .run-all-workers input { width: 3.5rem; margin-left: .25rem; padding: .2rem .35rem;
                          border: 1px solid #d1d5db; border-radius: 3px; }
 [data-tip] { position: relative; cursor: help; }
