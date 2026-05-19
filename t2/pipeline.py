@@ -437,7 +437,16 @@ def stage_status(run_id: int) -> dict[str, bool]:
 def list_runs() -> list[dict]:
     conn = _db.connect()
     try:
-        rows = conn.execute("SELECT * FROM runs ORDER BY created_at DESC").fetchall()
+        rows = conn.execute(
+            """
+            SELECT r.*, (
+                SELECT COUNT(*) FROM candidates c
+                WHERE c.run_id = r.run_id AND c.stage = 'REVIEW_PENDING'
+            ) AS pending_review_count
+            FROM runs r
+            ORDER BY r.created_at DESC
+            """
+        ).fetchall()
         return [dict(r) for r in rows]
     finally:
         conn.close()
