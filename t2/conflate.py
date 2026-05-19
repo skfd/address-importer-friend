@@ -128,6 +128,7 @@ STREET_NAME_OVERRIDES: dict[str, str] = {
     "Forest View Rd": "Forestview Rd",
     "Greenhouse Rd": "Green House Rd",
     "Kathleen Ave": "Kathleen Cres",
+    "Meadow Crest Rd": "Meadowcrest Rd",
     "Posthorn Grv": "Post Horn Grv",
     # OSM's canonical name carries no street-type suffix at all (road
     # way/27371860 name="Sunny Slope", alt_name="Sunnyslope Avenue"); the
