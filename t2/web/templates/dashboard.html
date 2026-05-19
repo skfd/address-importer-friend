@@ -44,7 +44,7 @@
     </tr></thead>
     <tbody>
       {% for r in runs %}
-      <tr>
+      <tr data-uploaded="{{ '1' if r.upload_status == 'uploaded' else '0' }}">
         <td>{{ r.run_id }}</td>
         <td><a href="/runs/{{ r.run_id }}">{{ r.name }}</a></td>
         <td class="muted">{{ r.created_at }}</td>
@@ -90,6 +90,9 @@
         } else {
           var sign = dir === 1 ? -1 : 1;
           rows.sort(function (a, b) {
+            // Uploaded runs always sink to the bottom regardless of direction.
+            var au = (a.dataset.uploaded | 0) - (b.dataset.uploaded | 0);
+            if (au !== 0) return au;
             var av = parseInt(a.querySelector('td[data-pending]').dataset.pending, 10) || 0;
             var bv = parseInt(b.querySelector('td[data-pending]').dataset.pending, 10) || 0;
             return sign * (av - bv);
