@@ -508,6 +508,20 @@ def create_app() -> Flask:
             return ()
         return tuple(v for v in raw.split(",") if v in allowed)
 
+    def _run_name(run_id: int) -> str | None:
+        conn = _db.connect()
+        try:
+            row = conn.execute("SELECT name FROM runs WHERE run_id=?", (run_id,)).fetchone()
+        finally:
+            conn.close()
+        return row["name"] if row else None
+
+    def _queue_position(items, candidate_id: int) -> tuple[int | None, int]:
+        for i, it in enumerate(items):
+            if it["candidate_id"] == candidate_id:
+                return i + 1, len(items)
+        return None, len(items)
+
     @app.get("/runs/<int:run_id>/review")
     def review_page(run_id: int):
         raw = request.args.get("statuses")
@@ -536,17 +550,19 @@ def create_app() -> Flask:
         partial = request.args.get("partial") == "1"
         template = "_review_list.html" if partial else "review.html"
         tile_index = tile_total = None
+        run_name = None
         if not partial:
             conn = _db.connect()
             try:
                 run_row = conn.execute(
-                    "SELECT bbox_min_lat, bbox_min_lon, bbox_max_lat, bbox_max_lon "
+                    "SELECT name, bbox_min_lat, bbox_min_lon, bbox_max_lat, bbox_max_lon "
                     "FROM runs WHERE run_id=?",
                     (run_id,),
                 ).fetchone()
             finally:
                 conn.close()
             if run_row is not None:
+                run_name = run_row["name"]
                 _tile, tile_index, tile_total = _tile_for_run(dict(run_row))
         return render_template(
             template,
@@ -567,6 +583,7 @@ def create_app() -> Flask:
             view="review",
             tile_index=tile_index,
             tile_total=tile_total,
+            run_name=run_name,
         )
 
     def _review_detail_context(run_id: int, candidate_id: int):
@@ -704,8 +721,6 @@ def create_app() -> Flask:
         ctx = _review_detail_context(run_id, candidate_id)
         if ctx is None:
             abort(404)
-        if request.headers.get("HX-Request"):
-            return render_template("_review_detail.html", view="review", **ctx)
         raw = request.args.get("statuses")
         if raw is None:
             statuses = ("OPEN",)
@@ -729,6 +744,17 @@ def create_app() -> Flask:
             reasons=reasons,
             limit=500,
         )
+        selected_position, queue_total = _queue_position(items, candidate_id)
+        if request.headers.get("HX-Request"):
+            return render_template(
+                "_review_detail.html", view="review", **ctx
+            ) + render_template(
+                "_review_header_oob.html",
+                run_id=run_id,
+                candidate=ctx["candidate"],
+                selected_position=selected_position,
+                queue_total=queue_total,
+            )
         return render_template(
             "review.html",
             items=items,
@@ -746,6 +772,9 @@ def create_app() -> Flask:
             selected_candidate_id=candidate_id,
             municipality_collisions=review.colliding_address_fulls(run_id),
             view="review",
+            run_name=_run_name(run_id),
+            selected_position=selected_position,
+            queue_total=queue_total,
             **ctx,
         )
 
