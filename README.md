@@ -205,8 +205,9 @@ Match targets are **pure address nodes** (`addr:housenumber` + no POI tags) and
 amenity-tagged footprints like a hospital).
 
 **POI nodes** (nodes carrying `amenity`, `shop`, `office`, `tourism`, `leisure`,
-`craft`, `healthcare`, `building`, plus `disused:*` / `was:*` variants — see
-`POI_TAG_KEYS` in `t2/conflate.py`) are **ignored** for matching: their address
+`craft`, `healthcare`, `building`, including any lifecycle-qualified form such
+as `disused:amenity` or `amenity:disused` — see `POI_TAG_KEYS` /
+`LIFECYCLE_QUALIFIERS` in `t2/conflate.py`) are **ignored** for matching: their address
 is a courtesy annotation, not the canonical address feature. When a POI sits at
 a MISSING candidate's address, the review UI acknowledges it with a pill, and
 any `addr:postcode` on the POI is copied into the proposed upload tags.
@@ -302,6 +303,26 @@ deserve their own pipelines when we get to them.
    protocol in `t2/checks/base.py`.
 2. Register it in `t2/checks/__init__.py`.
 3. Restart the app. The new check appears in the run's toggle list.
+
+## Drift back-scan
+
+`scripts/drift_backscan.py` re-evaluates the `match_number_drift` check
+against runs that were already conflated — useful for finding OSM positional
+drift in runs processed before the check existed. It is read-only: it never
+writes to `tool.db` and never creates review items.
+
+```bash
+python -m scripts.drift_backscan                       # uploaded runs only
+python -m scripts.drift_backscan --status all          # every run
+python -m scripts.drift_backscan --min-flags 3         # widen the summary
+python -m scripts.drift_backscan --out C:/tmp/d.csv    # custom CSV path
+```
+
+It writes one CSV row per flagged candidate (`data/drift_backscan.csv` by
+default) — matched OSM element, the closer different-numbered OSM element,
+and both distances — and prints a console summary of "systemic" runs (those
+at or above `--min-flags`) and their drifted streets. The check's `slack_m`
+is read from `config.toml`, so the scan matches a fresh pipeline run.
 
 ## Data sources & attribution
 

@@ -197,10 +197,32 @@ def haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
-POI_TAG_KEYS = (
+POI_TAG_KEYS = frozenset((
     "amenity", "shop", "office", "tourism", "leisure", "craft", "healthcare", "building",
-    "disused:shop", "disused:amenity", "disused:office", "was:amenity",
-)
+))
+
+# OSM lifecycle qualifiers. A POI key wrapped in one of these — as a prefix
+# (`disused:amenity`, the documented form) or the rarer suffix form
+# (`amenity:disused`) — still designates a POI: a closed, demolished, or
+# planned shop is not a canonical address. See
+# https://wiki.openstreetmap.org/wiki/Lifecycle_prefix
+LIFECYCLE_QUALIFIERS = frozenset((
+    "disused", "abandoned", "ruins", "demolished", "razed", "removed",
+    "destroyed", "construction", "proposed", "planned", "was",
+))
+
+
+def _is_poi_key(key: str) -> bool:
+    """True when `key` is a POI tag, bare or wrapped in a lifecycle qualifier."""
+    if key in POI_TAG_KEYS:
+        return True
+    head, sep, tail = key.partition(":")
+    if not sep:
+        return False
+    return (
+        (head in LIFECYCLE_QUALIFIERS and tail in POI_TAG_KEYS)
+        or (head in POI_TAG_KEYS and tail in LIFECYCLE_QUALIFIERS)
+    )
 
 
 def _is_poi_node(el: dict) -> bool:
@@ -208,14 +230,18 @@ def _is_poi_node(el: dict) -> bool:
     a courtesy annotation, not the canonical address feature. Polygons are never
     POI-filtered: a hospital or building polygon with addr:* is a valid match.
 
-    `entrance=*` is intentionally NOT in POI_TAG_KEYS: an entrance node with
+    Lifecycle-qualified POI keys count too: `disused:amenity`, `was:shop`, and
+    the rarer suffix form `amenity:disused` all mark POIs, not addresses (see
+    LIFECYCLE_QUALIFIERS).
+
+    `entrance=*` is intentionally NOT a POI key: an entrance node with
     addr:* is a canonical address (just door-level rather than parcel-level)
     and must remain a valid match target. See IMPORT_PROPOSAL.mediawiki § Conflation.
     """
     if el.get("type") != "node":
         return False
     tags = el.get("tags") or {}
-    return any(k in tags for k in POI_TAG_KEYS)
+    return any(_is_poi_key(k) for k in tags)
 
 
 def build_osm_index(elements: list[dict]) -> tuple[GridIndex, GridIndex]:

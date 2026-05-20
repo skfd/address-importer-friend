@@ -8,17 +8,10 @@ import os
 import sys
 from collections import Counter
 
-POI_TAG_KEYS = (
-    "amenity", "shop", "office", "tourism", "leisure", "craft", "healthcare", "building",
-    "disused:shop", "disused:amenity", "disused:office", "was:amenity",
-)
+from t2.conflate import _is_poi_node
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PATTERN = os.path.join(ROOT, "data", "osm_current_run*.json")
-
-
-def is_poi(tags: dict) -> bool:
-    return any(k in tags for k in POI_TAG_KEYS)
 
 
 def main() -> int:
@@ -56,7 +49,7 @@ def main() -> int:
         tags = el.get("tags") or {}
         has_entrance = "entrance" in tags
         # Match build_osm_index logic: POI filter only applies to nodes.
-        poi_flag = (etype == "node") and is_poi(tags)
+        poi_flag = _is_poi_node(el)
 
         if has_entrance and poi_flag:
             cls = "entrance + poi"
