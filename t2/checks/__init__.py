@@ -3,6 +3,7 @@ from .base import Candidate, Check, CheckContext, Verdict
 from .city_duplicate import CityDuplicateCheck
 from .conflict import ConflictCheck
 from .intra_source_duplicate import IntraSourceDuplicateCheck
+from .match_number_drift import MatchNumberDriftCheck
 from .missing_sample import MissingSampleCheck
 from .nearby_street_mismatch import NearbyStreetMismatchCheck
 from .potential_amenity import PotentialAmenityCheck
@@ -17,6 +18,7 @@ REGISTRY: dict[str, Check] = {
         IntraSourceDuplicateCheck(),
         MissingSampleCheck(),
         NearbyStreetMismatchCheck(),
+        MatchNumberDriftCheck(),
         PotentialAmenityCheck(),
     )
 }

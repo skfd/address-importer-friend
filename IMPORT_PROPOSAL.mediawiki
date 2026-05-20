@@ -247,7 +247,7 @@ Each stage is resumable — killing the process mid-run and restarting is safe. 
 
 === Checks ===
 
-Seven automated checks (enabled in <code>config.toml</code>, all <code>severity=info|warn|block</code>):
+Eight automated checks (enabled in <code>config.toml</code>, all <code>severity=info|warn|block</code>):
 
 {| class="wikitable"
 ! Check !! Purpose
@@ -263,6 +263,8 @@ Seven automated checks (enabled in <code>config.toml</code>, all <code>severity=
 | <code>missing_sample</code> || Every Nth MISSING candidate is force-reviewed even if it has no other flags. Provides ongoing validation that the auto-approval bar is well-calibrated.
 |-
 | <code>nearby_street_mismatch</code> || A MISSING candidate has an OSM address within ~20 m with the same housenumber but a different street name — likely a street-name spelling variant (e.g. source <code>Deane Field Crescent</code> vs OSM <code>Deanefield Crescent</code>) the normalizer can't bridge.
+|-
+| <code>match_number_drift</code> || A MATCH candidate has a different-numbered OSM address on the same street closer to it than the matched element — signals OSM positional drift (an old bulk import shifted by one or more houses). Surfaces the drift for OSM cleanup; does not change the verdict.
 |-
 | <code>potential_amenity</code> || Matched OSM node carries non-address tags (<code>name</code>, <code>ref</code>, <code>entrance</code>, etc.) — hints the POI filter may need to grow. Not a block; feeds iteration on the match target rules.
 |}

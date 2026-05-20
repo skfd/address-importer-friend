@@ -46,6 +46,14 @@ every_nth = 50
 # same-number addresses on parallel streets.
 radius_m = 20.0
 
+[check_params.match_number_drift]
+# A different-numbered OSM address on the same street must be at least this
+# many metres closer to the candidate than the matched element before the
+# match is flagged as positionally drifted. Small by design: OSM node
+# placement noise is comparable to a one-house drift gap on dense blocks,
+# so a wider slack would miss most genuine drift.
+slack_m = 2.0
+
 [upload]
 changesets_per_minute = 1
 changeset_comment_template = "Toronto Open Data address import, run={run_name}"

@@ -52,6 +52,8 @@ GLOSSARY: dict[str, str] = {
     "reason.intra_source_duplicate": "Another Land row in the source has the same address_full + municipality but sits elsewhere. Unlike city_duplicate (3 m, any class), this is address-keyed and Land-only; <5 m pairs are silently deduped during conflation, so anything flagged here is 5 m or farther. If every row in the group already matched OSM there is nothing to import, so it is not flagged.",
     "reason.nearby_street_mismatch": "An OSM address within ~20 m has the same housenumber but a different street name — likely a spelling variant (e.g. source 'Deane Field Crescent' vs OSM 'Deanefield Crescent') the normalizer can't bridge.",
     "reason.no_nearby_mismatch": "No nearby OSM address with the same housenumber and a different street name.",
+    "reason.match_number_drift": "A different-numbered OSM address on the same street sits closer to the candidate than the matched OSM element — the matched element is likely positionally drifted (an old bulk import shifted by one or more houses). Worth checking the OSM node positions on this street.",
+    "reason.no_number_drift": "The matched OSM element is the closest same-street address — no positional drift.",
     "reason.spot_check": "Randomly sampled MISSING address for manual QA.",
     "reason.plain_number": "Plain housenumber — no suffix or range.",
     "reason.unique_location": "No nearby duplicates in the input.",
