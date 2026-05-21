@@ -265,6 +265,183 @@ def create_app() -> Flask:
             prefill_name=prefill_name,
         )
 
+    # ---- Drift review ----
+
+    @app.get("/drift")
+    def drift_dashboard():
+        """One row per street with match_number_drift flags. Drift is a
+        street-level phenomenon, so the street is the review unit."""
+        status_filter = request.args.get("status", "")
+        conn = _db.connect()
+        try:
+            rows = conn.execute(
+                """
+                SELECT c.street_norm AS street_norm,
+                       MAX(c.street_raw) AS street,
+                       COUNT(*) AS flags,
+                       SUM(CASE WHEN ru.upload_status = 'uploaded'
+                                THEN 1 ELSE 0 END) AS uploaded_flags,
+                       COUNT(DISTINCT cr.run_id) AS run_count,
+                       ds.status AS status
+                FROM check_results cr
+                JOIN candidates c USING (run_id, candidate_id)
+                JOIN runs ru USING (run_id)
+                LEFT JOIN drift_street_status ds ON ds.street_norm = c.street_norm
+                WHERE cr.check_id = 'match_number_drift' AND cr.verdict = 'FLAG'
+                GROUP BY c.street_norm
+                ORDER BY flags DESC, street
+                """
+            ).fetchall()
+        finally:
+            conn.close()
+        streets = []
+        counts = {"open": 0, "fixed": 0, "dismissed": 0}
+        total_flags = total_uploaded = 0
+        for r in rows:
+            st = dict(r)
+            st["status"] = st["status"] or "open"
+            st["pending_flags"] = st["flags"] - st["uploaded_flags"]
+            counts[st["status"]] = counts.get(st["status"], 0) + 1
+            total_flags += st["flags"]
+            total_uploaded += st["uploaded_flags"]
+            streets.append(st)
+        shown = [s for s in streets
+                 if not status_filter or s["status"] == status_filter]
+        return render_template(
+            "drift.html", streets=shown, status_filter=status_filter,
+            counts=counts, total_streets=len(streets),
+            total_flags=total_flags, total_uploaded=total_uploaded,
+        )
+
+    @app.get("/drift/street")
+    def drift_street():
+        """Map + table for one drifted street: city points vs OSM address
+        nodes, with a connector from each flagged city point to the OSM node
+        it matched. A uniform lean across the connectors is the drift."""
+        street_norm = request.args.get("s", "")
+        conn = _db.connect()
+        try:
+            flags = conn.execute(
+                """
+                SELECT cr.run_id, cr.candidate_id, cr.details_json,
+                       c.housenumber, c.street_raw, c.lat, c.lon,
+                       cf.verdict, cf.nearest_osm_id, cf.nearest_osm_type,
+                       cf.nearest_dist_m, cf.matched_osm_lat, cf.matched_osm_lon,
+                       ru.name AS run_name, ru.upload_status
+                FROM check_results cr
+                JOIN candidates c USING (run_id, candidate_id)
+                JOIN conflation cf USING (run_id, candidate_id)
+                JOIN runs ru USING (run_id)
+                WHERE cr.check_id = 'match_number_drift' AND cr.verdict = 'FLAG'
+                  AND c.street_norm = ?
+                ORDER BY cr.run_id, CAST(c.housenumber AS INTEGER), c.housenumber
+                """,
+                (street_norm,),
+            ).fetchall()
+            st_status = conn.execute(
+                "SELECT status, note, updated_at FROM drift_street_status "
+                "WHERE street_norm = ?",
+                (street_norm,),
+            ).fetchone()
+        finally:
+            conn.close()
+        if not flags:
+            abort(404)
+
+        # All OSM address nodes on this street, unioned across the snapshots
+        # of every run that flagged it (deduped by OSM type+id).
+        osm_by_key: dict[tuple, dict] = {}
+        for rid in sorted({f["run_id"] for f in flags}):
+            elements, _interp = _load_osm_for_run(
+                cfg.data_dir / f"osm_current_run{rid}.json")
+            for el in elements:
+                tags = el.get("tags") or {}
+                if normalize_street(tags.get("addr:street", "")) != street_norm:
+                    continue
+                if not tags.get("addr:housenumber"):
+                    continue
+                lat, lon = _osm_element_latlon(el)
+                if lat is None:
+                    continue
+                key = (el.get("type"), el.get("id"))
+                osm_by_key.setdefault(key, {
+                    "type": el.get("type"), "id": el.get("id"),
+                    "housenumber": tags.get("addr:housenumber"),
+                    "lat": lat, "lon": lon,
+                })
+
+        flagged = []
+        bounds = []
+        for f in flags:
+            try:
+                details = json.loads(f["details_json"] or "{}")
+            except Exception:
+                details = {}
+            nbrs = details.get("neighbors") or []
+            closest = nbrs[0] if nbrs else None
+            closest_ll = None
+            if closest:
+                el = osm_by_key.get(
+                    (closest.get("osm_type"), closest.get("osm_id")))
+                if el:
+                    closest_ll = [el["lat"], el["lon"]]
+            flagged.append({
+                "run_id": f["run_id"], "run_name": f["run_name"],
+                "candidate_id": f["candidate_id"],
+                "uploaded": f["upload_status"] == "uploaded",
+                "housenumber": f["housenumber"], "verdict": f["verdict"],
+                "lat": f["lat"], "lon": f["lon"],
+                "matched_id": f["nearest_osm_id"],
+                "matched_type": f["nearest_osm_type"],
+                "matched_ll": ([f["matched_osm_lat"], f["matched_osm_lon"]]
+                               if f["matched_osm_lat"] is not None else None),
+                "matched_dist": f["nearest_dist_m"],
+                "closest": closest, "closest_ll": closest_ll,
+            })
+            if f["lat"] is not None:
+                bounds.append((f["lat"], f["lon"]))
+
+        center = None
+        if bounds:
+            center = [sum(p[0] for p in bounds) / len(bounds),
+                      sum(p[1] for p in bounds) / len(bounds)]
+        return render_template(
+            "drift_street.html",
+            street=flags[0]["street_raw"], street_norm=street_norm,
+            flagged=flagged, osm_nodes=list(osm_by_key.values()),
+            st_status=(dict(st_status) if st_status else None),
+            center=center,
+        )
+
+    @app.post("/drift/street/status")
+    def drift_street_set_status():
+        from datetime import datetime, timezone
+        street_norm = request.form["street_norm"]
+        status = request.form.get("status", "open")
+        if status not in ("open", "fixed", "dismissed"):
+            abort(400)
+        note = request.form.get("note", "").strip()
+        conn = _db.connect()
+        try:
+            conn.execute(
+                """
+                INSERT INTO drift_street_status (street_norm, status, note, updated_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(street_norm) DO UPDATE SET
+                    status = excluded.status, note = excluded.note,
+                    updated_at = excluded.updated_at
+                """,
+                (street_norm, status, note,
+                 datetime.now(timezone.utc).isoformat()),
+            )
+            audit.log(actor="operator", event_type="DRIFT_STREET_STATUS",
+                      payload={"street_norm": street_norm, "status": status},
+                      conn=conn)
+        finally:
+            conn.close()
+        flash(f"Marked '{street_norm}' as {status}.")
+        return redirect(url_for("drift_street", s=street_norm))
+
     # ---- Run for All (background worker) ----
 
     @app.get("/api/run_for_all/status")
