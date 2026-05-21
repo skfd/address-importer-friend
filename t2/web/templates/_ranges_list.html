@@ -16,13 +16,13 @@
       <br>
       <span class="pill" data-tip="{{ tip('reason.range') }}">range</span>
       {% if it.coverage_cat == 'full' %}
-        <span class="pill ok" title="every parity-stepped integer has a single-row counterpart">full {{ it.parity_present_count }}/{{ it.parity_total }}</span>
+        <span class="pill ok" data-tip="{{ tip('pill.coverage.full') }}">full {{ it.parity_present_count }}/{{ it.parity_total }}</span>
       {% elif it.coverage_cat == 'partial' %}
-        <span class="pill warn" title="some integers in the range have no single-row counterpart">partial {{ it.parity_present_count }}/{{ it.parity_total }}</span>
+        <span class="pill warn" data-tip="{{ tip('pill.coverage.partial') }}">partial {{ it.parity_present_count }}/{{ it.parity_total }}</span>
       {% elif it.coverage_cat == 'uncovered' %}
-        <span class="pill bad" title="no integers in this range appear as single-row addresses">uncovered 0/{{ it.parity_total }}</span>
+        <span class="pill bad" data-tip="{{ tip('pill.coverage.uncovered') }}">uncovered 0/{{ it.parity_total }}</span>
       {% else %}
-        <span class="pill" title="coverage not computed (missing snapshot or lo/hi)">unknown</span>
+        <span class="pill" data-tip="{{ tip('pill.coverage.unknown') }}">unknown</span>
       {% endif %}
     </div>
   {% else %}

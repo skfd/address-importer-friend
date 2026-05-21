@@ -70,6 +70,12 @@ GLOSSARY: dict[str, str] = {
     "pill.intra_source_duplicate": "Another Land row in the source has the exact same address_full + municipality. Click to jump to the sibling.",
     "pill.municipality": "This address_full also exists in another former municipality in this run — the municipality badge disambiguates the two rows.",
 
+    # range coverage pills (ranges list)
+    "pill.coverage.full": "Every parity-stepped integer in this range has a single-row counterpart on the same street + municipality.",
+    "pill.coverage.partial": "Some integers in this range have no single-row counterpart — the range is only partially covered by singles.",
+    "pill.coverage.uncovered": "No integers in this range appear as single-row source addresses on this street + municipality.",
+    "pill.coverage.unknown": "Coverage not computed — missing snapshot or lo/hi on the candidate.",
+
     # severities
     "severity.warn": "Likely problem — requires attention.",
     "severity.info": "Informational — surfaced for context only.",
