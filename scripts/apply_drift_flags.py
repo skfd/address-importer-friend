@@ -1,15 +1,20 @@
 """Back-fill the match_number_drift check into runs that were conflated and
 checked before the check existed.
 
-For every non-uploaded run it evaluates ONLY match_number_drift on each
-MATCH/MATCH_FAR candidate and writes a check_results row. For a FLAG:
+It evaluates ONLY match_number_drift on each MATCH/MATCH_FAR candidate and
+writes a check_results row. For a FLAG:
 
-  - if the candidate is already decided (stage APPROVED/REJECTED/UPLOADED, or
-    a review_item with status APPROVED/REJECTED) the result is recorded but
-    the decision and stage are left untouched;
+  - if the run is already uploaded, or the candidate is already decided
+    (stage APPROVED/REJECTED/UPLOADED, or a review_item with status
+    APPROVED/REJECTED), the result is recorded but the decision and stage
+    are left untouched;
   - otherwise a review_item is opened (or its reason_code merged if one
     already exists) and the candidate is moved to stage REVIEW_PENDING so the
     drift flag shows in the queue.
+
+By default only non-uploaded runs are scanned. Pass --include-uploaded to
+also record results for uploaded runs (recorded-only — see above), which is
+what the /drift dashboard needs to show drift across every run.
 
 It does not re-conflate, does not touch MISSING candidates, and writes
 nothing for checks other than match_number_drift. It is idempotent: a
@@ -19,8 +24,9 @@ re-running is a fast no-op. Each run commits in its own transaction.
 The check's slack_m is read from config.toml.
 
 Usage:
-    python -m scripts.apply_drift_flags --dry-run    # preview, write nothing
-    python -m scripts.apply_drift_flags              # apply
+    python -m scripts.apply_drift_flags --dry-run            # preview
+    python -m scripts.apply_drift_flags                      # non-uploaded runs
+    python -m scripts.apply_drift_flags --include-uploaded   # every run
 """
 from __future__ import annotations
 
@@ -57,6 +63,10 @@ def main(argv: list[str]) -> int:
         "--dry-run", action="store_true",
         help="evaluate and report, but write nothing to tool.db",
     )
+    ap.add_argument(
+        "--include-uploaded", action="store_true",
+        help="also scan uploaded runs (results recorded only, no review items)",
+    )
     args = ap.parse_args(argv)
 
     cfg = _config.load()
@@ -64,18 +74,26 @@ def main(argv: list[str]) -> int:
     cv = check.version
 
     conn = _db.connect()
-    runs = conn.execute(
-        "SELECT run_id, name FROM runs "
-        "WHERE COALESCE(upload_status, '') != 'uploaded' ORDER BY run_id"
-    ).fetchall()
+    if args.include_uploaded:
+        runs = conn.execute(
+            "SELECT run_id, name, upload_status FROM runs ORDER BY run_id"
+        ).fetchall()
+        scope = "all"
+    else:
+        runs = conn.execute(
+            "SELECT run_id, name, upload_status FROM runs "
+            "WHERE COALESCE(upload_status, '') != 'uploaded' ORDER BY run_id"
+        ).fetchall()
+        scope = "non-uploaded"
     print(f"{'DRY RUN - ' if args.dry_run else ''}"
-          f"{len(runs)} non-uploaded runs to scan\n", file=sys.stderr)
+          f"{len(runs)} {scope} runs to scan\n", file=sys.stderr)
 
     tot = dict(runs_done=0, runs_no_cache=0, evaluated=0, already=0,
                pass_=0, flag=0, new_review=0, merged=0, recorded_only=0)
 
     for run in runs:
         run_id = run["run_id"]
+        is_uploaded = run["upload_status"] == "uploaded"
         try:
             elements = osm_fetch.load_cached(run_id)
         except Exception as e:
@@ -147,7 +165,8 @@ def main(argv: list[str]) -> int:
                           payload={"check_id": check.id, "reason": v.reason_code,
                                    "severity": v.severity}, conn=conn)
 
-                decided = (r["stage"] in DECIDED_STAGES
+                decided = (is_uploaded
+                           or r["stage"] in DECIDED_STAGES
                            or r["review_status"] in DECIDED_REVIEW)
                 if decided:
                     tot["recorded_only"] += 1
