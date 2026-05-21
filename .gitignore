@@ -11,5 +11,6 @@ venv/
 *.egg-info/
 .claude/*
 !.claude/skills/
+!.claude/commands/
 docs/spike/
 docs/spike_runs.json
