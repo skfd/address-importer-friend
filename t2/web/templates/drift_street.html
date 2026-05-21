@@ -78,7 +78,7 @@
       <tr>
         <td>{{ f.housenumber }}{% if f.verdict == 'MATCH_FAR' %} <span class="muted">(far)</span>{% endif %}</td>
         <td>
-          {{ f.run_name }}
+          <a href="{{ url_for('run_view', run_id=f.run_id) }}">{{ f.run_name }}</a>
           {% if f.uploaded %}<span class="up-badge">uploaded</span>{% endif %}
         </td>
         <td>
@@ -164,7 +164,8 @@
       { permanent: true, direction: 'bottom',
         className: 'lbl ' + (f.uploaded ? 'lbl-city-up' : 'lbl-city'), offset: [0, 2] });
     const parts = ['<strong>City ' + esc(f.housenumber) + '</strong>'];
-    parts.push('<div class="muted">' + esc(f.run_name) +
+    parts.push('<div class="muted"><a href="/runs/' + f.run_id + '">' +
+      esc(f.run_name) + '</a>' +
       (f.uploaded ? ' &middot; uploaded' : ' &middot; pending') + '</div>');
     if (f.matched_id) {
       parts.push('<div style="margin-top:.25rem">matched OSM ' +
