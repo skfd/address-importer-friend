@@ -1,4 +1,7 @@
-# publish-static
+---
+description: Regenerate the static GitHub Pages site under docs/pilot/
+argument-hint: [run_id]
+---
 
 Regenerate the static GitHub Pages site under `docs/pilot/` so the data
 exploration pages (`/streets`, `/source/multi`, `/osm/multi*`, `/osm`,
