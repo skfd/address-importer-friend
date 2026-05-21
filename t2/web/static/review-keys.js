@@ -137,9 +137,13 @@
         if (j && j.run_id != null) {
           window.location.href = `/runs/${j.run_id}/review#select-first`;
         } else {
-          neighborMsg(direction === 'prev'
-            ? 'No earlier neighbouring tile still needs review.'
-            : 'No further neighbouring tile still needs review.');
+          const msgs = {
+            prev: 'No earlier neighbouring tile still needs review.',
+            next: 'No further neighbouring tile still needs review.',
+            hardest: 'No other tile with items for review found.',
+            easiest: 'No other tile with items for review found.',
+          };
+          neighborMsg(msgs[direction] || 'No eligible tile found.');
         }
       })
       .catch(err => {
@@ -230,6 +234,8 @@
     // Neighbour nav is allowed on any run page (incl. the main run view).
     if (k === 'n') { e.preventDefault(); jumpNeighbor('prev'); return; }
     if (k === 'm') { e.preventDefault(); jumpNeighbor('next'); return; }
+    if (k === 'k') { e.preventDefault(); jumpNeighbor('hardest'); return; }
+    if (k === 'l') { e.preventDefault(); jumpNeighbor('easiest'); return; }
     // Everything below is list-driven and only applies to the review trio.
     if (!VIEWS.has(getView())) return;
     if (k === 'g') { e.preventDefault(); armChord(); return; }

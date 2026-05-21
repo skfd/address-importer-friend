@@ -8,6 +8,10 @@
           title="Jump to the previous neighbouring tile whose latest run still needs review (hotkey: N)">&larr; Prev tile (N)</button>
   <button type="button" class="secondary" data-neighbor="next"
           title="Jump to the next neighbouring tile whose latest run still needs review (hotkey: M)">Next tile (M) &rarr;</button>
+  <button type="button" class="secondary" data-neighbor="hardest"
+          title="Jump to the tile with the most items left for review (hotkey: K)">Hardest (K)</button>
+  <button type="button" class="secondary" data-neighbor="easiest"
+          title="Jump to the tile with the fewest items left for review (hotkey: L)">Easiest (L)</button>
   <span class="muted" id="neighbor-msg" role="status" aria-live="polite"></span>
 </span>
 {% endif %}

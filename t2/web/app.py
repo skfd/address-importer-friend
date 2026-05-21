@@ -563,8 +563,31 @@ def create_app() -> Flask:
     @app.get("/runs/<int:run_id>/neighbor")
     def run_neighbor(run_id: int):
         direction = request.args.get("dir")
-        if direction not in ("prev", "next"):
+        if direction not in ("prev", "next", "hardest", "easiest"):
             abort(400)
+        conn = _db.connect()
+        try:
+            rows = conn.execute(
+                "SELECT r.run_id, r.upload_status, r.bbox_min_lat, r.bbox_min_lon, r.bbox_max_lat, r.bbox_max_lon, "
+                "  (SELECT COUNT(*) FROM candidates c WHERE c.run_id = r.run_id AND c.stage = 'REVIEW_PENDING') AS pending_count "
+                "FROM runs r ORDER BY r.created_at DESC, r.run_id DESC"
+            ).fetchall()
+        finally:
+            conn.close()
+        latest_by_bbox: dict[tuple, tuple[int, str | None, int]] = {}
+        for r in rows:
+            key = (
+                round(r["bbox_min_lat"], 6), round(r["bbox_min_lon"], 6),
+                round(r["bbox_max_lat"], 6), round(r["bbox_max_lon"], 6),
+            )
+            latest_by_bbox.setdefault(key, (r["run_id"], r["upload_status"], r["pending_count"]))
+        if direction in ("hardest", "easiest"):
+            eligible = [(rid, pc) for rid, status, pc in latest_by_bbox.values()
+                        if status != "uploaded" and rid != run_id and pc > 0]
+            if not eligible:
+                return jsonify({"run_id": None})
+            best = max(eligible, key=lambda x: x[1]) if direction == "hardest" else min(eligible, key=lambda x: x[1])
+            return jsonify({"run_id": best[0]})
         run = _get_run(run_id)
         tiles, _by_id, _meta = _load_tiles(cfg.data_dir / "tiles.json")
         if not tiles:
@@ -576,21 +599,6 @@ def create_app() -> Flask:
         cur_idx = next((i for i, t in enumerate(tiles) if tuple(t["bbox"]) == target), None)
         if cur_idx is None:
             return jsonify({"run_id": None})
-        conn = _db.connect()
-        try:
-            rows = conn.execute(
-                "SELECT run_id, upload_status, bbox_min_lat, bbox_min_lon, bbox_max_lat, bbox_max_lon "
-                "FROM runs ORDER BY created_at DESC, run_id DESC"
-            ).fetchall()
-        finally:
-            conn.close()
-        latest_by_bbox: dict[tuple, tuple[int, str | None]] = {}
-        for r in rows:
-            key = (
-                round(r["bbox_min_lat"], 6), round(r["bbox_min_lon"], 6),
-                round(r["bbox_max_lat"], 6), round(r["bbox_max_lon"], 6),
-            )
-            latest_by_bbox.setdefault(key, (r["run_id"], r["upload_status"]))
         step = 1 if direction == "next" else -1
         i = cur_idx + step
         while 0 <= i < len(tiles):
