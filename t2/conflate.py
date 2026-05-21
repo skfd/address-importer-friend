@@ -131,6 +131,7 @@ STREET_NAME_OVERRIDES: dict[str, str] = {
     "Meadow Crest Rd": "Meadowcrest Rd",
     "Posthorn Grv": "Post Horn Grv",
     "Scenic Millway": "Scenic Mill Way",
+    "Mac Gregor Ave": "MacGregor Ave",
     # OSM's canonical name carries no street-type suffix at all (road
     # way/27371860 name="Sunny Slope", alt_name="Sunnyslope Avenue"); the
     # existing OSM building addresses use addr:street="Sunny Slope". This is
