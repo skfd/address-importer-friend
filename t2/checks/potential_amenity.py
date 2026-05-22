@@ -8,12 +8,16 @@ IGNORED_TAG_KEYS = frozenset({
     "opendata:type",
     "check_date",
     "note",
+    # entrance-cluster: structural/navigation tags, not amenity signifiers
+    "entrance",
+    "door",
+    "access",
 })
 
 
 class PotentialAmenityCheck:
     id = "potential_amenity"
-    version = 3
+    version = 4
     default_enabled = True
     description = "Flags MATCH/MATCH_FAR where the matched OSM node carries non-address, non-metadata tags — hints the POI filter may need to grow."
 
