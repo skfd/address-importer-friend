@@ -10,7 +10,7 @@ from .base import Candidate, CheckContext, Verdict
 
 class NearbyStreetMismatchCheck:
     id = "nearby_street_mismatch"
-    version = 1
+    version = 2
     default_enabled = True
     description = (
         "Flags MISSING candidates that have a nearby OSM address with the same "
@@ -35,6 +35,8 @@ class NearbyStreetMismatchCheck:
         seen: set[tuple[str | None, int | None]] = set()
         for o_lat, o_lon, osm in ctx.osm_index.query(cand.lat, cand.lon):
             if osm.get("_norm_number") != c_num:
+                continue
+            if not (osm.get("tags") or {}).get("addr:street", "").strip():
                 continue
             if osm.get("_norm_street") == c_street_norm:
                 continue
