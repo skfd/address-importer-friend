@@ -10,13 +10,16 @@ def _north(lat: float, metres: float) -> float:
     return lat + metres / _M_PER_DEG_LAT
 
 
-def _make_ctx(osm_elements: list[dict]) -> CheckContext:
-    idx = GridIndex()
+def _make_ctx(osm_elements: list[dict], city_candidates: list[dict] | None = None) -> CheckContext:
+    osm_idx = GridIndex()
     for el in osm_elements:
         el["_norm_number"] = str(el["tags"]["addr:housenumber"]).upper()
         el["_norm_street"] = normalize_street(el["tags"]["addr:street"])
-        idx.add(el, el["lat"], el["lon"])
-    return CheckContext(run_id=1, osm_index=idx, city_index=GridIndex(), params={})
+        osm_idx.add(el, el["lat"], el["lon"])
+    city_idx = GridIndex()
+    for cc in (city_candidates or []):
+        city_idx.add(cc, cc["lat"], cc["lon"])
+    return CheckContext(run_id=1, osm_index=osm_idx, city_index=city_idx, params={})
 
 
 def _candidate(**overrides) -> Candidate:
@@ -101,3 +104,70 @@ def test_applies_and_flags_for_match_far():
     assert check.applies(cand, ctx) is True
     v = check.evaluate(cand, ctx)
     assert v.status == "FLAG"
+
+
+def test_missing_nearby_surfaced_in_drift_details():
+    # Drift: "166" OSM node is 1 m away, closer than the 6 m matched "164".
+    # "164A" is a MISSING city candidate 0.5 m away on the same street.
+    cand = _candidate(nearest_dist_m=6.0)
+    neighbour = _osm("166", "Coleridge Avenue", _north(43.65, 1.0), -79.40, 166)
+    missing = {
+        "candidate_id": 999, "housenumber": "164A",
+        "street_norm": normalize_street("Coleridge Avenue"), "verdict": "MISSING",
+        "lat": _north(43.65, 0.5), "lon": -79.40,
+    }
+    check = REGISTRY["match_number_drift"]
+    ctx = _make_ctx([neighbour], [missing])
+    v = check.evaluate(cand, ctx)
+    assert v.status == "FLAG"
+    assert len(v.details["missing_nearby"]) == 1
+    assert v.details["missing_nearby"][0]["candidate_id"] == 999
+    assert v.details["missing_nearby"][0]["housenumber"] == "164A"
+
+
+def test_missing_nearby_excludes_different_street():
+    # A MISSING candidate on a different street must not appear.
+    cand = _candidate(nearest_dist_m=6.0)
+    neighbour = _osm("166", "Coleridge Avenue", _north(43.65, 1.0), -79.40, 166)
+    missing = {
+        "candidate_id": 999, "housenumber": "164A",
+        "street_norm": normalize_street("Mortimer Avenue"), "verdict": "MISSING",
+        "lat": _north(43.65, 0.5), "lon": -79.40,
+    }
+    check = REGISTRY["match_number_drift"]
+    ctx = _make_ctx([neighbour], [missing])
+    v = check.evaluate(cand, ctx)
+    assert v.status == "FLAG"
+    assert v.details["missing_nearby"] == []
+
+
+def test_missing_nearby_excludes_matched_candidates():
+    # Only MISSING verdict candidates should appear, not MATCH ones.
+    cand = _candidate(nearest_dist_m=6.0)
+    neighbour = _osm("166", "Coleridge Avenue", _north(43.65, 1.0), -79.40, 166)
+    matched_city = {
+        "candidate_id": 998, "housenumber": "164B",
+        "street_norm": normalize_street("Coleridge Avenue"), "verdict": "MATCH",
+        "lat": _north(43.65, 0.5), "lon": -79.40,
+    }
+    check = REGISTRY["match_number_drift"]
+    ctx = _make_ctx([neighbour], [matched_city])
+    v = check.evaluate(cand, ctx)
+    assert v.status == "FLAG"
+    assert v.details["missing_nearby"] == []
+
+
+def test_missing_nearby_empty_when_no_drift():
+    # No drift -> PASS, missing_nearby never populated.
+    cand = _candidate(nearest_dist_m=6.0)
+    neighbour = _osm("166", "Coleridge Avenue", _north(43.65, 10.0), -79.40, 166)
+    missing = {
+        "candidate_id": 999, "housenumber": "164A",
+        "street_norm": normalize_street("Coleridge Avenue"), "verdict": "MISSING",
+        "lat": _north(43.65, 0.5), "lon": -79.40,
+    }
+    check = REGISTRY["match_number_drift"]
+    ctx = _make_ctx([neighbour], [missing])
+    v = check.evaluate(cand, ctx)
+    assert v.status == "PASS"
+    assert "missing_nearby" not in v.details

@@ -151,10 +151,19 @@ def _build_city_index(conn, run_id: int):
     from .conflate import GridIndex
     idx = GridIndex()
     for row in conn.execute(
-        "SELECT candidate_id, lat, lon FROM candidates WHERE run_id = ? AND lat IS NOT NULL AND lon IS NOT NULL",
+        """SELECT c.candidate_id, c.lat, c.lon, c.housenumber, c.street_norm,
+                  cf.verdict
+           FROM candidates c
+           LEFT JOIN conflation cf ON cf.run_id = c.run_id AND cf.candidate_id = c.candidate_id
+           WHERE c.run_id = ? AND c.lat IS NOT NULL AND c.lon IS NOT NULL""",
         (run_id,),
     ):
-        idx.add({"candidate_id": row["candidate_id"]}, row["lat"], row["lon"])
+        idx.add({
+            "candidate_id": row["candidate_id"],
+            "housenumber": row["housenumber"],
+            "street_norm": row["street_norm"],
+            "verdict": row["verdict"],
+        }, row["lat"], row["lon"])
     return idx
 
 

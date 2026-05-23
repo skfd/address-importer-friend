@@ -13,7 +13,7 @@ from .base import Candidate, CheckContext, Verdict
 
 class MatchNumberDriftCheck:
     id = "match_number_drift"
-    version = 1
+    version = 2
     default_enabled = True
     description = (
         "Flags MATCH candidates where a different-numbered OSM address on the "
@@ -67,6 +67,31 @@ class MatchNumberDriftCheck:
         if not closer:
             return Verdict(status="PASS", reason_code="no_number_drift")
         closer.sort(key=lambda m: m["dist_m"])
+        # Surface any MISSING city candidates on the same street within the
+        # matched distance — a nearby missing address (e.g. "86A") is often
+        # the root cause of the surrounding drift pattern.
+        missing_nearby: list[dict] = []
+        seen_missing: set[int] = set()
+        for m_lat, m_lon, city in ctx.city_index.query(cand.lat, cand.lon):
+            if city.get("candidate_id") == cand.candidate_id:
+                continue
+            if city.get("verdict") != "MISSING":
+                continue
+            if city.get("street_norm") != c_street_norm:
+                continue
+            dist = haversine(cand.lat, cand.lon, m_lat, m_lon)
+            if dist > matched_dist:
+                continue
+            cid = city["candidate_id"]
+            if cid in seen_missing:
+                continue
+            seen_missing.add(cid)
+            missing_nearby.append({
+                "candidate_id": cid,
+                "housenumber": city.get("housenumber") or "",
+                "dist_m": round(dist, 2),
+            })
+        missing_nearby.sort(key=lambda m: m["dist_m"])
         return Verdict(
             status="FLAG",
             severity="warn",
@@ -77,5 +102,6 @@ class MatchNumberDriftCheck:
                 "neighbors": closer[:5],
                 "count": len(closer),
                 "slack_m": slack_m,
+                "missing_nearby": missing_nearby[:5],
             },
         )
