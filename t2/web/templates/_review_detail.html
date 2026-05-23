@@ -18,13 +18,13 @@
   · <a href="/runs/{{ run_id }}/{{ view }}/{{ candidate.candidate_id }}" title="Permalink to this candidate">permalink</a> ·
   lat <code>{{ candidate.lat }}</code> lon <code>{{ candidate.lon }}</code>
   {% if candidate.lat and candidate.lon %}
-  · <a href="https://www.openstreetmap.org/?mlat={{ candidate.lat }}&mlon={{ candidate.lon }}#map=19/{{ candidate.lat }}/{{ candidate.lon }}" target="_blank" rel="noopener">open in OSM</a>
+  · <a href="https://www.openstreetmap.org/edit?editor=id#map=19/{{ candidate.lat }}/{{ candidate.lon }}" target="_blank" rel="noopener">open in OSM</a>
   {% endif %}
   · verdict <span class="pill" data-tip="{{ tip('verdict.' ~ candidate.verdict) if candidate.verdict else '' }}">{{ candidate.verdict or '—' }}</span>
-  {% if candidate.nearest_dist_m %}· nearest <a href="https://www.openstreetmap.org/{{ candidate.nearest_osm_type }}/{{ candidate.nearest_osm_id }}" target="_blank" rel="noopener">{{ candidate.nearest_osm_type }} #{{ candidate.nearest_osm_id }}</a> at <span data-tip="{{ tip('metric.nearest_dist_m') }}">{{ '%.1fm' % candidate.nearest_dist_m }}</span>{% endif %}
+  {% if candidate.nearest_dist_m %}· nearest <a href="https://www.openstreetmap.org/edit?editor=id&{{ candidate.nearest_osm_type }}={{ candidate.nearest_osm_id }}" target="_blank" rel="noopener">{{ candidate.nearest_osm_type }} #{{ candidate.nearest_osm_id }}</a> at <span data-tip="{{ tip('metric.nearest_dist_m') }}">{{ '%.1fm' % candidate.nearest_dist_m }}</span>{% endif %}
   {% if candidate.poi_osm_id %}
   · <span class="pill" data-tip="{{ tip('pill.poi_acknowledged') }}">POI acknowledged:
-    <a href="https://www.openstreetmap.org/{{ candidate.poi_osm_type }}/{{ candidate.poi_osm_id }}" target="_blank" rel="noopener">{{ candidate.poi_osm_type }} #{{ candidate.poi_osm_id }}</a>{% if candidate.poi_tags and candidate.poi_tags.name %} — {{ candidate.poi_tags.name }}{% endif %}</span>
+    <a href="https://www.openstreetmap.org/edit?editor=id&{{ candidate.poi_osm_type }}={{ candidate.poi_osm_id }}" target="_blank" rel="noopener">{{ candidate.poi_osm_type }} #{{ candidate.poi_osm_id }}</a>{% if candidate.poi_tags and candidate.poi_tags.name %} — {{ candidate.poi_tags.name }}{% endif %}</span>
   {% endif %}
   {% if candidate.proposed_postcode %}
   · <span class="pill" data-tip="{{ tip('pill.postcode_from_poi') }}">postcode from POI: {{ candidate.proposed_postcode }}</span>
@@ -45,7 +45,7 @@
   {% if candidate.matched_osm_lat and candidate.matched_osm_lon %}
     · <span style="display:inline-block;width:.8em;height:.8em;background:#d94a4a;border-radius:50%"></span> matched OSM
     {% if candidate.nearest_osm_type and candidate.nearest_osm_id %}
-      · <a href="https://www.openstreetmap.org/{{ candidate.nearest_osm_type }}/{{ candidate.nearest_osm_id }}" target="_blank" rel="noopener">open {{ candidate.nearest_osm_type }} #{{ candidate.nearest_osm_id }} in OSM</a>
+      · <a href="https://www.openstreetmap.org/edit?editor=id&{{ candidate.nearest_osm_type }}={{ candidate.nearest_osm_id }}" target="_blank" rel="noopener">open {{ candidate.nearest_osm_type }} #{{ candidate.nearest_osm_id }} in OSM</a>
     {% endif %}
   {% endif %}
   {% if candidate.dup_sibling_lat and candidate.dup_sibling_lon %}
@@ -177,7 +177,7 @@
 <h4>Tag comparison</h4>
 {% if nearby_osm %}
 <p class="muted">No OSM match — comparing against a <strong>nearby</strong> address (same housenumber, different/absent street):
-  <a href="https://www.openstreetmap.org/{{ nearby_osm.osm_type }}/{{ nearby_osm.osm_id }}" target="_blank" rel="noopener">{{ nearby_osm.osm_type }} #{{ nearby_osm.osm_id }}</a>
+  <a href="https://www.openstreetmap.org/edit?editor=id&{{ nearby_osm.osm_type }}={{ nearby_osm.osm_id }}" target="_blank" rel="noopener">{{ nearby_osm.osm_type }} #{{ nearby_osm.osm_id }}</a>
   at {{ '%.2f' % nearby_osm.dist_m }} m</p>
 {% else %}
 <p class="muted">Matched: {{ geom_label or '— no OSM match' }}</p>

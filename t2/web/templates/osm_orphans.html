@@ -130,7 +130,7 @@
           {% if key == 'entrance' %}<td>{{ r.entrance }}</td>{% endif %}
           <td class="muted-small">{{ r.name }}</td>
           <td class="hn muted-small">{{ r.missing_parts | join(', ') }}</td>
-          <td><a href="https://www.openstreetmap.org/node/{{ r.id }}" target="_blank" rel="noopener">node/{{ r.id }}</a></td>
+          <td><a href="https://www.openstreetmap.org/edit?editor=id&node={{ r.id }}" target="_blank" rel="noopener">node/{{ r.id }}</a></td>
         </tr>
         {% endfor %}
       </tbody>
@@ -167,7 +167,7 @@
           <td class="hn">{{ r.hn }}</td>
           {% if key == 'entrance' %}<td>{{ r.entrance }}</td>{% endif %}
           <td class="muted-small">{{ r.name }}</td>
-          <td><a href="https://www.openstreetmap.org/node/{{ r.id }}" target="_blank" rel="noopener">node/{{ r.id }}</a></td>
+          <td><a href="https://www.openstreetmap.org/edit?editor=id&node={{ r.id }}" target="_blank" rel="noopener">node/{{ r.id }}</a></td>
         </tr>
         {% endfor %}
       </tbody>
@@ -251,7 +251,7 @@
         <td class="hn">{{ r.hn }}</td>
         <td>{{ r.building }}</td>
         <td class="muted-small">{{ r.name }}</td>
-        <td><a href="https://www.openstreetmap.org/{{ r.type }}/{{ r.id }}" target="_blank" rel="noopener">{{ r.type }}/{{ r.id }}</a></td>
+        <td><a href="https://www.openstreetmap.org/edit?editor=id&{{ r.type }}={{ r.id }}" target="_blank" rel="noopener">{{ r.type }}/{{ r.id }}</a></td>
       </tr>
       {% endfor %}
     </tbody>

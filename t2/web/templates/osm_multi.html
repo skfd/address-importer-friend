@@ -159,7 +159,7 @@
         <td>{{ ts.street }}</td>
         <td>{{ ts.name }}</td>
         <td class="num muted">
-          <a href="https://www.openstreetmap.org/{{ ts.type }}/{{ ts.id }}"
+          <a href="https://www.openstreetmap.org/edit?editor=id&{{ ts.type }}={{ ts.id }}"
              target="_blank" rel="noopener">{{ ts.type }}/{{ ts.id }}</a>
         </td>
       </tr>
@@ -179,7 +179,7 @@
         <td>{{ ex.street }}</td>
         <td>{{ ex.name }}</td>
         <td class="num muted">
-          <a href="https://www.openstreetmap.org/{{ ex.type }}/{{ ex.id }}"
+          <a href="https://www.openstreetmap.org/edit?editor=id&{{ ex.type }}={{ ex.id }}"
              target="_blank" rel="noopener">{{ ex.type }}/{{ ex.id }}</a>
         </td>
       </tr>
@@ -268,7 +268,7 @@
           {%- if ex.amenity %}amenity={{ ex.amenity }}{% endif -%}
         </td>
         <td class="num muted">
-          <a href="https://www.openstreetmap.org/{{ ex.type }}/{{ ex.id }}"
+          <a href="https://www.openstreetmap.org/edit?editor=id&{{ ex.type }}={{ ex.id }}"
              target="_blank" rel="noopener">{{ ex.type }}/{{ ex.id }}</a>
         </td>
       </tr>

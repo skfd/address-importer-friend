@@ -8,7 +8,7 @@
   · <a href="/runs/{{ run_id }}/ranges/{{ candidate.candidate_id }}" title="Permalink">permalink</a>
   · lat <code>{{ candidate.lat }}</code> lon <code>{{ candidate.lon }}</code>
   {% if candidate.lat and candidate.lon %}
-  · <a href="https://www.openstreetmap.org/?mlat={{ candidate.lat }}&mlon={{ candidate.lon }}#map=19/{{ candidate.lat }}/{{ candidate.lon }}" target="_blank" rel="noopener">open in OSM</a>
+  · <a href="https://www.openstreetmap.org/edit?editor=id#map=19/{{ candidate.lat }}/{{ candidate.lon }}" target="_blank" rel="noopener">open in OSM</a>
   {% endif %}
 </p>
 <p>Range: <strong>{{ candidate.lo_num }}{{ candidate.lo_num_suf or '' }}–{{ candidate.hi_num }}{{ candidate.hi_num_suf or '' }} {{ candidate.street_raw or '' }}</strong>
@@ -110,7 +110,7 @@
       const parts = [`<strong>${esc(nums)} ${esc(w.street || '')}</strong>`];
       parts.push(`<div style="margin-top:.25rem"><span class="pill" style="background:#f5d0fe">interpolation: ${esc(w.interpolation || '?')}</span></div>`);
       parts.push(`<div class="muted" style="margin-top:.25rem">way #${esc(w.id)}</div>`);
-      parts.push(`<div style="margin-top:.25rem"><a href="https://www.openstreetmap.org/way/${esc(w.id)}" target="_blank" rel="noopener">Open in OSM ↗</a></div>`);
+      parts.push(`<div style="margin-top:.25rem"><a href="https://www.openstreetmap.org/edit?editor=id&way=${esc(w.id)}" target="_blank" rel="noopener">Open in OSM ↗</a></div>`);
       return parts.join('');
     }
 
@@ -159,7 +159,7 @@
         } else {
           const rows = interp.map(w => {
             const nums = w.endpoints.map(e => e.housenumber).filter(Boolean).join('–') || '?';
-            return `<li><a href="https://www.openstreetmap.org/way/${esc(w.id)}" target="_blank" rel="noopener">way #${esc(w.id)}</a> — ${esc(nums)} (<code>${esc(w.interpolation || '?')}</code>)</li>`;
+            return `<li><a href="https://www.openstreetmap.org/edit?editor=id&way=${esc(w.id)}" target="_blank" rel="noopener">way #${esc(w.id)}</a> — ${esc(nums)} (<code>${esc(w.interpolation || '?')}</code>)</li>`;
           }).join('');
           summary.innerHTML = `<strong>${interp.length}</strong> interpolation way(s) in view: <ul style="margin:.3rem 0 0; padding-left:1.2rem;">${rows}</ul>`;
         }

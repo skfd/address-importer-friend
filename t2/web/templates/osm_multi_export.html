@@ -55,7 +55,7 @@
         {% for r in summary.applied %}
           <tr>
             <td>
-              <a href="https://www.openstreetmap.org/{{ r.type }}/{{ r.id }}"
+              <a href="https://www.openstreetmap.org/edit?editor=id&{{ r.type }}={{ r.id }}"
                  target="_blank" rel="noopener">{{ r.type }}/{{ r.id }}</a>
             </td>
             <td><span class="chip-applied">{{ r.verdict }}</span></td>
@@ -90,7 +90,7 @@
         {% for r in summary.conflicts %}
           <tr>
             <td>
-              <a href="https://www.openstreetmap.org/{{ r.type }}/{{ r.id }}"
+              <a href="https://www.openstreetmap.org/edit?editor=id&{{ r.type }}={{ r.id }}"
                  target="_blank" rel="noopener">{{ r.type }}/{{ r.id }}</a>
             </td>
             <td><span class="chip-conflict">{{ r.verdict }}</span></td>

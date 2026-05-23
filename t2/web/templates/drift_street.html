@@ -83,7 +83,7 @@
         </td>
         <td>
           {% if f.matched_id %}
-          <a href="https://www.openstreetmap.org/{{ f.matched_type }}/{{ f.matched_id }}"
+          <a href="https://www.openstreetmap.org/edit?editor=id&{{ f.matched_type }}={{ f.matched_id }}"
              target="_blank" rel="noopener">#{{ f.matched_id }}</a>
           {% else %}&mdash;{% endif %}
         </td>
@@ -91,7 +91,7 @@
         <td>
           {% if f.closest %}
           {{ f.closest.osm_housenumber }} &middot;
-          <a href="https://www.openstreetmap.org/{{ f.closest.osm_type }}/{{ f.closest.osm_id }}"
+          <a href="https://www.openstreetmap.org/edit?editor=id&{{ f.closest.osm_type }}={{ f.closest.osm_id }}"
              target="_blank" rel="noopener">#{{ f.closest.osm_id }}</a>
           {% else %}&mdash;{% endif %}
         </td>
@@ -141,8 +141,8 @@
       { permanent: true, direction: 'top', className: 'lbl lbl-osm', offset: [0, -2] });
     m.bindPopup('<strong>OSM ' + esc(o.housenumber) + '</strong>' +
       '<div class="muted">' + esc(o.type) + ' #' + esc(o.id) + '</div>' +
-      '<div style="margin-top:.25rem"><a href="https://www.openstreetmap.org/' +
-      esc(o.type) + '/' + esc(o.id) + '" target="_blank" rel="noopener">Open in OSM &uarr;</a></div>');
+      '<div style="margin-top:.25rem"><a href="https://www.openstreetmap.org/edit?editor=id&' +
+      esc(o.type) + '=' + esc(o.id) + '" target="_blank" rel="noopener">Open in OSM &uarr;</a></div>');
     bounds.push([o.lat, o.lon]);
   });
 
@@ -169,14 +169,14 @@
       (f.uploaded ? ' &middot; uploaded' : ' &middot; pending') + '</div>');
     if (f.matched_id) {
       parts.push('<div style="margin-top:.25rem">matched OSM ' +
-        '<a href="https://www.openstreetmap.org/' + esc(f.matched_type) + '/' +
+        '<a href="https://www.openstreetmap.org/edit?editor=id&' + esc(f.matched_type) + '=' +
         esc(f.matched_id) + '" target="_blank" rel="noopener">#' + esc(f.matched_id) +
         '</a>' + (f.matched_dist != null ? ' (' + f.matched_dist.toFixed(1) + ' m)' : '') +
         '</div>');
     }
     if (f.closest) {
       parts.push('<div>nearest OSM ' + esc(f.closest.osm_housenumber) + ' ' +
-        '<a href="https://www.openstreetmap.org/' + esc(f.closest.osm_type) + '/' +
+        '<a href="https://www.openstreetmap.org/edit?editor=id&' + esc(f.closest.osm_type) + '=' +
         esc(f.closest.osm_id) + '" target="_blank" rel="noopener">#' + esc(f.closest.osm_id) +
         '</a> (' + f.closest.dist_m.toFixed(1) + ' m)</div>');
     }

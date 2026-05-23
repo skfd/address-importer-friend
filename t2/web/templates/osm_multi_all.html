@@ -153,12 +153,12 @@
                   {%- endif -%}
                 </td>
                 <td>
-                  <a href="https://www.openstreetmap.org/{{ it.type }}/{{ it.id }}"
+                  <a href="https://www.openstreetmap.org/edit?editor=id&{{ it.type }}={{ it.id }}"
                      target="_blank" rel="noopener">{{ it.type }}/{{ it.id }}</a>
                 </td>
                 <td>
                   {% if it.lat and it.lon %}
-                    <a href="https://www.openstreetmap.org/?mlat={{ it.lat }}&mlon={{ it.lon }}#map=19/{{ it.lat }}/{{ it.lon }}"
+                    <a href="https://www.openstreetmap.org/edit?editor=id#map=19/{{ it.lat }}/{{ it.lon }}"
                        target="_blank" rel="noopener">map ↗</a>
                   {% else %}
                     <span class="muted-small">—</span>
