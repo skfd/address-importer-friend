@@ -8,7 +8,7 @@
   · <a href="/runs/{{ run_id }}/ranges/{{ candidate.candidate_id }}" title="Permalink">permalink</a>
   · lat <code>{{ candidate.lat }}</code> lon <code>{{ candidate.lon }}</code>
   {% if candidate.lat and candidate.lon %}
-  · <a href="https://www.openstreetmap.org/edit?editor=id#map=19/{{ candidate.lat }}/{{ candidate.lon }}" target="_blank" rel="noopener">open in OSM</a>
+  · <a href="https://www.openstreetmap.org/edit?editor=id#map=21/{{ candidate.lat }}/{{ candidate.lon }}" target="_blank" rel="noopener">open in OSM</a>
   {% endif %}
 </p>
 <p>Range: <strong>{{ candidate.lo_num }}{{ candidate.lo_num_suf or '' }}–{{ candidate.hi_num }}{{ candidate.hi_num_suf or '' }} {{ candidate.street_raw or '' }}</strong>

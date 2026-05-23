@@ -18,7 +18,7 @@
   · <a href="/runs/{{ run_id }}/{{ view }}/{{ candidate.candidate_id }}" title="Permalink to this candidate">permalink</a> ·
   lat <code>{{ candidate.lat }}</code> lon <code>{{ candidate.lon }}</code>
   {% if candidate.lat and candidate.lon %}
-  · <a href="https://www.openstreetmap.org/edit?editor=id#map=19/{{ candidate.lat }}/{{ candidate.lon }}" target="_blank" rel="noopener">open in OSM</a>
+  · <a href="https://www.openstreetmap.org/edit?editor=id#map=21/{{ candidate.lat }}/{{ candidate.lon }}" target="_blank" rel="noopener">open in OSM</a>
   {% endif %}
   · verdict <span class="pill" data-tip="{{ tip('verdict.' ~ candidate.verdict) if candidate.verdict else '' }}">{{ candidate.verdict or '—' }}</span>
   {% if candidate.nearest_dist_m %}· nearest <a href="https://www.openstreetmap.org/edit?editor=id&{{ candidate.nearest_osm_type }}={{ candidate.nearest_osm_id }}" target="_blank" rel="noopener">{{ candidate.nearest_osm_type }} #{{ candidate.nearest_osm_id }}</a> at <span data-tip="{{ tip('metric.nearest_dist_m') }}">{{ '%.1fm' % candidate.nearest_dist_m }}</span>{% endif %}

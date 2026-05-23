@@ -181,7 +181,7 @@
         <td>{{ it.street_raw }}</td>
         <td class="muted">
           {% if it.lat and it.lon %}
-          <a href="https://www.openstreetmap.org/edit?editor=id#map=19/{{ it.lat }}/{{ it.lon }}" target="_blank" rel="noopener">{{ it.lat }}, {{ it.lon }}</a>
+          <a href="https://www.openstreetmap.org/edit?editor=id#map=21/{{ it.lat }}/{{ it.lon }}" target="_blank" rel="noopener">{{ it.lat }}, {{ it.lon }}</a>
           {% else %}—{% endif %}
         </td>
         <td><span class="pill {% if it.stage == 'UPLOADED' %}ok{% else %}warn{% endif %}">{{ it.stage }}</span></td>
