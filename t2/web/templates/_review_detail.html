@@ -176,7 +176,7 @@
 
 <h4>Tag comparison</h4>
 {% if nearby_osm %}
-<p class="muted">No OSM match — comparing against a <strong>nearby</strong> address (same housenumber, different/absent street): <a href="https://www.openstreetmap.org/edit?editor=id&{{ nearby_osm.osm_type }}={{ nearby_osm.osm_id }}" target="_blank" rel="noopener">{{ nearby_osm.osm_type }} #{{ nearby_osm.osm_id }}</a> at {{ '%.2f' % nearby_osm.dist_m }} m</p>
+<p class="muted">No OSM match — comparing against a <strong>nearby</strong> address (same housenumber, different/absent street): <a href="https://www.openstreetmap.org/edit?editor=id&{{ nearby_osm.osm_type }}={{ nearby_osm.osm_id }}#map=21/{{ candidate.lat }}/{{ candidate.lon }}" target="_blank" rel="noopener">{{ nearby_osm.osm_type }} #{{ nearby_osm.osm_id }}</a> at {{ '%.2f' % nearby_osm.dist_m }} m</p>
 {% else %}
 <p class="muted">Matched: {{ geom_label or '— no OSM match' }}</p>
 {% endif %}
