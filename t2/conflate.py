@@ -134,6 +134,7 @@ STREET_NAME_OVERRIDES: dict[str, str] = {
     "Mac Gregor Ave": "MacGregor Ave",
     "Governor's Rd": "Governors Road",
     "St Andrews Gdns": "St. Andrew's Gardens",
+    "St Leonard's Ave": "Saint Leonard's Avenue",
     # OSM's canonical name carries no street-type suffix at all (road
     # way/27371860 name="Sunny Slope", alt_name="Sunnyslope Avenue"); the
     # existing OSM building addresses use addr:street="Sunny Slope". This is

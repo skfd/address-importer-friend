@@ -26,6 +26,7 @@ def test_known_overrides_use_osm_canonical_name():
     assert apply_street_override("Mac Gregor Ave") == "MacGregor Ave"
     assert apply_street_override("Governor's Rd") == "Governors Road"
     assert apply_street_override("St Andrews Gdns") == "St. Andrew's Gardens"
+    assert apply_street_override("St Leonard's Ave") == "Saint Leonard's Avenue"
     assert apply_street_override("Sunnyslope Ave") == "Sunny Slope"
 
 
