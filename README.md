@@ -15,13 +15,16 @@ Live status of the [import proposal](IMPORT_PROPOSAL.mediawiki) against the [OSM
 
 | Stage | State |
 |---|---|
-| Draft proposal | Complete (last revised 2026-05-13) |
+| Draft proposal | Complete (last revised 2026-05-28) |
 | Wiki page (`Toronto/Import/AddressPoints`) | [Published 2026-05-01](https://wiki.openstreetmap.org/wiki/Toronto/Import/AddressPoints) |
 | OSM Community Forum announcement | Posted 2026-05-01 — [thread](https://community.openstreetmap.org/t/address-import-for-toronto/119368) (tagged `import`; the [Import Guidelines](https://wiki.openstreetmap.org/wiki/Import/Guidelines) route announcements through the forum now, not the deprecated `imports@` list) |
-| 14-day feedback window | Closes 2026-05-15 (measured from wiki publication; discussion resolved) |
-| Phase 1 pilot upload (production) | Completed 2026-05-13 — [changeset 182585291](https://www.openstreetmap.org/changeset/182585291) (tile `high-park-swansea-sw-se`, 176 uploaded, 72 skipped, 4 rejected). [Upload manifest](https://skfd.github.io/toronto-2-address-import/pilot/uploads/all.csv). One-week hold before Phase 2. |
+| 14-day feedback window | Closed 2026-05-15 (measured from wiki publication; discussion resolved) |
+| Phase 1 pilot upload (production) | Completed 2026-05-13 — [changeset 182585291](https://www.openstreetmap.org/changeset/182585291) (tile `high-park-swansea-sw-se`, 176 uploaded, 72 skipped, 4 rejected) |
+| Phases 2 + 3 (citywide rollout) | Completed 2026-05-28 — all 1,297 tiles processed; 1,297 changesets (`182585291` … `183305851`) on the [`skfd imports`](https://www.openstreetmap.org/user/skfd%20imports/history) account; ~449k addresses uploaded, ~311k skipped (mostly already in OSM), ~9.2k operator-rejected. Day-by-day notes in [`blog.md`](blog.md). |
+| Phase 4 — closeout | In progress. [Cumulative upload manifest](https://skfd.github.io/toronto-2-address-import/pilot/uploads/all.csv) published. Post-import report on the community forum + wiki page pending. 90-day post-import monitoring window (per § Open questions #2 of the proposal) runs through 2026-08-26. |
+| Post-import follow-ups (separate proposals) | (a) `source` → `addr:source` tag rewrite — sketched in [`future-work/source-tag-rewrite.md`](future-work/source-tag-rewrite.md). (b) MapRoulette challenge for ~1,580 OSM buildings with `addr:housenumber` but no street anchor — sketched in [`future-work/no-anchor-osm-buildings.md`](future-work/no-anchor-osm-buildings.md). (c) Interpolation-cleanup mapping party — separate forum thread, organized by Toronto local mappers. |
 
-All uploads from this tool to date have used the OSM dev sandbox (`master.apis.dev.openstreetmap.org`). No production edits have been made and none will be made until the proposal has cleared the customary feedback window. The OSM account used for production uploads will be [`skfd imports`](https://www.openstreetmap.org/user/skfd%20imports) (dedicated, not the maintainer's personal account).
+Production uploads were made from the dedicated [`skfd imports`](https://www.openstreetmap.org/user/skfd%20imports) OSM account (not the maintainer's personal account). The pre-Phase-1 evidence changesets on `master.apis.dev.openstreetmap.org` linked from the proposal demonstrate the upload mechanics; the production changesets above are the actual import.
 
 ## Terminology
 
