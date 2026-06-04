@@ -34,7 +34,7 @@ def main() -> int:
         print(f"[{i:>2}/{len(spec)}] {tid}  ({tile['address_count']} addrs)", flush=True)
 
         t0 = time.monotonic()
-        run_id = pipeline.start_run(name, bbox)
+        run_id = pipeline.start_run(name, bbox, polygon_latlon=tile.get("polygon_latlon"))
         ingested = pipeline.ingest_stage(run_id)
         t1 = time.monotonic()
         digest = pipeline.fetch_stage(run_id)

@@ -31,7 +31,7 @@ def main(argv: list[str]) -> int:
     name = f"{tile_id}-batch-{datetime.now().date().isoformat()}"
     print(f"tile: {tile_id}  bbox: {bbox}  run_name: {name}")
 
-    run_id = pipeline.start_run(name, bbox)
+    run_id = pipeline.start_run(name, bbox, polygon_latlon=tile.get("polygon_latlon"))
     print(f"run_id: {run_id}")
 
     print("ingest…")

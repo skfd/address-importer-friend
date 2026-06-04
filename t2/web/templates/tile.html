@@ -41,6 +41,7 @@
   {% endif %}
   <form method="post" action="{{ url_for('runs_new') }}">
     <label>Name <input name="name" value="{{ prefill_name }}" required size="40"/></label>
+    <input type="hidden" name="tile_id" value="{{ tile.id }}"/>
     <input type="hidden" name="min_lat" value="{{ tile.bbox[0] }}"/>
     <input type="hidden" name="min_lon" value="{{ tile.bbox[1] }}"/>
     <input type="hidden" name="max_lat" value="{{ tile.bbox[2] }}"/>

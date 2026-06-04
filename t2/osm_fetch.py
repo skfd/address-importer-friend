@@ -13,6 +13,7 @@ Both paths write the result to ``data/osm_current_run<id>.json`` so downstream
 """
 import hashlib
 import json
+import math
 from pathlib import Path
 
 import requests
@@ -20,6 +21,14 @@ import requests
 from . import config as _config
 
 _CONFIG = _config.load()
+
+# Runs ingest candidates clipped to the tile polygon, but conflation must still
+# find OSM matches up to match_radius_m beyond a tile edge — so the OSM fetch
+# bbox is padded by HALO_MARGIN * match_radius_m. match_radius_m is the floor
+# (a candidate on the bbox edge can match that far out); the >1 margin absorbs
+# the metre->degree conversion and bbox rounding. Overlap of this halo between
+# adjacent tiles is harmless: OSM data is read-only reference, never uploaded.
+HALO_MARGIN = 1.5
 
 # Process-local cache for the shared filtered extract used by `local` source.
 # Keyed by (path_str, mtime) so a refreshed extract invalidates automatically.
@@ -139,12 +148,28 @@ def _fetch_from_overpass(
     return path, digest
 
 
+def _pad_bbox(
+    bbox: tuple[float, float, float, float], meters: float
+) -> tuple[float, float, float, float]:
+    """Expand bbox outward by ``meters`` on every side (degrees at bbox latitude)."""
+    min_lat, min_lon, max_lat, max_lon = bbox
+    dlat = meters / 111_320.0
+    mid_lat = (min_lat + max_lat) / 2
+    dlon = meters / (111_320.0 * max(math.cos(math.radians(mid_lat)), 0.01))
+    return (min_lat - dlat, min_lon - dlon, max_lat + dlat, max_lon + dlon)
+
+
 def fetch(run_id: int, bbox: tuple[float, float, float, float], force: bool = False) -> tuple[Path, str]:
     """Fetch OSM elements for bbox; cached to data/osm_current_run<run>.json.
+
+    The bbox is padded by ``HALO_MARGIN * match_radius_m`` so edge candidates
+    can still match OSM just outside the tile (see HALO_MARGIN). The padded
+    bbox is used only for fetching — never persisted on the run.
 
     Returns (path, sha256_hex). Dispatches on ``config.osm.source``.
     """
     _CONFIG.data_dir.mkdir(parents=True, exist_ok=True)
+    bbox = _pad_bbox(bbox, _CONFIG.match_radius_m * HALO_MARGIN)
     if _CONFIG.osm_source == "local":
         return _fetch_from_local(run_id, bbox, force)
     return _fetch_from_overpass(run_id, bbox, force)

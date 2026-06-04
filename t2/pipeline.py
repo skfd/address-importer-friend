@@ -34,8 +34,17 @@ def _seed_toggles(conn, run_id: int, enabled_from_config: dict[str, bool]):
         )
 
 
-def start_run(name: str, bbox: tuple[float, float, float, float] | None = None) -> int:
-    """Create or reopen a run by name. Returns run_id."""
+def start_run(
+    name: str,
+    bbox: tuple[float, float, float, float] | None = None,
+    polygon_latlon: list | None = None,
+) -> int:
+    """Create or reopen a run by name. Returns run_id.
+
+    ``polygon_latlon`` is the tile's actual shape (Leaflet [[[lat, lon], ...]]);
+    when given, ingest clips source addresses to it instead of the bbox so
+    adjacent tiles don't share edge points. Omitted for manual bbox-only runs.
+    """
     cfg = _config.load()
     bbox = bbox or cfg.default_bbox
     snapshot_id = source_db.latest_snapshot_id()
@@ -50,8 +59,8 @@ def start_run(name: str, bbox: tuple[float, float, float, float] | None = None) 
             cur = conn.execute(
                 """
                 INSERT INTO runs (name, bbox_min_lat, bbox_min_lon, bbox_max_lat, bbox_max_lon,
-                                  source_snapshot_id, created_at, config_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                  source_snapshot_id, created_at, config_json, polygon_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     name,
@@ -63,6 +72,7 @@ def start_run(name: str, bbox: tuple[float, float, float, float] | None = None) 
                         "match_near_m": cfg.match_near_m,
                         "checks_params": cfg.checks_params,
                     }),
+                    json.dumps(polygon_latlon) if polygon_latlon else None,
                 ),
             )
             run_id = int(cur.lastrowid)
@@ -86,13 +96,15 @@ def ingest_stage(run_id: int) -> int:
     conn = _db.connect()
     try:
         row = conn.execute(
-            "SELECT bbox_min_lat, bbox_min_lon, bbox_max_lat, bbox_max_lon, source_snapshot_id FROM runs WHERE run_id = ?",
+            "SELECT bbox_min_lat, bbox_min_lon, bbox_max_lat, bbox_max_lon, "
+            "source_snapshot_id, polygon_json FROM runs WHERE run_id = ?",
             (run_id,),
         ).fetchone()
         if not row:
             raise ValueError(f"run {run_id} not found")
         bbox = (row["bbox_min_lat"], row["bbox_min_lon"], row["bbox_max_lat"], row["bbox_max_lon"])
         snap = int(row["source_snapshot_id"])
+        polygon_latlon = json.loads(row["polygon_json"]) if row["polygon_json"] else None
     finally:
         conn.close()
     # Sanity: is source snapshot still current?
@@ -101,7 +113,7 @@ def ingest_stage(run_id: int) -> int:
         raise RuntimeError(
             f"Source snapshot changed since run start (was {snap}, now {current}). Create a new run."
         )
-    return candidates.ingest(run_id, bbox, snap)
+    return candidates.ingest(run_id, bbox, snap, polygon_latlon=polygon_latlon)
 
 
 def fetch_stage(run_id: int, force: bool = False) -> str:

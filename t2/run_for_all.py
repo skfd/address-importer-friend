@@ -218,7 +218,7 @@ def _run_tile_worker(tile: dict, msg_queue) -> dict:
 
     try:
         name = f"{tid}-batch-{datetime.now().date().isoformat()}"
-        run_id = pipeline.start_run(name, bbox)  # type: ignore[arg-type]
+        run_id = pipeline.start_run(name, bbox, polygon_latlon=tile.get("polygon_latlon"))  # type: ignore[arg-type]
         _push("tile_start", run_id=run_id)
 
         if _stage_status_complete(run_id):

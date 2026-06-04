@@ -205,7 +205,16 @@ def create_app() -> Flask:
     def runs_new():
         name = request.form["name"].strip()
         bbox = tuple(float(request.form[k]) for k in ("min_lat", "min_lon", "max_lat", "max_lon"))
-        run_id = pipeline.start_run(name, bbox)  # type: ignore
+        # A run launched from a tile carries the tile id so ingest can clip to
+        # the tile polygon; the manual bbox form omits it and stays bbox-only.
+        tile_id = request.form.get("tile_id")
+        polygon = None
+        if tile_id:
+            _tiles, by_id, _meta = _load_tiles(cfg.data_dir / "tiles.json")
+            tile = by_id.get(tile_id)
+            if tile:
+                polygon = tile.get("polygon_latlon")
+        run_id = pipeline.start_run(name, bbox, polygon_latlon=polygon)  # type: ignore
         return redirect(url_for("run_view", run_id=run_id))
 
     @app.post("/runs/delete_all")

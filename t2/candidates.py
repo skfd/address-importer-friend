@@ -13,9 +13,42 @@ def _street_from_row(row: dict) -> str:
     return " ".join(p for p in parts if p).strip()
 
 
-def ingest(run_id: int, bbox: tuple[float, float, float, float], snapshot_id: int) -> int:
-    """Insert new candidates into tool.db. Returns count inserted this call."""
+def _build_polygon(polygon_latlon: list):
+    """Reconstruct a shapely polygon from a tile's Leaflet rings.
+
+    ``polygon_latlon`` is [[[lat, lon], ...]] (exterior ring first); shapely
+    wants (x=lon, y=lat). Tiles store a single exterior ring with no holes
+    (tiles_build._polygon_latlon), so we use the first ring as the shell.
+    """
+    from shapely.geometry import Polygon  # local import; only tile runs need shapely
+
+    if not polygon_latlon:
+        return None
+    shell = [(lon, lat) for lat, lon in polygon_latlon[0]]
+    return Polygon(shell)
+
+
+def ingest(
+    run_id: int,
+    bbox: tuple[float, float, float, float],
+    snapshot_id: int,
+    polygon_latlon: list | None = None,
+) -> int:
+    """Insert new candidates into tool.db. Returns count inserted this call.
+
+    When ``polygon_latlon`` is given, the bbox query is a prefilter and each
+    row is kept only if the point falls inside the tile polygon — so a source
+    address in this tile's bbox but inside a neighbour's polygon is not
+    ingested here (and so never reviewed/uploaded twice). NULL polygon keeps
+    the legacy pure-bbox behaviour. Containment is strict (matches the
+    poly.contains() assignment tiles_build uses to count addresses).
+    """
     from .conflate import apply_street_override, expand_street_name, normalize_street  # local import; conflate owns the normalizer
+
+    polygon = _build_polygon(polygon_latlon)
+    point_cls = None
+    if polygon is not None:
+        from shapely.geometry import Point as point_cls  # noqa: N813
 
     inserted = 0
     now = datetime.now(timezone.utc).isoformat()
@@ -23,6 +56,10 @@ def ingest(run_id: int, bbox: tuple[float, float, float, float], snapshot_id: in
     try:
         conn.execute("BEGIN IMMEDIATE")
         for row in source_db.iter_active_addresses_in_bbox(bbox, snapshot_id):
+            if polygon is not None:
+                lat, lon = row.get("latitude"), row.get("longitude")
+                if lat is None or lon is None or not polygon.contains(point_cls(lon, lat)):
+                    continue
             # Rewrite known source spelling variants (e.g. "Deane Field Cres")
             # to the OSM canonical form, then expand short suffixes/directions
             # ("Foo Ave W" → "Foo Avenue West") so both matching and any later
