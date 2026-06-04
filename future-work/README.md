@@ -20,8 +20,8 @@ at the date they were written.
   `addr:housenumber` but no `addr:street`. These can't be matched by
   conflation and are an acknowledged duplicate-creation path
   (`IMPORT_PROPOSAL.mediawiki` § Conflation).
-- [source-tag-rewrite.md](source-tag-rewrite.md) — bulk-rewrite the
-  per-node `source=City of Toronto Open Data` tag this import wrote on
-  ~449,052 nodes to `addr:source=City of Toronto Open Data`. First mutation
-  pass over the import's own output; shares the `<modify>` plumbing
-  sketched in [postcode-enrichment.md](postcode-enrichment.md).
+- [source-tag-rewrite.md](source-tag-rewrite.md) — **abandoned (2026-06-03).**
+  Idea was to bulk-rewrite `source=City of Toronto Open Data` →
+  `addr:source` on imported objects. A pilot showed that tag is a shared
+  community convention (used by other mappers/imports for 15+ years), so it
+  can't be claimed as ours beyond our own manifest node ids. Kept as a record.
