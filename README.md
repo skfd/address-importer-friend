@@ -327,6 +327,50 @@ and both distances — and prints a console summary of "systemic" runs (those
 at or above `--min-flags`) and their drifted streets. The check's `slack_m`
 is read from `config.toml`, so the scan matches a fresh pipeline run.
 
+## v1 database archive
+
+The pilot + citywide import (Phases 1–3) ran on a single SQLite `tool.db` that
+grew to ~2 GB. On 2026-06-03 that database was **frozen and archived**, and the
+live `data/tool.db` was reset to an empty schema-v15 database for v2 work.
+
+What the archive preserves is the part that **cannot be regenerated** from the
+source feed + OSM: the public-upload audit trail (1,297 OSM changeset IDs and
+per-run upload status) and every human review decision (candidate/review
+verdicts, multi-address verdicts, drift-street statuses). The bulk — candidate
+geometry, tags, and check results — would rebuild deterministically from a
+fresh conflation run and isn't otherwise special.
+
+Snapshot (schema_version 15): 1,298 runs · 768,888 candidates · 37,919 review
+items · 1,297 uploaded changesets · 68 multi-address verdicts · 60
+drift-street statuses.
+
+**Where it lives**
+
+- GitHub Release [`v1-db-archive`](https://github.com/skfd/toronto-2-address-import/releases/tag/v1-db-archive)
+  — asset `tool-v1-20260603.db.xz` (124 MB compressed, ~2.0 GiB uncompressed).
+- Locally under `data/archive/` (gitignored, not committed).
+
+The OAuth token and PKCE session rows (the `kv` table) were scrubbed before
+publishing, so the archive is **credential-free**. It is a read-only reference,
+not a runnable database — there is no stored OSM auth, and re-pointing the tool
+at it is not the intended use.
+
+**Using it**
+
+```bash
+# fetch + decompress
+gh release download v1-db-archive
+xz -d tool-v1-20260603.db.xz        # -> tool-v1-20260603.db (~2.0 GiB)
+
+# query read-only (e.g. which runs were uploaded, and to which changeset)
+sqlite3 -readonly tool-v1-20260603.db \
+  "SELECT run_id, changeset_id, uploaded_at FROM runs WHERE upload_status='uploaded' LIMIT 5;"
+```
+
+To let the **v2** importer cross-check against what v1 already pushed to OSM,
+open this file read-only and read its `changesets` / `runs` tables — they are
+the source of truth for which addresses are already live.
+
 ## Data sources & attribution
 
 This tool moves data between three open datasets. Downstream uploads inherit OSM's licence, but the upstream sources each have their own terms:
