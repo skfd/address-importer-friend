@@ -28,6 +28,92 @@ def _build_polygon(polygon_latlon: list):
     return Polygon(shell)
 
 
+def _candidate_values(run_id: int, row: dict, now: str) -> tuple | None:
+    """Map one source row to a candidates INSERT tuple, or None to skip it.
+
+    Shared by the bbox/polygon ingest and the maintenance row-list ingest so
+    street normalization, class extraction, and the Land Entrance skip stay
+    identical across both paths.
+    """
+    from .conflate import apply_street_override, expand_street_name, normalize_street
+
+    street_raw = expand_street_name(apply_street_override(_street_from_row(row)))
+    housenumber = row.get("address_number") or ""
+    extra_raw = row.get("extra")
+    try:
+        address_class = (json.loads(extra_raw) if extra_raw else {}).get("ADDRESS_CLASS_DESC")
+    except (ValueError, TypeError):
+        address_class = None
+    # Land Entrance rows model driveway/gate entry points (closest OSM concept
+    # is barrier=gate, not an address) and are out of scope — see
+    # IMPORT_PROPOSAL.mediawiki § Goals and non-goals.
+    if address_class == "Land Entrance":
+        return None
+    return (
+        run_id,
+        row["address_point_id"],
+        row.get("address_full"),
+        str(housenumber).strip().upper() if housenumber else None,
+        street_raw or None,
+        normalize_street(street_raw),
+        row.get("latitude"),
+        row.get("longitude"),
+        row.get("lo_num"),
+        row.get("lo_num_suf"),
+        row.get("hi_num"),
+        row.get("hi_num_suf"),
+        extra_raw,
+        address_class,
+        row.get("municipality_name"),
+        "INGESTED",
+        now,
+    )
+
+
+_INSERT_SQL = """
+    INSERT OR IGNORE INTO candidates
+      (run_id, candidate_id, address_full, housenumber, street_raw, street_norm,
+       lat, lon, lo_num, lo_num_suf, hi_num, hi_num_suf, extra_json,
+       address_class, municipality_name, stage, stage_updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+"""
+
+
+def ingest_rows(run_id: int, rows) -> int:
+    """Insert candidates from an explicit iterable of source rows (no bbox).
+
+    The selection axis is the caller's — used by the monthly maintenance job,
+    which ingests just the points that first appeared since its watermark
+    rather than everything inside a tile. Returns count inserted this call.
+    """
+    inserted = 0
+    now = datetime.now(timezone.utc).isoformat()
+    conn = _db.connect()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        for row in rows:
+            values = _candidate_values(run_id, row, now)
+            if values is None:
+                continue
+            cur = conn.execute(_INSERT_SQL, values)
+            if cur.rowcount > 0:
+                inserted += 1
+        audit.log(
+            actor="pipeline",
+            event_type="CANDIDATE_INGESTED",
+            run_id=run_id,
+            payload={"inserted": inserted, "source": "maintenance_delta"},
+            conn=conn,
+        )
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+    finally:
+        conn.close()
+    return inserted
+
+
 def ingest(
     run_id: int,
     bbox: tuple[float, float, float, float],
@@ -43,8 +129,6 @@ def ingest(
     the legacy pure-bbox behaviour. Containment is strict (matches the
     poly.contains() assignment tiles_build uses to count addresses).
     """
-    from .conflate import apply_street_override, expand_street_name, normalize_street  # local import; conflate owns the normalizer
-
     polygon = _build_polygon(polygon_latlon)
     point_cls = None
     if polygon is not None:
@@ -60,52 +144,10 @@ def ingest(
                 lat, lon = row.get("latitude"), row.get("longitude")
                 if lat is None or lon is None or not polygon.contains(point_cls(lon, lat)):
                     continue
-            # Rewrite known source spelling variants (e.g. "Deane Field Cres")
-            # to the OSM canonical form, then expand short suffixes/directions
-            # ("Foo Ave W" → "Foo Avenue West") so both matching and any later
-            # upload carry the OSM full-suffix form local mappers expect. See
-            # STREET_NAME_OVERRIDES and expand_street_name in conflate.py.
-            street_raw = expand_street_name(apply_street_override(_street_from_row(row)))
-            housenumber = row.get("address_number") or ""
-            extra_raw = row.get("extra")
-            try:
-                address_class = (json.loads(extra_raw) if extra_raw else {}).get("ADDRESS_CLASS_DESC")
-            except (ValueError, TypeError):
-                address_class = None
-            # Land Entrance rows model driveway/gate entry points (closest OSM
-            # concept is barrier=gate, not an address) and are out of scope for
-            # this import — see IMPORT_PROPOSAL.mediawiki § Goals and non-goals.
-            if address_class == "Land Entrance":
+            values = _candidate_values(run_id, row, now)
+            if values is None:
                 continue
-            values = (
-                run_id,
-                row["address_point_id"],
-                row.get("address_full"),
-                str(housenumber).strip().upper() if housenumber else None,
-                street_raw or None,
-                normalize_street(street_raw),
-                row.get("latitude"),
-                row.get("longitude"),
-                row.get("lo_num"),
-                row.get("lo_num_suf"),
-                row.get("hi_num"),
-                row.get("hi_num_suf"),
-                extra_raw,
-                address_class,
-                row.get("municipality_name"),
-                "INGESTED",
-                now,
-            )
-            cur = conn.execute(
-                """
-                INSERT OR IGNORE INTO candidates
-                  (run_id, candidate_id, address_full, housenumber, street_raw, street_norm,
-                   lat, lon, lo_num, lo_num_suf, hi_num, hi_num_suf, extra_json,
-                   address_class, municipality_name, stage, stage_updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                values,
-            )
+            cur = conn.execute(_INSERT_SQL, values)
             if cur.rowcount > 0:
                 inserted += 1
         audit.log(

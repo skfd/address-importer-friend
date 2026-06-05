@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}Maintenance{% endblock %}
+{% block content %}
+
+{% macro verdict_badge(v) -%}
+  {%- if v == 'pristine_ours' -%}<span class="pill ok">safe to delete</span>
+  {%- elif v == 'community_touched' -%}<span class="pill warn">community-touched</span>
+  {%- elif v == 'community_node' -%}<span class="pill warn">community node</span>
+  {%- elif v == 'keep_feature' -%}<span class="pill bad">building / POI — keep</span>
+  {%- elif v == 'already_deleted' -%}<span class="pill muted">already deleted</span>
+  {%- elif v == 'no_match' -%}<span class="pill muted">no OSM match</span>
+  {%- else -%}<span class="pill warn">history unavailable</span>
+  {%- endif -%}
+{%- endmacro %}
+
+<div class="card">
+  <h2>Monthly maintenance</h2>
+  <p class="muted">
+    Imports civic addresses the City feed has gained since the watermark, and
+    surfaces ones it has lost as editor links for manual deletion. Additions
+    ride the normal review&nbsp;&rarr;&nbsp;upload pipeline; retirements are
+    never auto-deleted.
+  </p>
+  <table>
+    <tr><th>Watermark snapshot</th><td>#{{ delta.watermark }}</td></tr>
+    <tr><th>Latest source snapshot</th><td>#{{ delta.latest_snapshot }}
+      {%- if source_snapshot_info and source_snapshot_info.downloaded %}
+        <span class="muted">({{ source_snapshot_info.downloaded[:10] }})</span>
+      {%- endif %}</td></tr>
+    <tr><th>New since watermark</th><td><strong>{{ delta.new_count }}</strong></td></tr>
+    <tr><th>Retired since watermark</th><td><strong>{{ delta.retired_count }}</strong></td></tr>
+  </table>
+
+  {% if not run %}
+    <form method="post" action="/maintenance/prepare" style="margin-top:.8rem">
+      <button type="submit">Prepare monthly run</button>
+      <span class="muted">— ingests additions, conflates against live OSM (a few seconds).</span>
+    </form>
+  {% endif %}
+
+  {% if delta.new_count %}
+  <details style="margin-top:.8rem">
+    <summary>{{ delta.new_count }} new address(es)</summary>
+    <ul>{% for r in delta.new_rows %}<li>{{ r.address_full }}</li>{% endfor %}</ul>
+  </details>
+  {% endif %}
+</div>
+
+{% if run %}
+<div class="card">
+  <h2>Additions — run <code>{{ run.name }}</code></h2>
+  <p>
+    {% for stage, n in stage_counts.items() %}
+      <span class="pill">{{ stage }}: {{ n }}</span>
+    {% endfor %}
+  </p>
+  <p>
+    <a class="btn" href="/runs/{{ run.run_id }}">Open run</a>
+    {% if stage_counts.get('REVIEW_PENDING') %}
+      <a class="btn" href="/runs/{{ run.run_id }}/review">Review queue ({{ stage_counts['REVIEW_PENDING'] }})</a>
+    {% endif %}
+    {% if run.upload_status == 'uploaded' %}
+      <span class="pill ok">uploaded · changeset {{ run.changeset_id }}</span>
+    {% endif %}
+  </p>
+  {% if watermark_behind %}
+    <form method="post" action="/maintenance/advance" style="margin-top:.6rem">
+      <button type="submit" class="secondary">Advance watermark to #{{ delta.latest_snapshot }}</button>
+      <span class="muted">— do this once the month's additions are uploaded.</span>
+    </form>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Retirements <span class="muted">— dropped from the City feed, no action taken automatically</span></h2>
+
+  {% if retire_error %}
+    <p><span class="pill bad">error</span> {{ retire_error }}</p>
+  {% elif retire %}
+    <p>
+      <span class="pill ok">{{ retire.summary.safe }} pristine-ours (safe)</span>
+      <span class="pill warn">{{ retire.summary.caution }} community (review)</span>
+      <span class="pill bad">{{ retire.summary.feature }} building/POI (keep)</span>
+      <span class="pill muted">{{ retire.summary.no_match }} no OSM match</span>
+    </p>
+    {% if retire.josm_open_all_safe %}
+      <p><a class="btn" href="{{ retire.josm_open_all_safe }}">Open all {{ retire.safe_object_count }} safe matches in JOSM</a>
+        <span class="muted">(needs JOSM Remote Control on)</span></p>
+    {% endif %}
+
+    {% if retire.rows %}
+    <table>
+      <thead><tr><th>Address</th><th>Class</th><th>Verdict</th><th>OSM element &amp; history</th></tr></thead>
+      <tbody>
+        {% for row in retire.rows %}
+        <tr>
+          <td>{{ row.address_full }}<br><span class="muted">last seen #{{ row.last_snapshot_id }}</span></td>
+          <td class="muted">{{ row.address_class }}</td>
+          <td>{{ verdict_badge(row.verdict) }}</td>
+          <td>
+            {% if not row.matches %}
+              <span class="muted">nothing in OSM at this address</span>
+            {% endif %}
+            {% for m in row.matches %}
+              {% set p = m.provenance %}
+              <div style="margin-bottom:.5rem">
+                <code>{{ m.type }} {{ m.id }}</code> {{ verdict_badge(p.verdict) }}
+                {% if m.links.josm %}<a href="{{ m.links.josm }}">JOSM</a> ·{% endif %}
+                <a href="{{ m.links.id }}">iD</a> ·
+                <a href="{{ m.links.browse }}" target="_blank" rel="noopener">OSM</a>
+                <div class="muted" style="font-size:.85rem">{{ p.recommendation }}</div>
+                {% if p.community_tag_changes %}
+                  <div class="muted" style="font-size:.85rem">community changes:
+                    {% for k, v in p.community_tag_changes.items() %}<code>{{ k }}={{ v }}</code> {% endfor %}
+                  </div>
+                {% endif %}
+                {% if p.timeline %}
+                  <details style="font-size:.85rem">
+                    <summary>{{ p.n_versions }} version(s){% if p.last_edit_days_ago is not none %}, last edit {{ p.last_edit_days_ago }}d ago{% endif %}</summary>
+                    <ul style="margin:.2rem 0">
+                      {% for t in p.timeline %}
+                        <li>v{{ t.version }} · {{ t.date }} · {{ t.user or '(redacted)' }}{% if t.is_import %} <span class="pill ok">import</span>{% endif %}{% if t.visible == false %} <span class="pill muted">deleted</span>{% endif %}</li>
+                      {% endfor %}
+                    </ul>
+                  </details>
+                {% endif %}
+              </div>
+            {% endfor %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <p class="muted">No retirements since the watermark.</p>
+    {% endif %}
+  {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}

@@ -7,7 +7,7 @@ from pathlib import Path
 
 from flask import Flask, abort, flash, g, jsonify, redirect, render_template, request, send_file, send_from_directory, url_for
 
-from .. import audit, candidates, config as _config, db as _db, multi_addresses as _multi_addresses, multi_fixes as _multi_fixes, osm_client, osm_export, osm_refresh, pipeline, ranges as _ranges, reverse_sweep as _reverse_sweep, review, run_for_all, source_db, source_multi as _source_multi, streets as _streets, tag_diff, tiles_build
+from .. import audit, candidates, config as _config, db as _db, maintenance as _maintenance, multi_addresses as _multi_addresses, multi_fixes as _multi_fixes, osm_client, osm_export, osm_refresh, pipeline, ranges as _ranges, reverse_sweep as _reverse_sweep, review, run_for_all, source_db, source_multi as _source_multi, streets as _streets, tag_diff, tiles_build
 from ..conflate import _proposed_tags, _is_poi_node, POI_TAG_KEYS, normalize_street
 from ..checks import REGISTRY
 from .glossary import GLOSSARY
@@ -1582,6 +1582,52 @@ def create_app() -> Flask:
             as_attachment=True,
             download_name="osm_orphans.csv",
         )
+
+    # ---- Monthly maintenance (additions + retirements since watermark) ----
+
+    @app.get("/maintenance")
+    def maintenance_view():
+        delta = _maintenance.compute_delta()
+        run = _maintenance.find_run(delta["latest_snapshot"])
+        run_id = run["run_id"] if run else None
+        stage_counts = candidates.count_by_stage(run_id) if run_id else {}
+        retire = None
+        retire_error = None
+        if run_id:
+            try:
+                retire = _maintenance.retirements(run_id)
+            except Exception as exc:  # OSM API / Overpass hiccup — page still renders
+                retire_error = f"{type(exc).__name__}: {exc}"
+        return render_template(
+            "maintenance.html",
+            delta=delta,
+            run=run,
+            stage_counts=stage_counts,
+            retire=retire,
+            retire_error=retire_error,
+            watermark_behind=bool(run and run["upload_status"] == "uploaded"
+                                  and delta["watermark"] < delta["latest_snapshot"]),
+        )
+
+    @app.post("/maintenance/prepare")
+    def maintenance_prepare():
+        try:
+            res = _maintenance.prepare()
+        except Exception as exc:
+            flash(f"Prepare failed: {type(exc).__name__}: {exc}")
+            return redirect(url_for("maintenance_view"))
+        flash(
+            f"Prepared run {res['run_name']}: ingested {res['inserted']} addition(s) — "
+            f"{res['stage_counts'].get('APPROVED', 0)} auto-approved, "
+            f"{res['stage_counts'].get('REVIEW_PENDING', 0)} to review."
+        )
+        return redirect(url_for("maintenance_view"))
+
+    @app.post("/maintenance/advance")
+    def maintenance_advance():
+        new_wm = _maintenance.advance_watermark()
+        flash(f"Watermark advanced to snapshot #{new_wm}.")
+        return redirect(url_for("maintenance_view"))
 
     @app.get("/osm/multi")
     def osm_multi_view():

@@ -175,6 +175,70 @@ def fetch(run_id: int, bbox: tuple[float, float, float, float], force: bool = Fa
     return _fetch_from_overpass(run_id, bbox, force)
 
 
+def _build_around_query(
+    points: list[tuple[float, float]], radius_m: float
+) -> str:
+    """Overpass query for addr features within ``radius_m`` of ANY listed point.
+
+    Used by the monthly maintenance job, whose working set is a scattered
+    handful of delta points rather than a contiguous bbox — a single bbox over
+    them would span the whole city. Overpass's ``around`` filter takes a flat
+    ``lat,lon,lat,lon,...`` coordinate list, so the entire delta collapses to
+    three statements. ``out meta`` is requested so the caller can read each
+    element's version/changeset/user for provenance.
+    """
+    coords = ",".join(f"{lat:.7f},{lon:.7f}" for lat, lon in points)
+    around = f"around:{radius_m:.0f},{coords}"
+    q = "[out:json][timeout:120];("
+    q += f'node["addr:housenumber"]({around});'
+    q += f'way["addr:housenumber"]({around});'
+    q += f'relation["addr:housenumber"]({around});'
+    q += ");"
+    q += "out meta center;"
+    # addr:interpolation ways pull in their member-node IDs so conflation can
+    # exclude interpolation endpoints from matching (mirrors _build_query).
+    q += f'way["addr:interpolation"]({around});'
+    q += "out meta body;"
+    return q
+
+
+def fetch_around(
+    run_id: int,
+    points: list[tuple[float, float]],
+    radius_m: float,
+    force: bool = False,
+) -> tuple[Path, str]:
+    """Fetch OSM addr features near a scattered point set (live Overpass) and
+    cache to ``data/osm_current_run<run>.json`` — the same path the conflate
+    stage reads, so ``conflate.run`` and ``osm_fetch.load_cached`` are unchanged.
+
+    Unlike :func:`fetch`, this ignores ``config.osm.source``: maintenance always
+    reads live OSM (its footprint is tiny) rather than the local extract.
+    Returns (path, sha256_hex).
+    """
+    _CONFIG.data_dir.mkdir(parents=True, exist_ok=True)
+    path = _cache_path(run_id)
+    if path.exists() and not force:
+        return path, hashlib.sha256(path.read_bytes()).hexdigest()
+    if not points:
+        body = "[]"
+        path.write_text(body, encoding="utf-8")
+        return path, hashlib.sha256(body.encode("utf-8")).hexdigest()
+    query = _build_around_query(points, radius_m)
+    # overpass-api.de returns 406 for the default python-requests User-Agent.
+    resp = requests.post(
+        _CONFIG.overpass_url,
+        data={"data": query},
+        timeout=200,
+        headers={"User-Agent": "t2-address-import maintenance"},
+    )
+    resp.raise_for_status()
+    elements = resp.json().get("elements", [])
+    body = json.dumps(elements)
+    path.write_text(body, encoding="utf-8")
+    return path, hashlib.sha256(body.encode("utf-8")).hexdigest()
+
+
 def load_cached(run_id: int) -> list[dict]:
     path = _cache_path(run_id)
     if not path.exists():

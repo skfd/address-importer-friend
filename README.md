@@ -327,6 +327,38 @@ and both distances — and prints a console summary of "systemic" runs (those
 at or above `--min-flags`) and their drifted streets. The check's `slack_m`
 is read from `config.toml`, so the scan matches a fresh pipeline run.
 
+## Monthly maintenance
+
+After the citywide import, the City feed keeps gaining and losing a handful of
+civic addresses (the bulk of the daily row churn is internal centreline
+metadata that never reaches OSM). The maintenance tool tracks a **watermark
+snapshot** and, each month, processes only what changed since — visit
+<http://localhost:5000/maintenance> or run the CLI:
+
+```bash
+python -m t2.maintenance              # print the delta since the watermark
+python -m t2.maintenance --prepare    # also ingest + conflate the additions
+```
+
+- **Additions** (points whose first appearance is after the watermark) become a
+  normal run named `maint-snap<N>` and ride the existing
+  Conflate → Checks → Review → Upload pipeline. Conflation runs against **live
+  Overpass** (the delta is tiny, so no local extract refresh is needed) and
+  auto-skips anything already in OSM.
+- **Retirements** (points that dropped out of the feed) are **never
+  auto-deleted** — feed silence is weak evidence (see *Out of scope* above).
+  Each is matched to the live OSM element carrying that address, its edit
+  history is pulled from the OSM API for provenance, and the page renders
+  JOSM / iD / OSM deep-links so the operator deletes it by hand if warranted.
+  The verdict is strict (`pristine_ours` = created by the import and untouched
+  since → safe; anything community-created or community-edited → review), with
+  a per-element version timeline underneath.
+
+The watermark advances only when the operator confirms it (after the month's
+additions are uploaded), so a skipped or aborted month loses nothing. It starts
+at snapshot #52 (citywide-complete). Provenance and history reads always hit
+**production** OSM (`api.openstreetmap.org`), independent of the upload `--env`.
+
 ## v1 database archive
 
 The pilot + citywide import (Phases 1–3) ran on a single SQLite `tool.db` that

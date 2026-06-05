@@ -66,22 +66,89 @@ def latest_snapshot_info(stale_after_days: int = 14) -> dict | None:
     }
 
 
+# Qualified with the `a.` alias so the SELECT list is unambiguous when the
+# delta queries below join `addresses a` against a per-point aggregate.
+_ADDRESS_COLS = (
+    "a.address_point_id, a.address_full, a.address_number, "
+    "a.lo_num, a.lo_num_suf, a.hi_num, a.hi_num_suf, "
+    "a.linear_name_full, a.linear_name, a.linear_name_type, a.linear_name_dir, "
+    "a.municipality_name, a.ward_name, a.longitude, a.latitude, a.extra"
+)
+
+
 def iter_active_addresses_in_bbox(bbox: tuple[float, float, float, float], snapshot_id: int):
     """Yield rows from the source addresses table active at snapshot_id and inside bbox."""
     min_lat, min_lon, max_lat, max_lon = bbox
     conn = connect_readonly()
     try:
-        q = """
-            SELECT address_point_id, address_full, address_number,
-                   lo_num, lo_num_suf, hi_num, hi_num_suf,
-                   linear_name_full, linear_name, linear_name_type, linear_name_dir,
-                   municipality_name, ward_name, longitude, latitude, extra
-            FROM addresses
+        q = f"""
+            SELECT {_ADDRESS_COLS}
+            FROM addresses a
             WHERE max_snapshot_id = ?
               AND latitude BETWEEN ? AND ?
               AND longitude BETWEEN ? AND ?
         """
         for row in conn.execute(q, (snapshot_id, min_lat, max_lat, min_lon, max_lon)):
+            yield dict(row)
+    finally:
+        conn.close()
+
+
+def iter_new_since(watermark_snapshot_id: int, snapshot_id: int | None = None):
+    """Yield the current active row for every address_point that first appeared
+    after ``watermark_snapshot_id``.
+
+    "First appeared" is the minimum ``min_snapshot_id`` across all of a point's
+    row-ranges — so an attribute edit (which retires one range and opens a new
+    one for the same point) is NOT counted as new. Only a genuinely new civic
+    point clears the watermark. The row returned is the one active at
+    ``snapshot_id`` (defaults to the latest non-skipped snapshot)."""
+    if snapshot_id is None:
+        snapshot_id = latest_snapshot_id()
+    conn = connect_readonly()
+    try:
+        q = f"""
+            SELECT {_ADDRESS_COLS}
+            FROM addresses a
+            JOIN (
+                SELECT address_point_id, MIN(min_snapshot_id) AS first_snap
+                FROM addresses
+                GROUP BY address_point_id
+                HAVING first_snap > ?
+            ) n ON n.address_point_id = a.address_point_id
+            WHERE a.max_snapshot_id = ?
+        """
+        for row in conn.execute(q, (watermark_snapshot_id, snapshot_id)):
+            yield dict(row)
+    finally:
+        conn.close()
+
+
+def iter_retired_since(watermark_snapshot_id: int, snapshot_id: int | None = None):
+    """Yield the last-known row for every address_point that dropped out of the
+    feed after ``watermark_snapshot_id`` and is absent from ``snapshot_id``.
+
+    "Dropped out" means the maximum ``max_snapshot_id`` across a point's
+    row-ranges is in [watermark, snapshot_id) — i.e. it was last seen at or
+    after the watermark but is no longer active. The row returned is that
+    last-seen range, so its coordinates/class reflect the point as it was when
+    the City last published it."""
+    if snapshot_id is None:
+        snapshot_id = latest_snapshot_id()
+    conn = connect_readonly()
+    try:
+        q = f"""
+            SELECT {_ADDRESS_COLS}, r.last_snap AS last_snapshot_id
+            FROM addresses a
+            JOIN (
+                SELECT address_point_id, MAX(max_snapshot_id) AS last_snap
+                FROM addresses
+                GROUP BY address_point_id
+                HAVING last_snap >= ? AND last_snap < ?
+            ) r ON r.address_point_id = a.address_point_id
+               AND r.last_snap = a.max_snapshot_id
+        """
+        for row in conn.execute(q, (watermark_snapshot_id, snapshot_id)):
             yield dict(row)
     finally:
         conn.close()
