@@ -148,7 +148,14 @@ def iter_retired_since(watermark_snapshot_id: int, snapshot_id: int | None = Non
     row-ranges is in [watermark, snapshot_id) — i.e. it was last seen at or
     after the watermark but is no longer active. The row returned is that
     last-seen range, so its coordinates/class reflect the point as it was when
-    the City last published it."""
+    the City last published it.
+
+    **Re-issues are excluded.** The City sometimes retires a point_id and emits
+    a new one for the *same civic address* (same number + street, moved a few
+    metres). The address never left, so it must not be flagged for deletion — it
+    rides the additions path instead. We drop any retired point whose
+    (address_number, linear_name_full) is still active at ``snapshot_id`` under a
+    different point_id."""
     if snapshot_id is None:
         snapshot_id = latest_snapshot_id()
     conn = connect_readonly()
@@ -163,8 +170,15 @@ def iter_retired_since(watermark_snapshot_id: int, snapshot_id: int | None = Non
                 HAVING last_snap >= ? AND last_snap < ?
             ) r ON r.address_point_id = a.address_point_id
                AND r.last_snap = a.max_snapshot_id
+            WHERE NOT EXISTS (
+                SELECT 1 FROM addresses b
+                WHERE b.address_number   = a.address_number
+                  AND b.linear_name_full = a.linear_name_full
+                  AND b.address_point_id <> a.address_point_id
+                  AND b.max_snapshot_id   = ?
+            )
         """
-        for row in conn.execute(q, (watermark_snapshot_id, snapshot_id)):
+        for row in conn.execute(q, (watermark_snapshot_id, snapshot_id, snapshot_id)):
             yield dict(row)
     finally:
         conn.close()
