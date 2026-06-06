@@ -1588,23 +1588,37 @@ def create_app() -> Flask:
     @app.get("/maintenance")
     def maintenance_view():
         delta = _maintenance.compute_delta()
-        run = _maintenance.find_run(delta["latest_snapshot"])
-        run_id = run["run_id"] if run else None
-        stage_counts = candidates.count_by_stage(run_id) if run_id else {}
+        history = _maintenance.history()
+        # The page focuses one maintenance run (monthly or catch-up): ?run_id=,
+        # else the newest. Additions + retirements are scoped to its window.
+        req_id = request.args.get("run_id", type=int)
+        focused = None
+        if req_id is not None:
+            focused = next((h for h in history if h["run_id"] == req_id), None)
+        if focused is None and history:
+            focused = history[0]
+        run = _maintenance.get_run(focused["run_id"]) if focused else None
+        stage_counts = candidates.count_by_stage(run["run_id"]) if run else {}
         retire = None
         retire_error = None
-        if run_id:
+        if run:
             try:
-                retire = _maintenance.retirements(run_id)
+                retire = _maintenance.retirements(run["run_id"])
             except Exception as exc:  # OSM API / Overpass hiccup — page still renders
                 retire_error = f"{type(exc).__name__}: {exc}"
+        # Prepare button is gated on the *monthly* run for the latest snapshot.
+        monthly_run = _maintenance.find_run(delta["latest_snapshot"])
         return render_template(
             "maintenance.html",
             delta=delta,
             run=run,
+            focused=focused,
+            monthly_run=monthly_run,
             stage_counts=stage_counts,
             retire=retire,
             retire_error=retire_error,
+            baseline=_maintenance.import_baseline(),
+            history=history,
             watermark_behind=bool(run and run["upload_status"] == "uploaded"
                                   and delta["watermark"] < delta["latest_snapshot"]),
         )

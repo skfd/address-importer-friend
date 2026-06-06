@@ -39,9 +39,14 @@ from . import (
 )
 
 WATERMARK_KEY = "maintenance.watermark_snapshot"
-# Snapshot the citywide import (Phases 1-3) finished against, 2026-05-28.
-# The first maintenance run reaches back to here; anything already in OSM is
-# auto-skipped by conflation, so an over-broad initial watermark is harmless.
+# Snapshot the citywide import had *finished uploading* against (2026-05-28).
+# NOTE: this is the upload-completion snapshot, NOT the snapshot the import data
+# was pulled from (that was IMPORT_SOURCE_SNAPSHOT=45, 2026-05-15). Defaulting
+# the watermark here instead of 45 left additions that first appeared in (45,52]
+# unprocessed by both the import and maintenance — 31 of them, swept up by a
+# one-off `maint-catchup-snap45-56` run (2026-06-06). Conflation auto-skips
+# anything already in OSM, so the safe choice for an initial watermark is the
+# import *source* snapshot, not where uploads happened to finish.
 DEFAULT_WATERMARK = 52
 
 _OSM_WEB = "https://www.openstreetmap.org"
@@ -120,12 +125,139 @@ def compute_delta(watermark: int | None = None) -> dict:
     }
 
 
+# Monthly runs are named `maint-snap{N}`; one-off catch-ups use other `maint-*`
+# names (e.g. `maint-catchup-snap45-56`). Both are maintenance runs — the
+# interface lists every `maint-*` run, not just the monthly ones.
+_RUN_PREFIX = "maint-snap"
+_MAINT_NAME_LIKE = "maint-%"
+
+
 def run_name_for(latest_snapshot: int) -> str:
-    return f"maint-snap{latest_snapshot}"
+    return f"{_RUN_PREFIX}{latest_snapshot}"
+
+
+# ---- maintenance-run window (persisted in runs.config_json) ----------------
+# A maintenance run covers the snapshot window (from_snapshot, to_snapshot]. We
+# store it on the run rather than infer it from the name, so a back-dated
+# catch-up window survives and retirements can be scoped to exactly what the run
+# processed. config_json otherwise only holds checks params, so adding a key is
+# safe (readers use .get).
+
+def set_run_window(run_id: int, from_snapshot: int, to_snapshot: int) -> None:
+    conn = _db.connect()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        row = conn.execute("SELECT config_json FROM runs WHERE run_id=?", (run_id,)).fetchone()
+        cfg_obj = json.loads(row["config_json"]) if row and row["config_json"] else {}
+        cfg_obj["maintenance"] = {"from_snapshot": from_snapshot, "to_snapshot": to_snapshot}
+        conn.execute("UPDATE runs SET config_json=? WHERE run_id=?", (json.dumps(cfg_obj), run_id))
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+    finally:
+        conn.close()
+
+
+def get_run_window(run_id: int) -> dict | None:
+    """The (from_snapshot, to_snapshot] this maintenance run processed, or None
+    if not a window-tagged run."""
+    conn = _db.connect()
+    try:
+        row = conn.execute(
+            "SELECT config_json, source_snapshot_id FROM runs WHERE run_id=?", (run_id,)
+        ).fetchone()
+    finally:
+        conn.close()
+    if not row:
+        return None
+    cfg_obj = json.loads(row["config_json"]) if row["config_json"] else {}
+    m = cfg_obj.get("maintenance")
+    if m and m.get("from_snapshot") is not None and m.get("to_snapshot") is not None:
+        return {"from_snapshot": int(m["from_snapshot"]), "to_snapshot": int(m["to_snapshot"])}
+    # Fallback for any maintenance run created before windows were persisted.
+    return {"from_snapshot": DEFAULT_WATERMARK, "to_snapshot": int(row["source_snapshot_id"])}
+
+
+# Source snapshots the one-time citywide import was actually built from: the
+# pilot tile on #42 (2026-05-12), then the 1,297 citywide runs on #45
+# (2026-05-15). OSM uploads ran 2026-05-13..2026-05-28 at human review cadence.
+# Distinct from DEFAULT_WATERMARK (52) below, which is only where maintenance
+# starts looking for deltas — not the date the import data was pulled.
+IMPORT_SOURCE_SNAPSHOT = 45
+IMPORT_PILOT_SNAPSHOT = 42
+
+
+def import_baseline() -> dict:
+    """The source snapshots the one-time citywide import was built from (the
+    pilot, then the citywide pass) and the maintenance watermark, each with its
+    feed-publication date. Drives the "Original import" rows on the page."""
+    wm = get_watermark()
+    return {
+        "snapshot": IMPORT_SOURCE_SNAPSHOT,
+        "date": source_db.snapshot_date(IMPORT_SOURCE_SNAPSHOT),
+        "pilot_snapshot": IMPORT_PILOT_SNAPSHOT,
+        "pilot_date": source_db.snapshot_date(IMPORT_PILOT_SNAPSHOT),
+        "watermark": wm,
+        "watermark_date": source_db.snapshot_date(wm),
+    }
+
+
+def history() -> list[dict]:
+    """One summary row per maintenance run (monthly + catch-up), newest first.
+
+    Each run carries its processed window (from_snapshot, to_snapshot]; new/
+    retired counts are reconstructed from the source feed for that window, and
+    `uploaded` is the run's candidates that actually reached OSM. The window is
+    read from the run (see :func:`get_run_window`), so a back-dated catch-up
+    sorts and dates correctly alongside the monthly runs."""
+    conn = _db.connect()
+    try:
+        rows = conn.execute(
+            "SELECT run_id, name, source_snapshot_id, config_json, "
+            "upload_status, changeset_id, uploaded_at "
+            "FROM runs WHERE name LIKE ?",
+            (_MAINT_NAME_LIKE,),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    out: list[dict] = []
+    for row in rows:
+        r = dict(row)
+        cfg_obj = json.loads(r["config_json"]) if r["config_json"] else {}
+        m = cfg_obj.get("maintenance") or {}
+        frm = int(m.get("from_snapshot", DEFAULT_WATERMARK))
+        to = int(m.get("to_snapshot", r["source_snapshot_id"]))
+        r.update(
+            from_snapshot=frm,
+            to_snapshot=to,
+            from_date=source_db.snapshot_date(frm),
+            to_date=source_db.snapshot_date(to),
+            new_count=sum(1 for _ in source_db.iter_new_since(frm, to)),
+            retired_count=sum(1 for _ in source_db.iter_retired_since(frm, to)),
+            uploaded_count=candidates.count_by_stage(r["run_id"]).get("UPLOADED", 0),
+            is_catchup=not r["name"].startswith(_RUN_PREFIX),
+        )
+        out.append(r)
+    out.sort(key=lambda r: (r["to_snapshot"], r["run_id"]), reverse=True)  # newest first
+    return out
+
+
+def get_run(run_id: int) -> dict | None:
+    """Full run row for a maintenance run_id, or None."""
+    conn = _db.connect()
+    try:
+        row = conn.execute("SELECT * FROM runs WHERE run_id = ?", (run_id,)).fetchone()
+    finally:
+        conn.close()
+    return dict(row) if row else None
 
 
 def find_run(latest_snapshot: int | None = None) -> dict | None:
-    """The maintenance run for the given (default latest) snapshot, if prepared."""
+    """The monthly maintenance run for the given (default latest) snapshot, if
+    prepared. Used to gate the "prepare monthly run" button — catch-ups don't
+    count."""
     if latest_snapshot is None:
         latest_snapshot = source_db.latest_snapshot_id()
     name = run_name_for(latest_snapshot)
@@ -139,14 +271,20 @@ def find_run(latest_snapshot: int | None = None) -> dict | None:
 
 # ---- prepare (additions through the pipeline) -----------------------------
 
-def prepare(watermark: int | None = None) -> dict:
+def prepare(watermark: int | None = None, run_name: str | None = None) -> dict:
     """Ingest additions since the watermark and run them through conflate +
-    checks against live OSM. Idempotent: re-running resumes the same run."""
+    checks against live OSM. Idempotent: re-running resumes the same run.
+
+    ``run_name`` overrides the default ``maint-snap{latest}`` name — used for a
+    one-off catch-up over a back-dated watermark so it doesn't reopen the normal
+    monthly run for the current snapshot."""
     delta = compute_delta(watermark)
     latest = delta["latest_snapshot"]
     cfg = _config.load()
+    name = run_name or run_name_for(latest)
 
-    run_id = pipeline.start_run(run_name_for(latest), cfg.osm_toronto_bbox)
+    run_id = pipeline.start_run(name, cfg.osm_toronto_bbox)
+    set_run_window(run_id, delta["watermark"], latest)
     inserted = candidates.ingest_rows(run_id, delta["new_rows"])
 
     # One live Overpass query covers additions (to conflate) and retirements
@@ -165,7 +303,7 @@ def prepare(watermark: int | None = None) -> dict:
     counts = candidates.count_by_stage(run_id)
     return {
         "run_id": run_id,
-        "run_name": run_name_for(latest),
+        "run_name": name,
         "watermark": delta["watermark"],
         "latest_snapshot": latest,
         "inserted": inserted,
@@ -242,6 +380,8 @@ _VERDICT_RANK = {
 def retirements(run_id: int) -> dict:
     """Match each retired point to live OSM, attach provenance, build links.
 
+    Scoped to the run's own window (see :func:`get_run_window`) so a back-dated
+    catch-up surfaces the retirements it actually covered, not the live one.
     Cached per (run_id, OSM-cache mtime). Reads the run's cached Overpass
     elements — so call after :func:`prepare`."""
     cfg = _config.load()
@@ -251,8 +391,8 @@ def retirements(run_id: int) -> dict:
     if cached and cached[0] == mtime:
         return cached[1]
 
-    watermark = get_watermark()
-    retired_rows = list(source_db.iter_retired_since(watermark))
+    window = get_run_window(run_id) or {"from_snapshot": get_watermark(), "to_snapshot": None}
+    retired_rows = list(source_db.iter_retired_since(window["from_snapshot"], window["to_snapshot"]))
     elements = osm_fetch.load_cached(run_id)
     match_idx, poi_idx = _conflate.build_osm_index(elements)
     radius = cfg.match_radius_m

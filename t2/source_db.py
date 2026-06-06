@@ -66,6 +66,22 @@ def latest_snapshot_info(stale_after_days: int = 14) -> dict | None:
     }
 
 
+def snapshot_date(snapshot_id: int, conn: sqlite3.Connection | None = None) -> str | None:
+    """The `downloaded` timestamp of a single snapshot, or None if unknown.
+    Used by the maintenance history to date each delta window."""
+    own = conn is None
+    if own:
+        conn = connect_readonly()
+    try:
+        row = conn.execute(
+            "SELECT downloaded FROM snapshots WHERE id = ?", (snapshot_id,)
+        ).fetchone()
+        return row["downloaded"] if row else None
+    finally:
+        if own:
+            conn.close()
+
+
 # Qualified with the `a.` alias so the SELECT list is unambiguous when the
 # delta queries below join `addresses a` against a per-point aggregate.
 _ADDRESS_COLS = (
