@@ -34,6 +34,16 @@
        class="pill" data-tip="{{ tip('pill.intra_source_duplicate') }}">↔ same-address Land sibling #{{ candidate.dup_sibling_candidate_id }}{% if candidate.dup_sibling_dist_m is not none %} ({{ '%.1f' % candidate.dup_sibling_dist_m }} m){% endif %}</a>
   {% endif %}
 </p>
+{% if candidate.verdict == 'MATCH_FAR' %}
+<p style="border-left:3px solid #e0a81c;padding:.4rem .6rem;background:#fff8e6">
+  <strong>A node with this housenumber already exists{% if candidate.nearest_dist_m %} {{ '%.0f' % candidate.nearest_dist_m }} m away{% endif %}</strong>
+  (red on the map). <strong>Approving creates a second node for this address.</strong>
+  If it's the same address — moved, or the existing node is mis-positioned —
+  reposition/keep the existing
+  {% if candidate.nearest_osm_type and candidate.nearest_osm_id %}<a href="https://www.openstreetmap.org/edit?editor=id&{{ candidate.nearest_osm_type }}={{ candidate.nearest_osm_id }}" target="_blank" rel="noopener">{{ candidate.nearest_osm_type }} #{{ candidate.nearest_osm_id }}</a>{% else %}node{% endif %}
+  in iD/JOSM and <strong>Reject</strong> here instead of creating a duplicate.
+</p>
+{% endif %}
 {% if candidate.lo_num is not none and candidate.hi_num is not none and candidate.lo_num != candidate.hi_num %}
 <p class="muted">Range: <strong>{{ candidate.lo_num }}{{ candidate.lo_num_suf or '' }}–{{ candidate.hi_num }}{{ candidate.hi_num_suf or '' }}</strong> (reference only — not conflated)</p>
 {% endif %}
