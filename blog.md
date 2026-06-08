@@ -1,5 +1,7 @@
 # Day 1 Progress Report
 
+![Day 1 progress](images/blog/day01.jpeg)
+
 Worked only for half a day. Processed 81 out of 1297 tiles.
 
 Suburbs -- super-easy -- legacy housing zones like duplexes is almost automatic. 
@@ -20,6 +22,8 @@ I want to also record the video of a process, just for fun, tomorrow.
 
 # Day 2 and 3 Progress Report
 
+![Day 2 and 3 progress](images/blog/day02-03.jpeg)
+
 Tiles processed: 81/1297 → 246/1297.
 
 Another quirk -- alternative names -- Sunny Slope had "alt_name=Sunnyslope Avenue;Sunny Slope Avenue" but my parser only expected, so it created dupes. My bad, fixed manually.
@@ -30,6 +34,8 @@ Here is a [slice of life video](https://www.youtube.com/watch?v=YbMDQD2bH7k) of 
 
 
 # Day 4 and 5 Progress Report
+
+![Day 4 and 5 progress](images/blog/day04-05.jpeg)
 
 Tiles processed: 246/1297 → 403/1297.
 
@@ -53,12 +59,16 @@ Happy a great V***a Day!
 
 # Day 6 Progress Report
 
+![Day 6 progress](images/blog/day06.png)
+
 Tiles processed: 403/1297 → 461/1297.
 
 Concentrated on building numbers drift/off-by-one errors. Re-reviewed already processed tile to double  check if I missed something.
 
 
 # Day 7 Progress Report
+
+![Day 7 progress](images/blog/day07.png)
 
 Tiles processed: 461/1297 → 651/1297. Half-way done!
 
@@ -68,6 +78,8 @@ One of the only places where I went in and removed all existing addresses and ad
 
 
 # Day 8 Progress Report
+
+![Day 8 progress](images/blog/day08.jpeg)
 
 Tiles processed: 651/1297 → 760/1297.
 
@@ -81,6 +93,8 @@ Awekward moment for future mappers -- some building had numbers as if if it's a 
 
 # Day 9 Progress Report
 
+![Day 9 progress](images/blog/day09.png)
+
 Tiles processed: 760/1297 → 900/1297.
 
 *BIG NEWS*: Made a [addresses layer](https://skfd.github.io/toronto-addresses-layer/) you can use in JOSM or iD to reference City Data.
@@ -90,6 +104,8 @@ Many main street sections had [12 year old address errors](https://www.openstree
 
 
 # Day 10 Progress Report
+
+![Day 10 progress](images/blog/day10.jpeg)
 
 Tiles processed: 900/1297 → 1026/1297.
 
@@ -104,6 +120,8 @@ Another funny city data bug -- "90 Heath Street West" and "80 Heath Street West"
 
 
 # Day 11 and 12 Progress Report
+
+![Day 11 and 12 progress](images/blog/day11-12.jpeg)
 
 Tiles processed: 1026/1297 → 1148/1297.
 
@@ -132,6 +150,8 @@ Another city mistake, typical two-apartment-buildings-with-switched-addresses --
 
 
 # Day 13 Progress Report, Final Day
+
+![Day 13 progress](images/blog/day13.png)
 
 Tiles processed: 1148/1297 → 1297/1297.
 
