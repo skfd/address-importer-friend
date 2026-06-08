@@ -1,10 +1,12 @@
 """Build a credential-scrubbed, compressed snapshot of the living tool.db for
 publishing as a GitHub release asset.
 
-The living DB always holds live OSM **prod** OAuth tokens + PKCE rows in its
-`kv` table. This script is the single safeguard against shipping them: it
-compacts the DB into a throwaway copy, deletes the credential rows (keeping the
-maintenance watermark), self-verifies that none remain, then xz-compresses it.
+OAuth tokens + PKCE verifiers live OUTSIDE tool.db (in data/osm_auth.json — see
+t2/osm_client.py), so a snapshot should already be credential-free. This script
+keeps a belt-and-suspenders scrub anyway, to catch any legacy DB that still has
+credential rows in `kv`: it compacts the DB into a throwaway copy, deletes any
+such rows (keeping the maintenance watermark), self-verifies none remain, then
+xz-compresses it.
 
 It does NOT upload — the `publish-db` skill runs `gh release create` on the
 artifact this prints. Run with the web app stopped (VACUUM takes a read lock).

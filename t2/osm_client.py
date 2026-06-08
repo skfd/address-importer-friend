@@ -34,25 +34,47 @@ def _fernet() -> Fernet:
     return Fernet(key.encode() if isinstance(key, str) else key)
 
 
-def _kv_set(key: str, value: str) -> None:
-    conn = _db.connect()
+# OAuth tokens and PKCE verifiers are kept in a file *outside* tool.db, so a
+# published DB snapshot can never carry credentials (see scripts/publish_db.py).
+# The token blob is still Fernet-encrypted before it is written here. Writes are
+# last-writer-wins (atomic via os.replace); that matches the old kv upsert and is
+# safe because parallel upload workers only ever rewrite the same token blob,
+# never the transient PKCE rows (those are written only during interactive auth).
+_AUTH_PATH = _CONFIG.data_dir / "osm_auth.json"
+
+
+def _auth_read() -> dict[str, str]:
     try:
-        conn.execute(
-            "INSERT INTO kv (key, value) VALUES (?, ?) "
-            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            (key, value),
-        )
-    finally:
-        conn.close()
+        return json.loads(_AUTH_PATH.read_text(encoding="utf-8"))
+    except (FileNotFoundError, ValueError):
+        return {}
+
+
+def _auth_write(data: dict[str, str]) -> None:
+    _CONFIG.data_dir.mkdir(parents=True, exist_ok=True)
+    tmp = _AUTH_PATH.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(data), encoding="utf-8")
+    os.replace(tmp, _AUTH_PATH)  # atomic on the same filesystem
+
+
+def _kv_set(key: str, value: str) -> None:
+    data = _auth_read()
+    data[key] = value
+    _auth_write(data)
 
 
 def _kv_get(key: str) -> str | None:
-    conn = _db.connect()
-    try:
-        row = conn.execute("SELECT value FROM kv WHERE key = ?", (key,)).fetchone()
-        return row["value"] if row else None
-    finally:
-        conn.close()
+    return _auth_read().get(key)
+
+
+def token_blob_present() -> bool:
+    """True if a stored token blob exists (readable or not). Lets the UI tell
+    'never authorized' apart from 'authorized but FERNET_KEY changed'."""
+    return _kv_get("osm_oauth_tokens") is not None
+
+
+def token_stored_at() -> str | None:
+    return _kv_get("osm_oauth_stored_at")
 
 
 def store_tokens(token_json: dict[str, Any]) -> None:

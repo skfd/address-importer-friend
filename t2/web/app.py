@@ -1790,27 +1790,14 @@ def create_app() -> Flask:
         except osm_client.OsmAuthError:
             tokens = None
         if tokens is None:
-            # Distinguish "no row" from "row but undecryptable" so the user
+            # Distinguish "no token" from "stored but undecryptable" so the user
             # knows whether to authorize or to fix FERNET_KEY.
-            try:
-                conn = _db.connect()
-                row = conn.execute("SELECT 1 FROM kv WHERE key='osm_oauth_tokens'").fetchone()
-                conn.close()
-                if row:
-                    token_unreadable = True
-            except Exception:
-                pass
+            if osm_client.token_blob_present():
+                token_unreadable = True
         else:
             token_present = True
             token_scope = tokens.get("scope")
-            try:
-                conn = _db.connect()
-                row = conn.execute("SELECT value FROM kv WHERE key='osm_oauth_stored_at'").fetchone()
-                conn.close()
-                if row:
-                    token_stored_at = row["value"]
-            except Exception:
-                pass
+            token_stored_at = osm_client.token_stored_at()
         client_id_set = bool(cfg.osm_client_id)
         client_secret_set = bool(cfg.osm_client_secret)
         fernet_set = bool(cfg.fernet_key)

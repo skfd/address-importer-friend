@@ -110,9 +110,11 @@ the selected `.env.{dev,prod}` file; the tool reads no environment variables
 for these. To point at a different server (a local OSM instance, a staging
 host), edit the relevant `.env` file (or create a third one).
 
-Only one OAuth token set is stored at a time (`data/tool.db`), so switching
-env requires re-authorizing on the new server. Each env file gets its own
-`FERNET_KEY` — they don't need to match.
+OAuth tokens (and transient PKCE verifiers) are stored **outside** the database
+in `data/osm_auth.json` (gitignored, Fernet-encrypted), so a published DB
+snapshot can never carry credentials. Only one token set is stored at a time, so
+switching env requires re-authorizing on the new server. Each env file gets its
+own `FERNET_KEY` — they don't need to match.
 
 The Geofabrik extract (Stage 2 read source) is the same in both modes — there
 is no dev-server slice from Geofabrik, and the dev sandbox has no realistic
@@ -386,10 +388,12 @@ record (review verdicts, multi-address verdicts, drift-street statuses).
 - Published **periodically** as a dated GitHub release asset
   (`tool-db-<YYYYMMDD>.db.xz`, ~124 MB compressed) via the `publish-db` skill.
 
-Each published snapshot is **credential-scrubbed** — the OAuth token and PKCE
-rows in the `kv` table are deleted before upload, while the maintenance
-watermark is kept. A published snapshot is a read-only reference; re-pointing
-the running tool at it is not the intended use (there is no stored OSM auth).
+A published snapshot is **credential-free by construction**: OAuth tokens and
+PKCE verifiers live outside the DB in `data/osm_auth.json`, not in `tool.db`. The
+publish script still runs a belt-and-suspenders `kv` scrub to catch any legacy
+DB, while keeping the maintenance watermark. A snapshot is a read-only reference;
+re-pointing the running tool at it is not the intended use (there is no stored
+OSM auth).
 
 **Using a published snapshot**
 
