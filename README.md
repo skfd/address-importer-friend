@@ -359,49 +359,52 @@ additions are uploaded), so a skipped or aborted month loses nothing. It starts
 at snapshot #52 (citywide-complete). Provenance and history reads always hit
 **production** OSM (`api.openstreetmap.org`), independent of the upload `--env`.
 
-## v1 database archive
+After finalizing a month, publish a fresh credential-scrubbed snapshot of the
+living DB with the `publish-db` skill — see *Database snapshots & releases*.
 
-The pilot + citywide import (Phases 1–3) ran on a single SQLite `tool.db` that
-grew to ~2 GB. On 2026-06-03 that database was **frozen and archived**, and the
-live `data/tool.db` was reset to an empty schema-v15 database for v2 work.
+## Database snapshots & releases
 
-What the archive preserves is the part that **cannot be regenerated** from the
-source feed + OSM: the public-upload audit trail (1,297 OSM changeset IDs and
-per-run upload status) and every human review decision (candidate/review
-verdicts, multi-address verdicts, drift-street statuses). The bulk — candidate
-geometry, tags, and check results — would rebuild deterministically from a
-fresh conflation run and isn't otherwise special.
+There is **one living canonical SQLite `tool.db`** (~2 GiB). It holds the pilot
++ citywide import (Phases 1–3) **and** every monthly-maintenance run folded in,
+so it is the single source of truth for what this project has pushed to OSM.
 
-Snapshot (schema_version 15): 1,298 runs · 768,888 candidates · 37,919 review
-items · 1,297 uploaded changesets · 68 multi-address verdicts · 60
-drift-street statuses.
+> History: the import DB was briefly frozen as an immutable archive on
+> 2026-06-03 (release `v1-db-archive`) while the live DB was reset for separate
+> "v2" work. That was reversed on 2026-06-08 — the maintenance runs were merged
+> back in (renumbered to run_ids 2596–2597), the frozen release was deleted, and
+> the DB went back to being a single living file published periodically.
+
+Current contents (schema_version 16, grows with each maintenance month): 1,300
+runs · 768,927 candidates · 1,299 uploaded changesets, plus the human-review
+record (review verdicts, multi-address verdicts, drift-street statuses).
 
 **Where it lives**
 
-- GitHub Release [`v1-db-archive`](https://github.com/skfd/toronto-2-address-import/releases/tag/v1-db-archive)
-  — asset `tool-v1-20260603.db.xz` (124 MB compressed, ~2.0 GiB uncompressed).
-- Locally under `data/archive/` (gitignored, not committed).
+- Locally as `data/tool.db` (gitignored). The pre-merge backups
+  `data/maint-live-premerge.db` and `data/archive/tool-v1-20260603.db` are also
+  kept locally and gitignored.
+- Published **periodically** as a dated GitHub release asset
+  (`tool-db-<YYYYMMDD>.db.xz`, ~124 MB compressed) via the `publish-db` skill.
 
-The OAuth token and PKCE session rows (the `kv` table) were scrubbed before
-publishing, so the archive is **credential-free**. It is a read-only reference,
-not a runnable database — there is no stored OSM auth, and re-pointing the tool
-at it is not the intended use.
+Each published snapshot is **credential-scrubbed** — the OAuth token and PKCE
+rows in the `kv` table are deleted before upload, while the maintenance
+watermark is kept. A published snapshot is a read-only reference; re-pointing
+the running tool at it is not the intended use (there is no stored OSM auth).
 
-**Using it**
+**Using a published snapshot**
 
 ```bash
-# fetch + decompress
-gh release download v1-db-archive
-xz -d tool-v1-20260603.db.xz        # -> tool-v1-20260603.db (~2.0 GiB)
+# fetch + decompress the latest dated release asset
+gh release download tool-db-<YYYYMMDD>
+xz -d tool-db-<YYYYMMDD>.db.xz
 
 # query read-only (e.g. which runs were uploaded, and to which changeset)
-sqlite3 -readonly tool-v1-20260603.db \
+sqlite3 -readonly tool-db-<YYYYMMDD>.db \
   "SELECT run_id, changeset_id, uploaded_at FROM runs WHERE upload_status='uploaded' LIMIT 5;"
 ```
 
-To let the **v2** importer cross-check against what v1 already pushed to OSM,
-open this file read-only and read its `changesets` / `runs` tables — they are
-the source of truth for which addresses are already live.
+The `changesets` / `runs` tables are the source of truth for which addresses are
+already live in OSM.
 
 ## Data sources & attribution
 
