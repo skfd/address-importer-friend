@@ -1599,13 +1599,9 @@ def create_app() -> Flask:
             focused = history[0]
         run = _maintenance.get_run(focused["run_id"]) if focused else None
         stage_counts = candidates.count_by_stage(run["run_id"]) if run else {}
-        retire = None
-        retire_error = None
-        if run:
-            try:
-                retire = _maintenance.retirements(run["run_id"])
-            except Exception as exc:  # OSM API / Overpass hiccup — page still renders
-                retire_error = f"{type(exc).__name__}: {exc}"
+        # Retirements are loaded lazily by the page via the fragment route below
+        # — analyze() hits the live OSM API per element, so computing them inline
+        # here is what made this page slow to open.
         # Prepare button is gated on the *monthly* run for the latest snapshot.
         monthly_run = _maintenance.find_run(delta["latest_snapshot"])
         return render_template(
@@ -1615,12 +1611,27 @@ def create_app() -> Flask:
             focused=focused,
             monthly_run=monthly_run,
             stage_counts=stage_counts,
-            retire=retire,
-            retire_error=retire_error,
             baseline=_maintenance.import_baseline(),
             history=history,
             watermark_behind=bool(run and run["upload_status"] == "uploaded"
                                   and delta["watermark"] < delta["latest_snapshot"]),
+        )
+
+    @app.get("/maintenance/<int:run_id>/retirements")
+    def maintenance_retirements(run_id: int):
+        """Retirement-provenance fragment, loaded async by the maintenance page.
+        Kept off the main view because analyze() hits the live OSM API per
+        element (see maintenance_view)."""
+        if not _maintenance.get_run(run_id):
+            abort(404)
+        retire = None
+        retire_error = None
+        try:
+            retire = _maintenance.retirements(run_id)
+        except Exception as exc:  # OSM API / Overpass hiccup — card still renders
+            retire_error = f"{type(exc).__name__}: {exc}"
+        return render_template(
+            "_maintenance_retirements.html", retire=retire, retire_error=retire_error
         )
 
     @app.post("/maintenance/prepare")

@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from concurrent.futures import ThreadPoolExecutor
 
 from . import (
     candidates,
@@ -397,19 +398,29 @@ def retirements(run_id: int) -> dict:
     match_idx, poi_idx = _conflate.build_osm_index(elements)
     radius = cfg.match_radius_m
 
+    # Match each retired row to OSM elements first (local, cheap), then fetch
+    # every element's history concurrently — analyze() is one serial HTTP round
+    # trip to the live OSM API each, so a serial loop is what made the page slow.
+    row_descriptors = [(r, _match_osm_elements(r, match_idx, poi_idx, radius)) for r in retired_rows]
+    unique: dict[tuple[str, int], dict] = {}
+    for _r, descs in row_descriptors:
+        for d in descs:
+            unique[(d["type"], d["id"])] = d
+    prov_by_key: dict[tuple[str, int], dict] = {}
+    if unique:
+        keys = list(unique)
+        with ThreadPoolExecutor(max_workers=min(8, len(keys))) as ex:
+            prov_by_key = dict(zip(keys, ex.map(lambda k: osm_history.analyze(*k), keys)))
+
     rows: list[dict] = []
     summary = {"safe": 0, "caution": 0, "feature": 0, "no_match": 0}
     safe_objects: list[str] = []
-    for r in retired_rows:
-        descriptors = _match_osm_elements(r, match_idx, poi_idx, radius)
-        matches = []
-        for d in descriptors:
-            prov = osm_history.analyze(d["type"], d["id"])
-            matches.append({
-                **d,
-                "provenance": prov,
-                "links": _links(d["type"], d["id"], d["lat"], d["lon"]),
-            })
+    for r, descriptors in row_descriptors:
+        matches = [{
+            **d,
+            "provenance": prov_by_key[(d["type"], d["id"])],
+            "links": _links(d["type"], d["id"], d["lat"], d["lon"]),
+        } for d in descriptors]
 
         non_feature = [m for m in matches if not m["provenance"].get("is_feature")]
         if not matches:
