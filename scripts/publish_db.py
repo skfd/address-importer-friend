@@ -11,8 +11,8 @@ xz-compresses it.
 It does NOT upload — the `publish-db` skill runs `gh release create` on the
 artifact this prints. Run with the web app stopped (VACUUM takes a read lock).
 
-    python -m scripts.publish_db            # -> data/release/tool-db-<today>.db.xz
-    python -m scripts.publish_db --date 20260608
+    python -m scripts.publish_db            # date = the watermark snapshot's feed date
+    python -m scripts.publish_db --date 20260605
 """
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ import lzma
 import shutil
 import sqlite3
 import sys
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 DATA = Path("data")
@@ -31,11 +31,37 @@ WATERMARK_KEY = "maintenance.watermark_snapshot"
 CRED_PREDICATE = "key LIKE 'osm_oauth%' OR key LIKE 'pkce:%'"
 
 
+def _watermark_date() -> str:
+    """Date stamp the snapshot is current through: the City-feed publication date
+    of the maintenance watermark snapshot. This is the "latest maintenance we
+    did" — deterministic, independent of when the snapshot is actually published.
+    Falls back to today only if the watermark or its feed date can't be read."""
+    try:
+        conn = sqlite3.connect(f"file:{LIVE.as_posix()}?mode=ro", uri=True)
+        try:
+            row = conn.execute(
+                "SELECT value FROM kv WHERE key=?", (WATERMARK_KEY,)
+            ).fetchone()
+        finally:
+            conn.close()
+        if row and row[0] is not None:
+            from t2 import source_db
+            ds = source_db.snapshot_date(int(row[0]))
+            if ds:
+                return datetime.fromisoformat(ds).strftime("%Y%m%d")
+    except Exception:
+        pass
+    return date.today().strftime("%Y%m%d")
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--date", default=date.today().strftime("%Y%m%d"),
-                    help="Date stamp for the asset name (default: today, YYYYMMDD).")
+    ap.add_argument("--date", default=None,
+                    help="Override the date stamp (YYYYMMDD). Default: the feed "
+                         "publication date of the maintenance watermark snapshot.")
     args = ap.parse_args(argv)
+    if args.date is None:
+        args.date = _watermark_date()
 
     if not LIVE.exists():
         sys.exit(f"living DB not found: {LIVE}")
