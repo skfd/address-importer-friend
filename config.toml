@@ -1,5 +1,5 @@
 [source]
-sqlite_path = "C:/Users/kk/Code/toronto-addresses-import/addresses.db"
+sqlite_path = "C:/Users/kk/Code/ontario-address-changes/data/toronto/toronto.db"
 
 [run_defaults]
 # Small downtown rectangle for first test run

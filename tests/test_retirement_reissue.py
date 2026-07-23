@@ -5,17 +5,16 @@ import sqlite3
 
 from t2 import source_db
 
+# The source is ontario-address-changes' generic toronto.db schema: one row per
+# SCD-2 range keyed by identity_key, with source props in a JSON blob.
 _ADDR_COLS = (
-    "address_point_id, address_full, address_number, lo_num, lo_num_suf, "
-    "hi_num, hi_num_suf, linear_name_full, linear_name, linear_name_type, "
-    "linear_name_dir, municipality_name, ward_name, longitude, latitude, extra, "
+    "identity_key, number, street, full, longitude, latitude, props, "
     "min_snapshot_id, max_snapshot_id"
 )
 
 
 def _row(pid, num, street, min_s, max_s):
-    return (pid, f"{num} {street}", num, int(num), None, int(num), None,
-            street, street, "St", None, "Toronto", "Ward 1", -79.4, 43.6, None,
+    return (str(pid), num, street, f"{num} {street}", -79.4, 43.6, "{}",
             min_s, max_s)
 
 
@@ -26,7 +25,7 @@ def _build_db(path):
                      [(1, "2026-01-01", 0), (2, "2026-01-02", 0), (3, "2026-01-03", 0)])
     conn.execute(f"CREATE TABLE addresses ({_ADDR_COLS})")
     conn.executemany(
-        f"INSERT INTO addresses ({_ADDR_COLS}) VALUES ({','.join('?' * 18)})",
+        f"INSERT INTO addresses ({_ADDR_COLS}) VALUES ({','.join('?' * 9)})",
         [
             _row(1, "100", "Main St", 1, 2),   # old id, retired at snap 2
             _row(2, "100", "Main St", 3, 3),   # re-issued same address, active at latest

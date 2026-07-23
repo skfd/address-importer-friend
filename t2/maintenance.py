@@ -40,6 +40,7 @@ from . import (
 )
 
 WATERMARK_KEY = "maintenance.watermark_snapshot"
+WATERMARK_DATE_KEY = "maintenance.watermark_date"
 # Snapshot the citywide import had *finished uploading* against (2026-05-28).
 # NOTE: this is the upload-completion snapshot, NOT the snapshot the import data
 # was pulled from (that was IMPORT_SOURCE_SNAPSHOT=45, 2026-05-15). Defaulting
@@ -48,7 +49,10 @@ WATERMARK_KEY = "maintenance.watermark_snapshot"
 # one-off `maint-catchup-snap45-56` run (2026-06-06). Conflation auto-skips
 # anything already in OSM, so the safe choice for an initial watermark is the
 # import *source* snapshot, not where uploads happened to finish.
-DEFAULT_WATERMARK = 52
+# Snapshot IDs are per-database. When the source moved from the retired
+# addresses.db to ontario-address-changes' toronto.db, 2026-05-28 went from id 52
+# to id 54 — translated by date, never carried across as a number.
+DEFAULT_WATERMARK = 54
 
 _OSM_WEB = "https://www.openstreetmap.org"
 _JOSM_RC = "http://127.0.0.1:8111"
@@ -76,6 +80,11 @@ def get_watermark() -> int:
 
 
 def set_watermark(snapshot_id: int) -> None:
+    # Persist the watermark's feed date alongside the id. Snapshot ids are
+    # per-database, so a future source swap must re-resolve the id by this date
+    # rather than carry the integer across (see the addresses.db -> toronto.db
+    # move, where the same date shifted id).
+    wm_date = source_db.snapshot_date(snapshot_id)
     conn = _db.connect()
     try:
         conn.execute("BEGIN IMMEDIATE")
@@ -84,6 +93,12 @@ def set_watermark(snapshot_id: int) -> None:
             "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
             (WATERMARK_KEY, str(snapshot_id)),
         )
+        if wm_date is not None:
+            conn.execute(
+                "INSERT INTO kv (key, value) VALUES (?, ?) "
+                "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                (WATERMARK_DATE_KEY, wm_date),
+            )
         conn.execute("COMMIT")
     except Exception:
         conn.execute("ROLLBACK")
@@ -181,12 +196,14 @@ def get_run_window(run_id: int) -> dict | None:
 
 
 # Source snapshots the one-time citywide import was actually built from: the
-# pilot tile on #42 (2026-05-12), then the 1,297 citywide runs on #45
-# (2026-05-15). OSM uploads ran 2026-05-13..2026-05-28 at human review cadence.
-# Distinct from DEFAULT_WATERMARK (52) below, which is only where maintenance
-# starts looking for deltas — not the date the import data was pulled.
-IMPORT_SOURCE_SNAPSHOT = 45
-IMPORT_PILOT_SNAPSHOT = 42
+# pilot tile on 2026-05-12, then the 1,297 citywide runs on 2026-05-15. OSM
+# uploads ran 2026-05-13..2026-05-28 at human review cadence. Distinct from
+# DEFAULT_WATERMARK (2026-05-28) above, which is only where maintenance starts
+# looking for deltas — not the date the import data was pulled.
+# IDs are toronto.db's (2026-05-12=44, 2026-05-15=47); they were 42/45 in the
+# retired addresses.db — translated by date on the source swap.
+IMPORT_SOURCE_SNAPSHOT = 47
+IMPORT_PILOT_SNAPSHOT = 44
 
 
 def import_baseline() -> dict:

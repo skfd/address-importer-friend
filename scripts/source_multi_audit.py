@@ -35,24 +35,37 @@ def main() -> int:
         "SELECT COUNT(*) FROM addresses WHERE max_snapshot_id=?", (snap,)
     ).fetchone()[0]
 
+    # Source is now toronto.db (generic schema): lo/hi numbers and ADDRESS_CLASS_DESC
+    # live in the `props` JSON blob (kept via toronto.toml keep_fields); NULLIF
+    # restores the SQL NULL the retired flat columns had for empty 'None' suffixes.
     range_rows = list(conn.execute("""
-        SELECT address_full, linear_name_full, municipality_name,
-               lo_num, hi_num, lo_num_suf, hi_num_suf, extra
+        SELECT full AS address_full, street AS linear_name_full,
+               json_extract(props,'$.MUNICIPALITY_NAME') AS municipality_name,
+               CAST(json_extract(props,'$.LO_NUM') AS INTEGER) AS lo_num,
+               CAST(json_extract(props,'$.HI_NUM') AS INTEGER) AS hi_num,
+               NULLIF(json_extract(props,'$.LO_NUM_SUF'),'None') AS lo_num_suf,
+               NULLIF(json_extract(props,'$.HI_NUM_SUF'),'None') AS hi_num_suf,
+               props AS extra
         FROM addresses
         WHERE max_snapshot_id=?
-          AND lo_num IS NOT NULL AND hi_num IS NOT NULL
-          AND lo_num != hi_num
+          AND json_extract(props,'$.LO_NUM') IS NOT NULL
+          AND json_extract(props,'$.HI_NUM') IS NOT NULL
+          AND json_extract(props,'$.LO_NUM') != json_extract(props,'$.HI_NUM')
     """, (snap,)))
 
     suffix_only = conn.execute("""
         SELECT COUNT(*) FROM addresses
-        WHERE max_snapshot_id=? AND lo_num IS NOT NULL AND hi_num IS NOT NULL
-          AND lo_num = hi_num
-          AND COALESCE(lo_num_suf,'') != COALESCE(hi_num_suf,'')
+        WHERE max_snapshot_id=? AND json_extract(props,'$.LO_NUM') IS NOT NULL
+          AND json_extract(props,'$.HI_NUM') IS NOT NULL
+          AND json_extract(props,'$.LO_NUM') = json_extract(props,'$.HI_NUM')
+          AND COALESCE(NULLIF(json_extract(props,'$.LO_NUM_SUF'),'None'),'')
+              != COALESCE(NULLIF(json_extract(props,'$.HI_NUM_SUF'),'None'),'')
     """, (snap,)).fetchone()[0]
 
     reversed_count = conn.execute(
-        "SELECT COUNT(*) FROM addresses WHERE max_snapshot_id=? AND lo_num > hi_num",
+        "SELECT COUNT(*) FROM addresses WHERE max_snapshot_id=? "
+        "AND CAST(json_extract(props,'$.LO_NUM') AS INTEGER) > "
+        "    CAST(json_extract(props,'$.HI_NUM') AS INTEGER)",
         (snap,),
     ).fetchone()[0]
 
@@ -115,9 +128,12 @@ def main() -> int:
     # Index per-number rows: (linear_name_full, municipality_name) -> set(int)
     sib_idx: dict[tuple[str, str], set[int]] = defaultdict(set)
     for r in conn.execute("""
-        SELECT linear_name_full, municipality_name, lo_num
+        SELECT street AS linear_name_full,
+               json_extract(props,'$.MUNICIPALITY_NAME') AS municipality_name,
+               CAST(json_extract(props,'$.LO_NUM') AS INTEGER) AS lo_num
         FROM addresses
-        WHERE max_snapshot_id=? AND lo_num IS NOT NULL AND lo_num = hi_num
+        WHERE max_snapshot_id=? AND json_extract(props,'$.LO_NUM') IS NOT NULL
+          AND json_extract(props,'$.LO_NUM') = json_extract(props,'$.HI_NUM')
     """, (snap,)):
         if r["linear_name_full"]:
             sib_idx[(r["linear_name_full"], r["municipality_name"])].add(r["lo_num"])
@@ -155,9 +171,12 @@ def main() -> int:
             (r["lo_num"], r["hi_num"]))
     overlap = 0
     for r in conn.execute("""
-        SELECT linear_name_full, municipality_name, lo_num
+        SELECT street AS linear_name_full,
+               json_extract(props,'$.MUNICIPALITY_NAME') AS municipality_name,
+               CAST(json_extract(props,'$.LO_NUM') AS INTEGER) AS lo_num
         FROM addresses
-        WHERE max_snapshot_id=? AND lo_num IS NOT NULL AND lo_num = hi_num
+        WHERE max_snapshot_id=? AND json_extract(props,'$.LO_NUM') IS NOT NULL
+          AND json_extract(props,'$.LO_NUM') = json_extract(props,'$.HI_NUM')
     """, (snap,)):
         for lo, hi in range_idx.get((r["linear_name_full"], r["municipality_name"]), ()):
             if lo <= r["lo_num"] <= hi:
@@ -195,6 +214,8 @@ def main() -> int:
     print(f"  Range address_full appearing in >1 municipality: {cross}")
 
     header("ADDRESS_ID_LINK presence")
+    # NOTE: toronto.db drops ADDRESS_ID_LINK (an ignore_fields prop not kept), so
+    # this now always reports "without". Left in place as the FAQ references it.
     have = without = 0
     for r in range_rows:
         if json.loads(r["extra"]).get("ADDRESS_ID_LINK"):

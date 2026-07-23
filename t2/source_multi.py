@@ -105,12 +105,18 @@ def collect(snapshot_id: int | None = None) -> dict:
         ).fetchone()[0]
 
         range_rows = conn.execute(
-            "SELECT lo_num, hi_num, lo_num_suf, hi_num_suf, address_full,"
-            "       linear_name_full, municipality_name "
+            "SELECT CAST(json_extract(props,'$.LO_NUM') AS INTEGER) AS lo_num, "
+            "       CAST(json_extract(props,'$.HI_NUM') AS INTEGER) AS hi_num, "
+            "       NULLIF(json_extract(props,'$.LO_NUM_SUF'),'None') AS lo_num_suf, "
+            "       NULLIF(json_extract(props,'$.HI_NUM_SUF'),'None') AS hi_num_suf, "
+            "       full AS address_full, street AS linear_name_full, "
+            "       json_extract(props,'$.MUNICIPALITY_NAME') AS municipality_name "
             "FROM addresses "
-            "WHERE max_snapshot_id=? AND lo_num IS NOT NULL AND hi_num IS NOT NULL "
-            "  AND lo_num != hi_num "
-            "ORDER BY (hi_num - lo_num) DESC, address_full",
+            "WHERE max_snapshot_id=? AND json_extract(props,'$.LO_NUM') IS NOT NULL "
+            "  AND json_extract(props,'$.HI_NUM') IS NOT NULL "
+            "  AND json_extract(props,'$.LO_NUM') != json_extract(props,'$.HI_NUM') "
+            "ORDER BY (CAST(json_extract(props,'$.HI_NUM') AS INTEGER) - "
+            "          CAST(json_extract(props,'$.LO_NUM') AS INTEGER)) DESC, full",
             (snapshot_id,),
         ).fetchall()
         ranges = [dict(r) for r in range_rows]
@@ -169,11 +175,14 @@ def collect(snapshot_id: int | None = None) -> dict:
         top_streets = [{"street": s, "count": c} for s, c in top_streets]
 
         half_rows = conn.execute(
-            "SELECT address_full, lo_num, lo_num_suf,"
-            "       linear_name_full, municipality_name "
+            "SELECT full AS address_full, "
+            "       CAST(json_extract(props,'$.LO_NUM') AS INTEGER) AS lo_num, "
+            "       NULLIF(json_extract(props,'$.LO_NUM_SUF'),'None') AS lo_num_suf, "
+            "       street AS linear_name_full, "
+            "       json_extract(props,'$.MUNICIPALITY_NAME') AS municipality_name "
             "FROM addresses "
-            "WHERE max_snapshot_id=? AND lo_num_suf='1/2' "
-            "ORDER BY linear_name_full, lo_num",
+            "WHERE max_snapshot_id=? AND json_extract(props,'$.LO_NUM_SUF')='1/2' "
+            "ORDER BY street, CAST(json_extract(props,'$.LO_NUM') AS INTEGER)",
             (snapshot_id,),
         ).fetchall()
         halves = [dict(h) for h in half_rows]

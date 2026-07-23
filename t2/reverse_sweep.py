@@ -107,8 +107,11 @@ def _build_source_index(snapshot_id: int) -> dict[tuple[str, str], int]:
     conn = source_db.connect_readonly()
     try:
         rows = conn.execute(
-            "SELECT lo_num, hi_num, lo_num_suf, hi_num_suf, address_number, "
-            "       linear_name_full "
+            "SELECT CAST(json_extract(props,'$.LO_NUM') AS INTEGER) AS lo_num, "
+            "       CAST(json_extract(props,'$.HI_NUM') AS INTEGER) AS hi_num, "
+            "       NULLIF(json_extract(props,'$.LO_NUM_SUF'),'None') AS lo_num_suf, "
+            "       NULLIF(json_extract(props,'$.HI_NUM_SUF'),'None') AS hi_num_suf, "
+            "       number AS address_number, street AS linear_name_full "
             "FROM addresses WHERE max_snapshot_id = ?",
             (snapshot_id,),
         )
