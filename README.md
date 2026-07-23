@@ -3,7 +3,8 @@
 [GitHub](https://github.com/skfd/toronto-2-address-import) · [Pilot evidence site](https://skfd.github.io/toronto-2-address-import/) · [OSM community discussion](https://community.openstreetmap.org/t/address-import-for-toronto/119368) · MIT licensed
 
 Local tool that reads Toronto address points from the sibling
-[`toronto-addresses-import`](https://github.com/skfd/toronto-addresses-import) project's SQLite DB,
+[`ontario-address-changes`](https://github.com/skfd/ontario-address-changes) tracker's SQLite DB
+(successor to the archived [`toronto-addresses-import`](https://github.com/skfd/toronto-addresses-import)),
 conflates them against live OSM data, routes questionable items to a human
 reviewer via a web UI, and uploads approved candidates to the OpenStreetMap
 **dev sandbox** (`master.apis.dev.openstreetmap.org`). Every auto and manual
@@ -414,7 +415,7 @@ already live in OSM.
 
 This tool moves data between three open datasets. Downstream uploads inherit OSM's licence, but the upstream sources each have their own terms:
 
-- **Toronto Open Data** — "Address Points (Municipal) – Toronto One Address Repository", published under the [Open Government Licence – Toronto](https://open.toronto.ca/open-data-licence/). Consumed indirectly via the sibling [`toronto-addresses-import`](https://github.com/skfd/toronto-addresses-import) project.
+- **Toronto Open Data** — "Address Points (Municipal) – Toronto One Address Repository", published under the [Open Government Licence – Toronto](https://open.toronto.ca/open-data-licence/). Consumed indirectly via the sibling [`ontario-address-changes`](https://github.com/skfd/ontario-address-changes) project.
 - **OpenStreetMap** — © OpenStreetMap contributors, [ODbL 1.0](https://www.openstreetmap.org/copyright). All uploads target the OSM **dev sandbox** (`master.apis.dev.openstreetmap.org`); any future production import must separately comply with the OSMF [import guidelines](https://wiki.openstreetmap.org/wiki/Import/Guidelines) and [contributor terms](https://osmfoundation.org/wiki/Licence/Contributor_Terms).
 - **Geofabrik** — Ontario `.osm.pbf` extracts, redistributed under ODbL from OSM.
 
