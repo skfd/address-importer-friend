@@ -10,6 +10,12 @@ at the date they were written.
 
 ## Index
 
+- [multi-city/](multi-city/) — **design discussion, opened 2026-08-10.** Making
+  the address-import family work for cities other than Toronto: core library
+  extraction, per-city config contract, capability gating, city onboarding,
+  prior-import detection, the collective adjudication layer, and a 42-dataset
+  portfolio survey. Spans five sibling repos, not just this one. Start at
+  [multi-city/README.md](multi-city/README.md).
 - [postcode-enrichment.md](postcode-enrichment.md) — fill `addr:postcode` on
   matched OSM nodes that lack one, sourced from same-address POI nodes.
   First mutation flow in an otherwise create-only pipeline.
