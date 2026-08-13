@@ -1,7 +1,10 @@
 # Prior-import detection
 
 Status: **proposed as a platform capability, not implemented.** The method
-below was executed by hand against Guelph on 2026-08-10 and worked end to end.
+below was executed by hand against Guelph on 2026-08-10 and worked end to end,
+then scripted as `scripts/entry_state_probe.py` and run against Hamilton on
+2026-08-13 — which is where the "tag-based detection is not sufficient" section
+comes from.
 
 ## Why this matters
 
@@ -58,6 +61,56 @@ Every step is scriptable; step 5 needs a human.
    Nov 15 deadline. Changeset regions named after major-road intersections
    (`WillowElmira-WoolwichEdinburgh`) rather than a formal grid. Leftovers
    parked in a `RemainingAddresses.osm` file for future work.
+
+## Tag-based detection is not sufficient
+
+The method above finds Guelph because Guelph's importer tagged changesets
+properly. Two later probes (Tier 2 of `08`, then Hamilton on 2026-08-13) found
+bulk-loaded address layers carrying **no `import=yes` and no `import:page`** —
+Huron, Bruce and Hamilton all sit on NRCan/CanVec data that a tag-based check
+reports as greenfield.
+
+Three additional signals, cheapest first:
+
+1. **`source` on the elements themselves.** Hamilton's sampled addresses carry
+   `source=NRCan-CanVec-7.0` and `CanVec 6.0 - NRCan` on ~90% of elements. This
+   is the strongest signal available and it costs one `out tags` query — it does
+   not depend on anyone having tagged a changeset correctly, and it survives
+   later retagging. **Run this before the changeset work.**
+2. **Shape, not tags.** One user + one year + thousands of changes in a single
+   changeset is an import regardless of how it is labelled. Guelph's importer
+   and Hamilton's 2018 sweep have the same shape; only one says `import=yes`.
+3. **Self-declaration in the comment.** Hamilton's Kevo writes "Manually added
+   some addresses from StatsCan LODE data (by hand, no copy & paste or import)"
+   — a mapper explicitly disclaiming import status. Read comments before
+   classifying a high-volume user as an importer.
+
+### Bulk edits that are not imports
+
+Shape alone over-fires. Two of the largest changesets encountered were mass
+`addr:city` **renames**, not address loads:
+
+| city | changeset | changes | comment |
+|---|---|---|---|
+| Bruce | 56622908 | 3,815 | "Municipality of Kincardine => Kincardine" |
+| Hamilton | 56445760 | 9,750 | "City of Hamilton => Hamilton" |
+
+So **last-touch year does not date an import**. A retag sweep resets the
+timestamp on data that may be years older, which is why `08`'s `peak year`
+column measures last touch and nothing more. Distinguish the two by asking
+whether the changeset *created* address elements or *edited* existing ones.
+
+A rename sweep also leaves residue worth capturing: Hamilton's pass left 32
+`addr:city=Dundas` and 5 `Stoney Creek` behind. In an amalgamated city,
+`addr:city` is not single-valued and the config has to say which value we write.
+
+### Federal source vs municipal source
+
+The pre-existing layer in rural Ontario and Hamilton is **federal** (NRCan
+CanVec, StatCan LODE / 92-500-X) while our sources are **municipal**. Where the
+two disagree, the OSM value is *differently sourced*, not simply wrong. That
+makes it an adjudication question (`06`), not a conflation bug, and the
+distinction has to survive into whatever the conflater reports.
 
 ## What to capture in config
 
@@ -122,10 +175,17 @@ units, but only **6,289 of 13,162** source unit rows landed (~48%).
 The output of detection is a classification that picks the consumer:
 
 - **Greenfield** — no import, large gap. Import machinery earns its keep.
+  Hamilton is here, with the qualification that "greenfield" means *no municipal
+  import*: a federal CanVec layer and a manual local infiller are both present.
+  Expect this qualification to apply across Ontario.
 - **Brownfield, complete** — prior import declared done, small diffuse gap.
   Observer/QA is the product. Guelph is here.
 - **Brownfield, active** — import in progress. Do not start anything; contact
-  first.
+  first. **Oakville** is here as of 2026-08-13 (`TronnaLegacy`, MapRoulette,
+  Town of Oakville address points). Note it was found by a recent-changeset
+  check, not by the element-level sampling — an import that started last week
+  has barely touched the element tally yet, so **the activity check is not
+  optional**.
 - **Brownfield, abandoned** — import started and stalled. The most delicate
   case: possibly the highest-value target, definitely the one most needing a
   conversation before acting.

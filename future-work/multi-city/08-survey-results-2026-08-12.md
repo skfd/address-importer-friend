@@ -247,13 +247,96 @@ the naive reading would have had us stand down from a city on the strength of
 our own edits. York's OSM-side numbers in the table below are contaminated for
 the same reason.
 
+## Hamilton's entry state — established (Tier 2, 2026-08-13)
+
+Hamilton was the shortlist leader on an **assumption** that it had no prior
+import. Probed per `05` with `scripts/entry_state_probe.py`: three ~0.012 deg
+`out meta` boxes (downtown, Dundas, Stoney Creek), 2,031 elements, plus
+changeset lookups, a tag tally and a wiki check.
+
+**Verdict: greenfield for a municipal address import — but not empty.** Three
+strata, none of them a municipal import, and no one to stand down for.
+
+| stratum | evidence | year |
+|---|---|---|
+| NRCan/CanVec base layer | `source=NRCan-CanVec-7.0` (371), `CanVec 6.0 - NRCan` (361) — 90% of sampled elements | pre-2018 |
+| StatCan address ranges | Mojgan Jadidi, cs 37445896, 3,096 changes, `source=StatCan 92-500-X`, "Adding address ranges for GTHA" | 2016 |
+| Manual local infill | Kevo, four changesets 280-542 changes, `source=Statistics Canada LODE, Bing` | 2022 |
+
+Combined users: Matthew Darwin 835, Kevo 796, Mojgan Jadidi 71, andrewpmk 64.
+Years: 2018 (823), 2022 (576), 2026 (153).
+
+**The 2018 peak is a retag, not an import.** The three heaviest changesets —
+56445760 (9,750 changes), 56446765 (6,716), 56445427 (9,750), all Matthew
+Darwin, all 2018-02-17, all `source=Discussion on talk-ca; NRCan` — carry the
+comment **"City of Hamilton => Hamilton"**. A mass `addr:city` rename, the exact
+signature already seen in Bruce ("Municipality of Kincardine => Kincardine").
+Hamilton's 55,469-element 2018 peak in the table above is that sweep passing
+over a layer that predates it.
+
+**`source` names the layer even when import tags do not.** No `import=yes` and
+no `import:page` appears anywhere — not in the samples, not in the 100 most
+recent changesets over the extent. But the `source` *tag on the elements
+themselves* names CanVec outright. This upgrades Tier 2's "province-wide NRCan
+layer" from well-supported inference to **directly observed** in Hamilton, and
+it hands `05` a detection signal that costs one query and does not depend on
+changeset hygiene.
+
+**No wiki page.** `Canada:Ontario:Hamilton` is a redirect to `Hamilton`; there
+is no Hamilton address import page. Wiki searches surface only Hamilton County,
+Ohio and generic Canada-wide import pages.
+
+### Tag convention to match
+
+Dominant form is `addr:city` + `addr:housenumber` + `addr:street` (738 of 811).
+Postcode and province are sparse and inconsistent — `addr:province` splits `ON`
+(27) against `Ontario` (2), so there is no convention to honour there, and
+Toronto's `Ontario` is as defensible as anything present.
+
+`addr:city` is **not uniformly `Hamilton`**: 738 `Hamilton`, but 32 `Dundas` and
+5 `Stoney Creek` survived the 2018 rename. An amalgamated city retains
+former-municipality names in the field its own cleanup pass targeted. Whatever
+we upload has to take a position on this rather than assume one value.
+
+### Who to talk to
+
+Per `05`, detection produces a person. Here it produces **Kevo**, who in 2022
+was adding Hamilton addresses from StatsCan LODE *by hand* — the changeset
+comments say so explicitly: "Manually added some addresses from StatsCan LODE
+data (by hand, no copy & paste or import)". That is precisely the labour this
+platform automates, done by someone who chose to do it manually rather than
+import. Approach accordingly. Matthew Darwin is the second contact, as the
+Ontario-wide maintainer whose fingerprints are on the 2018 sweep here, in
+Bruce, and in Guelph's tally.
+
+## Oakville is brownfield-active — found by accident
+
+The recent-changeset check over Hamilton's extent surfaced eight changesets from
+**`TronnaLegacy`**, dated 2026-08-08/09, comment *"Oakville, Ontario addresses
+from government data #maproulette"*, `source = Esri World Imagery; Oakville
+Address Points (Open Government Licence - Town of Oakville)`.
+
+Oakville is dataset #29 in our own portfolio: 49,322 missing (75.7%), 2026 peak
+of 4,326 elements. **Someone is actively importing it, from the same municipal
+source we would use, via MapRoulette, this week.** That is `05`'s
+*brownfield, active* class — the one that says do not start anything, contact
+first. Oakville was never on our shortlist, so nothing is lost, but it must be
+marked before anyone reaches for it.
+
+Two things follow. The find was incidental — Oakville sits in the corner of
+Hamilton's rectangular extent, so this is `10`'s bbox bleed handing us something
+useful for once. And the 2026 peaks in the Tier 1 table are worth re-reading as
+possible live activity rather than noise, now that one of them demonstrably is.
+
 ## Candidate shortlist
 
 Cities, not regions, and only where `street-known%` supports the number:
 
 1. **Hamilton** — 128,065 missing, 91.6% street-known, single municipality,
    street resolves cleanly from `FULL_STREET_NAME` in props. The strongest
-   single-city candidate in the portfolio.
+   single-city candidate in the portfolio, and as of 2026-08-13 the only one
+   whose entry state has actually been established (§above): no municipal
+   import, no wiki page, no active importer.
 2. **London** — 98,973 missing, 77.9%, single municipality, clean `street`
    column.
 3. **Brampton** — 135,117 missing, 87.1%. Caveat: the City layer and the Region
@@ -283,8 +366,11 @@ are counties or regions; that holds.
   returns "greenfield" for a city that already has a bulk-loaded address layer.
   Detect on *shape* — one user, one year, thousands of changes in a changeset —
   not on tags alone.
-- **Tier 2 remaining**: Wellington's 2025 spike (48,096) is unexplained, and
-  Hamilton's entry state was never established (the probe was cut short). Do
-  Hamilton before committing to it as city #2 — everything above says it is the
-  best candidate, but "no prior import" is currently an assumption, and the
-  NRCan finding is exactly the kind of thing that hides from a naive check.
+- **Hamilton is cleared as city #2** (2026-08-13). The probe found a CanVec base
+  layer and a manual local infiller, not a municipal import. `source` on the
+  elements, not changeset tags, is what identified it.
+- **Oakville is off-limits without a conversation** — actively being imported
+  by `TronnaLegacy` as of this week.
+- **Tier 2 remaining**: Wellington's 2025 spike (48,096) is still unexplained.
+  Lower stakes — Wellington is not a near-term candidate — but it is the last
+  unexplained anomaly in the table.
