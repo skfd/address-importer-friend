@@ -108,3 +108,38 @@ prose comment in one city's TOML. It needs to be written down explicitly:
 Guelph's `keep_fields` is `["PIN", "GPID", "ROLL_NO"]` — parcel and tax-roll
 join keys, kept for reasons unrelated to this repo. Nothing there serves
 conflation, which is consistent with Guelph having none of the Toronto fields.
+
+### Correction 2026-08-13: canonical fields are not conflation-ready
+
+The section above implies that once `keep_fields` is honoured, the tracker's
+canonical fields suffice for a consumer. **The portfolio survey disproved this.**
+
+`street` is not a dependable street. Of 42 datasets, **18 store the name
+component only** — `MAIN` where conflation needs `MAIN STREET`. The field is
+populated and looks fine; it is simply a different thing in different datasets.
+Peel is the extreme case at 96% typeless, and a consumer trusting `street`
+there matches nothing while reporting a clean ~100% gap (`03`).
+
+So a **street resolution step is mandatory per dataset, ahead of any
+normalization**, and it belongs in this contract rather than in each consumer:
+
+1. Prefer `street` **when it carries a type** — measured, not assumed.
+2. Else derive from `full`, truncated at the first comma.
+3. Else reassemble from `props` using the dataset's own field names
+   (Hamilton's `FULL_STREET_NAME` is the worked example).
+4. Else the dataset fails `has_street_type` and the consumer must refuse to
+   run rather than proceed.
+
+`scripts/portfolio_survey.py` (`_resolve`, `_split_full`, `_strip_muni`)
+implements this over all 42 datasets and is the reference for what the contract
+has to specify — including that the resolution recipe is **per dataset** and
+therefore config, not code.
+
+The `street_source` column in the survey results records which branch each
+dataset lands on. That column is effectively the missing piece of this contract,
+and it should be promoted into the per-city TOML:
+
+```toml
+[source_fields]
+street_from = "props:FULL_STREET_NAME"   # or "street" | "full" | ...
+```

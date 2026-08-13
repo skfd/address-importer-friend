@@ -247,6 +247,30 @@ the naive reading would have had us stand down from a city on the strength of
 our own edits. York's OSM-side numbers in the table below are contaminated for
 the same reason.
 
+### Wellington's 2025 spike was Guelph — answered (2026-08-13)
+
+The last unexplained anomaly, and it is York's story again. **Guelph's bbox is
+wholly contained in Wellington's** (`43.475..43.586, -80.325..-80.155` inside
+`43.388..44.026, -80.990..-79.972`), and Guelph's 2025 import is 44,279
+elements against Wellington's 48,096 spike.
+
+Confirmed rather than inferred, with an Overpass `out count` splitting
+Wellington's rectangle on Guelph's:
+
+| year | Wellington rect | inside Guelph | pure Wellington |
+|---|--:|--:|--:|
+| 2025 | 48,153 | 44,336 (**92.1%**) | 3,817 |
+| 2026 | 2,560 | 771 (30.1%) | 1,789 |
+
+Pure Wellington's 3,817 in 2025 is ordinary activity. Nobody is importing
+Wellington. The live count also revalidates the survey: 48,153 against the PBF's
+48,096, a three-day drift.
+
+Note the containment is *total*, not partial as York's was — Guelph is a
+separated city that sits geographically inside Wellington County, so the county
+dataset's rectangle can never avoid it. No amount of bbox tuning fixes this one;
+it needs the polygon (`10`).
+
 ## Hamilton's entry state — established (Tier 2, 2026-08-13)
 
 Hamilton was the shortlist leader on an **assumption** that it had no prior
@@ -371,6 +395,11 @@ are counties or regions; that holds.
   elements, not changeset tags, is what identified it.
 - **Oakville is off-limits without a conversation** — actively being imported
   by `TronnaLegacy` as of this week.
-- **Tier 2 remaining**: Wellington's 2025 spike (48,096) is still unexplained.
-  Lower stakes — Wellington is not a near-term candidate — but it is the last
-  unexplained anomaly in the table.
+- **Tier 2 is complete.** Every anomaly in the table is now accounted for: the
+  2018 peak (NRCan + rename sweeps), Ottawa (a community, not an import),
+  York's 2026 spike (our own Toronto upload) and Wellington's 2025 spike
+  (Guelph's import, wholly contained in the county rectangle).
+- **Three of those four explanations were bbox artifacts or retags, not
+  activity.** The naive reading of the `peak year` column was wrong in every
+  case it looked interesting. Treat the column as a prompt to investigate, never
+  as a finding.

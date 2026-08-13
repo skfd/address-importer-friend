@@ -47,6 +47,42 @@ and the pipeline has nowhere to put them:
 So the capability model needs both directions: features that turn **off** when
 a field is missing, and features that turn **on** when a field is present.
 
+## First concrete capability: `has_street_type`
+
+Everything above was written from Toronto-vs-Guelph, where the gated features
+were optional extras. The portfolio survey (`08`) supplied a capability that
+gates the **core** operation, with a real dataset failing it.
+
+`has_street_type` — does the source's street value carry a street type
+(`Street`, `Road`, `Avenue`) at all, or only the name component?
+
+**Peel fails it.** 96% of `peel-region` rows carry a bare name with no type. A
+normalizer that assumes a type will produce `MAIN` where OSM has `MAIN STREET`,
+match nothing, and report a ~100% gap as if it were a finding. The survey caught
+this only because of its guard metric — Peel's "is the street in OSM anyway"
+score was 1.0%, absurd on its face, which is what exposed the number as an
+artifact rather than a result.
+
+This is exactly the failure `03` exists to prevent, and it is now instanced
+rather than hypothetical: **a consumer that does not check produces confident
+garbage instead of refusing to run.**
+
+Two properties make it a better exemplar than the Toronto-only fields:
+
+1. It is not a simple field-presence check. The field is *present*; its
+   **content** is insufficient. So the capability model cannot be purely "is
+   this key declared" — it needs derived capabilities, measured from the data.
+2. Failing it must **stop the run**, not disable a feature. There is no degraded
+   mode for "conflate without street names". Compare the Toronto-only fields,
+   where disabling a check and saying so is the correct response.
+
+So the registry needs at least two severities: *disable and report*, and
+*refuse to run*. Both must be visible for the same reason as §3 below.
+
+Related: 18 of 42 datasets store the street name component only, which makes
+street resolution a required per-dataset step rather than a quirk — see the
+correction in `02`.
+
 ## Design sketch
 
 Not settled. The direction discussed:

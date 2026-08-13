@@ -3,6 +3,11 @@
 Status: **proposed, not implemented.** Captured 2026-08-10. Small, concrete,
 and a prerequisite for trusting any cross-city gap number.
 
+**Upgraded 2026-08-13: this is no longer a metric-quality issue.** The portfolio
+survey produced *three* wrong conclusions from rectangles, not three wrong
+numbers — see "Rectangles have changed conclusions" below. Treat it as a
+blocker for any regional dataset rather than a cleanup.
+
 ## The problem
 
 Cities are clipped by rectangle today. `config.toml` carries
@@ -28,6 +33,32 @@ The source side leaks too, in the other direction: 75 rows carry
 So the rectangle produces a false "OSM has thousands of addresses your source
 doesn't" signal that is really "your rectangle includes the neighbours." Any
 reverse-sweep or completeness metric built on it is misleading.
+
+## Rectangles have changed conclusions, not just counts
+
+Three instances from the 2026-08 survey, all in `08-survey-results-2026-08-12.md`:
+
+| case | the rectangle said | the truth |
+|---|---|---|
+| **York** 2026 spike, 128,307 elements | an active import — do not touch | 99.1% was our own Toronto upload; pure York 1,203 |
+| **Wellington** 2025 spike, 48,096 | an unexplained anomaly | 92.1% is Guelph's import, wholly contained in the county rectangle |
+| **Oakville** found in Hamilton's box | *(nothing — it was noise)* | a genuinely active import by `TronnaLegacy`, worth knowing |
+
+The first two would have had us stand down from a city on the strength of
+someone else's edits — in York's case, our own. The third cut the other way and
+handed us a real finding by accident. Bbox bleed is not a bias in one direction
+that can be corrected for; it is noise that reads as signal.
+
+**Containment can be total.** Guelph is a *separated city* sitting geographically
+inside Wellington County, so the county's rectangle can never exclude it. This
+is not a tuning problem with a bbox answer. Ontario's separated cities
+(Guelph/Wellington, Barrie/Simcoe, Brantford/Brant, Kingston/Frontenac and
+others in the portfolio) all have this shape, so every county dataset paired
+with its separated city is contaminated by construction.
+
+Corollary for the survey table: any per-city gap number for a **region or county**
+dataset is contaminated on the OSM side until this is fixed, and roughly 19 of
+the 42 datasets are regions or counties.
 
 ## Why it matters more in a portfolio
 

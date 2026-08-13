@@ -41,40 +41,47 @@ hygiene), then shape, then self-declaration in comments. Plus the bulk-edit
 false-positive case (rename sweeps), the last-touch-year caveat, and the
 federal-vs-municipal adjudication note.
 
-## 3. Explain Wellington's 2025 spike
+## 3. Explain Wellington's 2025 spike — DONE 2026-08-13
 
-48,096 elements, unexplained. Lower stakes — Wellington is not a near-term
-candidate — but it is the last unexplained anomaly in the table.
+**It was Guelph.** Guelph's bbox is *wholly* contained in Wellington's, and an
+Overpass count split puts 92.1% of the 48,096 inside it. Pure Wellington 2025 is
+3,817 — ordinary activity. **Tier 2 is now complete**; every anomaly in the
+survey table is accounted for.
 
-`python scripts/entry_state_probe.py wellington` runs the whole probe now. Its
-sample boxes (Fergus, Mount Forest, Erin) are untested approximations — check
-the element counts look sane before trusting the output.
+The probe script's Wellington sample boxes were never needed and remain untested.
 
-## 4. Correct `02`
+## 4. Correct `02` — DONE 2026-08-13
 
-`02-city-config-contract.md` still asserts the cross-repo `keep_fields` contract
-makes the tracker's canonical fields sufficient for consumers. The survey
-disproved this: 18 of 42 datasets store the street *name component only*.
+`02` now carries a "canonical fields are not conflation-ready" correction: a
+mandatory per-dataset street resolution step, its four-branch precedence,
+`portfolio_survey.py`'s `_resolve` as the reference implementation, and a
+proposed `street_from` key so the recipe lives in config rather than code.
 
-- [ ] Amend `02` to require a per-dataset **street resolution** step ahead of
-      normalization (prefer `street` when it carries a type, else `full`
-      comma-truncated, else reassemble from props)
-- [ ] The correction is already written up in the results doc; this is applying
-      it at the source
+## 5. Give `03` its first concrete capability — DONE 2026-08-13
 
-## 5. Give `03` its first concrete capability
+`has_street_type` written into `03`. Two things it forced that the Toronto-only
+fields never did: the capability model needs **derived** capabilities (the field
+is present, its *content* is insufficient), and it needs a second severity —
+*refuse to run* alongside *disable and report*, because there is no degraded
+mode for conflating without street names.
 
-`has_street_type`. Peel fails it — the source carries no street type for 96% of
-rows, so a consumer that does not check will silently produce garbage instead of
-refusing to run. That is the failure mode `03` exists to prevent, and it now has
-a real instance rather than a hypothetical one.
+## 6. Polygon clipping is a blocker, not a cleanup (`10`)
 
-## 6. Polygon clipping is no longer cosmetic (`10`)
+Documented 2026-08-13; the implementation is still open.
 
-Rectangular bboxes changed a *conclusion*, not just counts: York's 2026 spike
-read as an active import until it turned out to be our own Toronto upload
-bleeding through an overlapping rectangle. Any per-city gap number for a
-region/county dataset is contaminated in the OSM direction until this is fixed.
+`10` now records **three** conclusions changed by rectangles (York, Wellington,
+Oakville), and the key structural point: **containment can be total.** Guelph is
+a separated city inside Wellington County, so no bbox tuning can exclude it.
+Ontario's other separated cities in the portfolio — Barrie/Simcoe,
+Brantford/Brant, Kingston/Frontenac — have the same shape, so every county
+dataset paired with its separated city is contaminated by construction.
+
+- [ ] Implement it. `t2/reverse_sweep.py:48` `_load_toronto_boundary` already
+      returns a Shapely polygon and is generic apart from its name; ingest
+      already clips to a tile polygon (`016_run_polygon.sql`). The mechanism
+      exists, it is just not applied at city level.
+- [ ] Must clip **both** sides — source rows and OSM elements — or the asymmetry
+      creates a new false signal.
 
 ## Not blocking, worth doing when touching the normalizer
 
@@ -87,7 +94,8 @@ Guardrail: Toronto's match rates must not move (`tool.db` is living).
 
 ## Housekeeping
 
-- [ ] 3 commits on `main` are unpushed (`659467f`, `e438e23`, `4c5258f`)
+- [ ] 5 commits on `main` are unpushed (`659467f`, `e438e23`, `4c5258f`,
+      `93a5754`, plus the Tier 2 completion commit)
 - [ ] Maintenance run is due ~2026-08-22 (last: `maint-snap90`, 2026-07-23,
       watermark snapshot 90 / 2026-07-22). Unrelated to the above — it conflates
       against live Overpass and needs none of this.
