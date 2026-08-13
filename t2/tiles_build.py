@@ -1,11 +1,18 @@
-"""Build Toronto tile layer from the Neighbourhoods GeoJSON + source addresses.
+"""Build the city's tile layer from a neighbourhood GeoJSON + source addresses.
 
 Canonical entry point: ``python -m t2.tiles_build``.
 
-Fetches the City of Toronto's official 158-neighbourhood polygon layer,
-counts active source addresses inside each polygon, and quadtree-splits any
-neighbourhood with more than ``SPLIT_THRESHOLD`` addresses so each final tile
-is a manageable picking unit for a run.
+Fetches the polygon layer named by ``[city] neighbourhoods_url`` (Toronto's is
+the City's official 158-neighbourhood layer), counts active source addresses
+inside each polygon, and quadtree-splits any neighbourhood with more than
+``SPLIT_THRESHOLD`` addresses so each final tile is a manageable picking unit
+for a run.
+
+**Cities with no neighbourhood layer** leave ``neighbourhoods_url`` empty. The
+builder then skips the download and quadtree-splits ``[osm] city_bbox``
+directly, naming the tiles after ``[city] name``. This is the same code path
+the layer-backed build already used for addresses falling outside every
+polygon, so the splitting, merging and ≤500-per-tile logic are untouched.
 
 Writes to ``cfg.data_dir``:
 
@@ -36,14 +43,8 @@ from shapely.strtree import STRtree
 
 from . import audit, config as _config, source_db
 
-NEIGHBOURHOODS_URL = (
-    "https://ckan0.cf.opendata.inter.prod-toronto.ca/dataset/"
-    "fc443770-ef0a-4025-9c2c-2cb558bfab00/resource/"
-    "0719053b-28b7-48ea-b863-068823a93aaa/download/neighbourhoods-4326.geojson"
-)
-
 SPLIT_THRESHOLD = 500
-# ~330 m at Toronto latitude. Below this, stop subdividing even if count > threshold —
+# ~330 m at southern-Ontario latitude. Below this, stop subdividing even if count > threshold —
 # prevents runaway recursion on high-rise clusters where all addresses share a point.
 MIN_SPAN_DEG = 0.003
 # Orphan ratio at or above this triggers an "Unassigned" catch-all bucket.
@@ -492,6 +493,7 @@ def build_tiles(
     points_xy: list[tuple[float, float]],
     city_bbox: tuple[float, float, float, float],
     *,
+    orphan_name: str = "Unassigned",
     threshold: int = SPLIT_THRESHOLD,
     min_span: float = MIN_SPAN_DEG,
     merge_floor: int = MERGE_FLOOR,
@@ -564,18 +566,21 @@ def build_tiles(
     if orphan_count > 0 and orphan_pct >= ORPHAN_BUCKET_PCT:
         _log(
             f"orphan_pct {orphan_pct:.2%} >= {ORPHAN_BUCKET_PCT:.0%}, "
-            f"bucketing {orphan_count} orphans into 'Unassigned'"
+            f"bucketing {orphan_count} orphans into {orphan_name!r}"
         )
+        # With no neighbourhood layer, hood_geoms is empty, the union is empty,
+        # and leftover is the whole city rectangle — so this is also the
+        # no-layer path, splitting the bbox with the same quadtree.
         union = unary_union(hood_geoms)
         min_lat, min_lon, max_lat, max_lon = city_bbox
         city_rect = box(min_lon, min_lat, max_lon, max_lat)
         leftover = city_rect.difference(union)
         pieces = list(_iter_polygons(leftover))
         for k, piece in enumerate(pieces, start=1):
-            piece_name = f"Unassigned-{k}" if len(pieces) > 1 else "Unassigned"
+            piece_name = f"{orphan_name}-{k}" if len(pieces) > 1 else orphan_name
             for t, poly in _split_tile(
                 name=piece_name,
-                parent="Unassigned",
+                parent=orphan_name,
                 polygon=piece,
                 points=points,
                 tree=tree,
@@ -612,14 +617,116 @@ def build_tiles(
     return tiles, stats
 
 
+def _run_without_layer(cfg, paths: dict[str, Path], *, dry_run: bool) -> dict:
+    """Tile a city that has no neighbourhood polygon layer.
+
+    Same builder, no features: `build_tiles` finds every address unassigned,
+    takes the orphan branch, and quadtree-splits the whole `city_bbox`. Tiles
+    are named after the city instead of "Unassigned" — nothing was assigned
+    elsewhere, so there is nothing for them to be unassigned from.
+    """
+    if dry_run:
+        _log("dry-run: no neighbourhoods_url configured; would split city_bbox directly")
+        return {
+            "source_url": "",
+            "source_last_modified": "",
+            "source_bytes": 0,
+            "would_download": False,
+        }
+
+    _acquire_lock(paths["lock"])
+    t_start = time.monotonic()
+    try:
+        _log(f"no [city] neighbourhoods_url; splitting city_bbox {cfg.osm_city_bbox}")
+        _log("loading addresses from source DB")
+        snap_id = source_db.latest_snapshot_id()
+        points_xy = load_addresses(snap_id)
+        _log(f"loaded {len(points_xy)} address points at snapshot {snap_id}")
+
+        t_build = time.monotonic()
+        tiles, stats = build_tiles(
+            [], points_xy, cfg.osm_city_bbox, orphan_name=cfg.city_name
+        )
+        build_s = time.monotonic() - t_build
+        _log(
+            f"built {stats['tile_count']} tiles in {build_s:.1f}s; "
+            f"merges={stats['merges']} (pre-merge={stats['pre_merge_tile_count']}); "
+            f"below_floor_remaining={stats['below_floor_remaining']}; "
+            f"orphans={stats['orphan_count']} ({stats['orphan_pct']:.2%})"
+        )
+        return _write_tiles(
+            paths, tiles, stats, snap_id,
+            neighbourhoods_sha=None, build_s=build_s, t_start=t_start,
+        )
+    finally:
+        _release_lock(paths["lock"])
+
+
+def _write_tiles(
+    paths: dict[str, Path],
+    tiles: list[dict],
+    stats: dict,
+    snap_id: int,
+    *,
+    neighbourhoods_sha: str | None,
+    build_s: float,
+    t_start: float,
+) -> dict:
+    """Write tiles.json + the build sidecar. Shared by both build paths so the
+    on-disk shape cannot drift between them."""
+    out = {
+        "schema_version": SCHEMA_VERSION,
+        "generated_at": _iso_now(),
+        "source_snapshot_id": snap_id,
+        "neighbourhoods_sha256": neighbourhoods_sha,
+        "threshold": SPLIT_THRESHOLD,
+        "tiles": tiles,
+    }
+    body = json.dumps(out)
+    tmp = paths["tiles_json"].with_suffix(paths["tiles_json"].suffix + ".partial")
+    tmp.write_text(body, encoding="utf-8")
+    tmp.replace(paths["tiles_json"])
+    _log(f"wrote {paths['tiles_json']} ({len(body)} bytes)")
+
+    meta_out = {
+        "schema_version": SCHEMA_VERSION,
+        "generated_at": out["generated_at"],
+        "source_snapshot_id": snap_id,
+        "neighbourhoods_sha256": neighbourhoods_sha,
+        "threshold": SPLIT_THRESHOLD,
+        "merge_floor": MERGE_FLOOR,
+        "merge_soft_ceiling": MERGE_SOFT_CEILING,
+        "merge_hard_ceiling": MERGE_HARD_CEILING,
+        "tile_count": stats["tile_count"],
+        "pre_merge_tile_count": stats["pre_merge_tile_count"],
+        "merges": stats["merges"],
+        "below_floor_remaining": stats["below_floor_remaining"],
+        "total_addresses": stats["total_addresses"],
+        "assigned_after": stats["assigned_after"],
+        "orphan_count": stats["orphan_count"],
+        "orphan_pct": round(stats["orphan_pct"], 6),
+        "skipped_empty": stats["skipped_empty"],
+        "build_duration_s": round(build_s, 2),
+        "total_duration_s": round(time.monotonic() - t_start, 2),
+    }
+    paths["tiles_meta"].write_text(json.dumps(meta_out, indent=2), encoding="utf-8")
+    audit.log(actor="tiles_build", event_type="TILES_REBUILT", payload=meta_out)
+    _log("done")
+    return meta_out
+
+
 def run(force: bool = False, dry_run: bool = False) -> dict:
     cfg = _config.load()
     paths = _paths(cfg)
     paths["tiles_dir"].mkdir(parents=True, exist_ok=True)
     paths["hood_dir"].mkdir(parents=True, exist_ok=True)
 
-    _log(f"HEAD {NEIGHBOURHOODS_URL}")
-    headers = _head(NEIGHBOURHOODS_URL)
+    hoods_url = cfg.city_neighbourhoods_url
+    if not hoods_url:
+        return _run_without_layer(cfg, paths, dry_run=dry_run)
+
+    _log(f"HEAD {hoods_url}")
+    headers = _head(hoods_url)
     source_last_modified = headers.get("Last-Modified", "")
     content_length = int(headers.get("Content-Length") or 0)
     _log(
@@ -642,7 +749,7 @@ def run(force: bool = False, dry_run: bool = False) -> dict:
     if dry_run:
         _log(f"dry-run: would_download={(not unchanged) or force}")
         return {
-            "source_url": NEIGHBOURHOODS_URL,
+            "source_url": hoods_url,
             "source_last_modified": source_last_modified,
             "source_bytes": content_length,
             "would_download": (not unchanged) or force,
@@ -656,12 +763,12 @@ def run(force: bool = False, dry_run: bool = False) -> dict:
             geojson_sha = (prior_meta or {}).get("sha256") or _sha256_file(paths["geojson"])
         else:
             _log(f"downloading to {paths['geojson']}")
-            geojson_sha, bytes_written = _download(NEIGHBOURHOODS_URL, paths["geojson"])
+            geojson_sha, bytes_written = _download(hoods_url, paths["geojson"])
             _log(f"downloaded {bytes_written} bytes, sha256 {geojson_sha[:16]}…")
             paths["geojson_meta"].write_text(
                 json.dumps(
                     {
-                        "source_url": NEIGHBOURHOODS_URL,
+                        "source_url": hoods_url,
                         "source_last_modified": source_last_modified,
                         "bytes": bytes_written,
                         "sha256": geojson_sha,
@@ -692,45 +799,10 @@ def run(force: bool = False, dry_run: bool = False) -> dict:
             f"skipped_empty={len(stats['skipped_empty'])}"
         )
 
-        out = {
-            "schema_version": SCHEMA_VERSION,
-            "generated_at": _iso_now(),
-            "source_snapshot_id": snap_id,
-            "neighbourhoods_sha256": geojson_sha,
-            "threshold": SPLIT_THRESHOLD,
-            "tiles": tiles,
-        }
-        body = json.dumps(out)
-        tmp = paths["tiles_json"].with_suffix(paths["tiles_json"].suffix + ".partial")
-        tmp.write_text(body, encoding="utf-8")
-        tmp.replace(paths["tiles_json"])
-        _log(f"wrote {paths['tiles_json']} ({len(body)} bytes)")
-
-        meta_out = {
-            "schema_version": SCHEMA_VERSION,
-            "generated_at": out["generated_at"],
-            "source_snapshot_id": snap_id,
-            "neighbourhoods_sha256": geojson_sha,
-            "threshold": SPLIT_THRESHOLD,
-            "merge_floor": MERGE_FLOOR,
-            "merge_soft_ceiling": MERGE_SOFT_CEILING,
-            "merge_hard_ceiling": MERGE_HARD_CEILING,
-            "tile_count": stats["tile_count"],
-            "pre_merge_tile_count": stats["pre_merge_tile_count"],
-            "merges": stats["merges"],
-            "below_floor_remaining": stats["below_floor_remaining"],
-            "total_addresses": stats["total_addresses"],
-            "assigned_after": stats["assigned_after"],
-            "orphan_count": stats["orphan_count"],
-            "orphan_pct": round(stats["orphan_pct"], 6),
-            "skipped_empty": stats["skipped_empty"],
-            "build_duration_s": round(build_s, 2),
-            "total_duration_s": round(time.monotonic() - t_start, 2),
-        }
-        paths["tiles_meta"].write_text(json.dumps(meta_out, indent=2), encoding="utf-8")
-        audit.log(actor="tiles_build", event_type="TILES_REBUILT", payload=meta_out)
-        _log("done")
-        return meta_out
+        return _write_tiles(
+            paths, tiles, stats, snap_id,
+            neighbourhoods_sha=geojson_sha, build_s=build_s, t_start=t_start,
+        )
     finally:
         _release_lock(paths["lock"])
 
@@ -738,7 +810,7 @@ def run(force: bool = False, dry_run: bool = False) -> dict:
 def _cli() -> int:
     parser = argparse.ArgumentParser(
         prog="python -m t2.tiles_build",
-        description="Download Toronto neighbourhoods, quadtree-split to ≤500 addrs/tile, write data/tiles.json.",
+        description="Download the city's neighbourhoods (if any), quadtree-split to ≤500 addrs/tile, write data/tiles.json.",
     )
     parser.add_argument(
         "--force", action="store_true",

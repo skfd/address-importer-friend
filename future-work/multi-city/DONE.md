@@ -47,6 +47,38 @@ Not included, and still Toronto-specific by design: the footer links and the
 proposal/repo URLs in `base.html`, which name the project rather than the import
 target.
 
+## Tier 4 no-neighbourhood-layer fallback — DONE 2026-08-13
+
+`02` predicted the quadtree was already generic and only needed a fallback.
+That was right, and stronger than expected: **the fallback was already there**,
+unreachable. `build_tiles` bucketed addresses falling outside every polygon into
+an "Unassigned" tile built from `city_rect.difference(union(hoods))`. With no
+features at all, that union is empty and the leftover *is* the whole city
+rectangle — so the existing orphan branch already tiles a bare bbox correctly.
+
+So the change is small: `[city] neighbourhoods_url`, optional. Empty means
+`run()` skips the HEAD and download entirely (verified: it raises if `_head` is
+called) and passes no features. `build_tiles` gained one parameter,
+`orphan_name`, so those tiles are named after the city rather than
+"Unassigned" — nothing was assigned elsewhere, so there is nothing for them to
+be unassigned from. Default is still `"Unassigned"`, so the layer-backed build
+is untouched.
+
+Also folded the two builds' identical 40-line tail into `_write_tiles`, so
+`tiles.json` and the sidecar cannot drift between the paths.
+
+**Guardrail held, measured rather than argued.** Running the pre-change
+`build_tiles` and the new one over the same 158 neighbourhoods and 525,473
+points at snapshot 104 gives byte-identical tiles and identical stats — 1,297
+tiles, 0 orphans. (Diffing against the committed `data/tiles.json` instead is
+misleading: it differs in `address_count` on 132 tiles because it was built at
+snapshot 37. Geometry, ids, names and parents match it too.) `data/tiles.json`
+was not rewritten.
+
+New: `tests/test_tiles_no_layer.py` — 1,600 points, no features; asserts every
+address lands in a tile, no tile exceeds the hard ceiling, tiles carry the city
+name, and the default is still "Unassigned". 73 tests pass.
+
 ## Hamilton's entry state — DONE 2026-08-13
 
 **Cleared as city #2.** Greenfield for a municipal import: a CanVec/NRCan base

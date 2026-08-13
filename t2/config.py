@@ -15,6 +15,7 @@ OSM_ENV = "dev"
 class Config:
     city_slug: str
     city_name: str
+    city_neighbourhoods_url: str
     source_sqlite_path: str
     default_bbox: tuple[float, float, float, float]
     overpass_url: str
@@ -119,6 +120,7 @@ def load() -> Config:
     return Config(
         city_slug=str(city_section["slug"]),
         city_name=str(city_section["name"]),
+        city_neighbourhoods_url=str(city_section.get("neighbourhoods_url", "")).strip(),
         source_sqlite_path=cfg["source"]["sqlite_path"],
         default_bbox=bbox,  # type: ignore
         overpass_url=cfg["run_defaults"]["overpass_url"],

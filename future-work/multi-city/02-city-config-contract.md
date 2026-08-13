@@ -36,10 +36,13 @@ identity must not fall back to Toronto.
 
 **Tier 3 — street conventions.** See `01`.
 
-**Tier 4 — geography.** `t2/tiles_build.py:40` hardcodes the City of Toronto
-158-neighbourhood GeoJSON URL. The quadtree ≤500-addresses-per-tile logic
-underneath is already generic and needs no change; it needs a fallback for
-cities with no neighbourhood layer. See also `10` for boundary clipping.
+**Tier 4 — geography. IMPLEMENTED 2026-08-13.** The URL is now
+`[city] neighbourhoods_url`, and leaving it empty splits `[osm] city_bbox`
+directly. The prediction that the quadtree was already generic held — better
+than stated: the existing "Unassigned" orphan branch *was* the fallback, since
+an empty polygon union leaves the whole city rectangle. See DONE.md. Boundary
+clipping (`10`) is still open and is a separate concern: a rectangle is not a
+boundary.
 
 ## Sketch of the config
 

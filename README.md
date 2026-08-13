@@ -158,14 +158,21 @@ layer you can click on. Generate it once with:
 python -m t2.tiles_build
 ```
 
-This downloads the City of Toronto's 158-neighbourhood polygon layer from
-[Open Data](https://open.toronto.ca/dataset/neighbourhoods/), counts active
+This downloads the polygon layer named by `[city] neighbourhoods_url` — for
+Toronto, the City's 158-neighbourhood layer from
+[Open Data](https://open.toronto.ca/dataset/neighbourhoods/) — counts active
 source addresses inside each polygon, quadtree-splits any neighbourhood with
 more than 500 addresses, then merges any tile under 250 addresses into a
 border-sharing neighbour (soft ceiling 500, hard ceiling 750) so the operator
 never reviews a near-empty tile. The result (~1,300 tiles, 250–750 addresses
 each) lands in `data/tiles.json` + a `data/tiles/meta.json` sidecar.
 Regenerate when a new source snapshot lands.
+
+A city with no such layer leaves `neighbourhoods_url` empty. The builder then
+skips the download and quadtree-splits `[osm] city_bbox` directly, naming the
+tiles after `[city] name`. Same splitting and merging, so tiles stay in the
+same 250–750 band; they are just named `Hamilton-1`, `Hamilton-2`, … instead of
+after neighbourhoods.
 
 The dashboard's **Pick on map** button opens `/map` — click any tile to land
 on its detail page, which lists prior runs on that tile and has a "Start new

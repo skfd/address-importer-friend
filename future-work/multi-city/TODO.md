@@ -14,17 +14,17 @@ doc work, Wellington's spike, and the Peel correction.
 (DONE.md) but nothing on this list tracked producing the import, only the policy
 and design work surrounding it. Written down 2026-08-13.
 
-Tier 1 is **done** (2026-08-13, see DONE.md). Tier 4 is still open, and the
-source still points at `toronto.db`.
+Tiers 1 and 4 are **done** (2026-08-13, see DONE.md). What remains is pointing
+the source at Hamilton and running it.
 
 - [x] **Tier 1, mechanical** (`02`) — done 2026-08-13.
+- [x] **Tier 4, geography** (`02`) — done 2026-08-13. The prediction held: the
+      quadtree needed no change.
 - [ ] Point the source at
       `ontario-address-changes/data/hamilton/hamilton.db` — already on disk,
-      dataset slug `hamilton`.
-- [ ] **Tier 4, geography** (`02`): `t2/tiles_build.py:40` hardcodes the City of
-      Toronto 158-neighbourhood GeoJSON URL. Hamilton needs the no-neighbourhood
-      -layer fallback; the quadtree ≤500-per-tile logic underneath is already
-      generic and needs no change.
+      dataset slug `hamilton`. **This is the next step**, and the first one that
+      cannot be verified by "Toronto is unchanged" — it is where Tier 2, the
+      source projection (`03`), starts to bite.
 - [ ] Run **baseline conflation in full** — README decision 1: conflation always
       runs in full for every city, upload is the conditional part.
 - [ ] Guardrail throughout: **Toronto's match rates must not move** (`tool.db`

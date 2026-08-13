@@ -6,6 +6,11 @@
 # silently importing Toronto.
 slug = "toronto"
 name = "Toronto"
+# Optional polygon layer the tile builder subdivides, so operators pick run
+# areas by a name they recognise. Leave empty for a city with no such layer:
+# the quadtree then splits `[osm] city_bbox` directly and names the tiles after
+# `name` above. Toronto's is the City's official 158-neighbourhood layer.
+neighbourhoods_url = "https://ckan0.cf.opendata.inter.prod-toronto.ca/dataset/fc443770-ef0a-4025-9c2c-2cb558bfab00/resource/0719053b-28b7-48ea-b863-068823a93aaa/download/neighbourhoods-4326.geojson"
 
 [source]
 sqlite_path = "C:/Users/kk/Code/ontario-address-changes/data/toronto/toronto.db"
