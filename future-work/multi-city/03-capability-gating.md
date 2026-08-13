@@ -56,21 +56,15 @@ gates the **core** operation, with a real dataset failing it.
 `has_street_type` — does the source's street value carry a street type
 (`Street`, `Road`, `Avenue`) at all, or only the name component?
 
-**Peel fails it.** 96% of `peel-region` rows carry a bare name with no type. A
-normalizer that assumes a type will produce `MAIN` where OSM has `MAIN STREET`,
-match nothing, and report a ~100% gap as if it were a finding. The survey caught
-this only because of its guard metric — Peel's "is the street in OSM anyway"
-score was 1.0%, absurd on its face, which is what exposed the number as an
-artifact rather than a result.
-
-This is exactly the failure `03` exists to prevent, and it is now instanced
-rather than hypothetical: **a consumer that does not check produces confident
-garbage instead of refusing to run.**
+A consumer that skips this check produces `MAIN` where OSM has `MAIN STREET`,
+matches nothing, and reports a ~100% gap as if it were a finding — confident
+garbage instead of a refusal to run. That is exactly the failure `03` exists to
+prevent.
 
 Two properties make it a better exemplar than the Toronto-only fields:
 
 1. It is not a simple field-presence check. The field is *present*; its
-   **content** is insufficient. So the capability model cannot be purely "is
+   **content** may be insufficient. So the capability model cannot be purely "is
    this key declared" — it needs derived capabilities, measured from the data.
 2. Failing it must **stop the run**, not disable a feature. There is no degraded
    mode for "conflate without street names". Compare the Toronto-only fields,
@@ -82,6 +76,39 @@ So the registry needs at least two severities: *disable and report*, and
 Related: 18 of 42 datasets store the street name component only, which makes
 street resolution a required per-dataset step rather than a quirk — see the
 correction in `02`.
+
+### Correction 2026-08-13: Peel was a false negative, and that is the sharper lesson
+
+This section was originally written around "**Peel fails it** — 96% of
+`peel-region` rows carry a bare name with no type." **That was wrong, and it is
+worth keeping the error visible because of what it shows about where the check
+belongs.**
+
+`STREETTYPE` is populated for **98.8%** of Peel rows (Mississauga 98.2%,
+Brampton 99.8%, Caledon 100%). The 96% figure came from measuring the *canonical
+`street` column*, which for Peel maps to `STREETNAME` — the name component only.
+Peel is the same name+type split as Durham and Niagara, both of which the same
+survey resolved correctly.
+
+So the capability was evaluated against the wrong surface, and the result was
+not a false pass but a **false refusal**: a 339,723-address dataset — the sole
+source for Mississauga and Caledon — was written off as unusable.
+
+Three things this fixes in the design:
+
+1. **`has_street_type` must be measured *after* street resolution (`02`), never
+   before.** Ordering is not an implementation detail here; it decides the
+   answer. A capability that inspects raw canonical fields is measuring the
+   tracker's change-detection key, not the dataset.
+2. **A refusal needs the same evidence burden as a result.** The guard metric
+   did its job — Peel's 1.0% "is the street in OSM anyway" score was absurd on
+   its face — but absurdity was read as *the dataset is broken* rather than *our
+   reading of the dataset is broken*. Those are indistinguishable from the
+   metric alone, so a failed capability should print the values it judged.
+3. **No dataset in the portfolio currently fails `has_street_type`.** The
+   capability stays — it gates the core operation and the failure mode is real —
+   but it is now hypothetical again, and `08`'s table records no `typeless`
+   dataset.
 
 ## Design sketch
 

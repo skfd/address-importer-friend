@@ -83,6 +83,49 @@ dataset paired with its separated city is contaminated by construction.
 - [ ] Must clip **both** sides — source rows and OSM elements — or the asymmetry
       creates a new false signal.
 
+**Scope narrowed 2026-08-13 by the source-overlap census** (`10`, "Two different
+problems, two different mechanisms"). The polygon's job is the **OSM side**;
+source-side dedup is an attribute lookup on the municipality field and needs no
+boundary. Wellington and Guelph share *zero* addresses — a separated city is
+outside its county's layer by construction — and only 2 pairs of 42 genuinely
+duplicate (lambton ⊃ sarnia, peel-region ⊃ brampton).
+
+- [ ] Portfolio-level **ownership map**: municipality → authoritative dataset.
+      Must be keyed per municipality, not per dataset, because Peel is
+      authoritative for Mississauga and Caledon while losing Brampton.
+- [ ] Rule to encode: lower tier wins; and clip the city layer to its own
+      boundary so Guelph's 75 `Guelph/Eramosa Twp` rows go to Wellington.
+
+## 7. Peel was misread as typeless — corrected 2026-08-13
+
+`peel-region` was recorded as having no street types (`street-known%` 1.0, gap
+"not a gap number", `03`'s worked failure case). **`STREETTYPE` is populated for
+98.8% of its rows** — Mississauga 98.2%, Brampton 99.8%, Caledon 100%. The 4%
+figure was measured against the canonical `street` column, which maps to
+`STREETNAME`: the same name+type split as Durham and Niagara, both resolved
+correctly by the same run.
+
+Fixed in `scripts/portfolio_survey.py` (`RESOLUTION["peel-region"]`), re-measured
+against the survey's own PBF, and corrected in `02`, `03` and `08`.
+
+Re-measured: Peel's gap is **270,150 of 339,723 (79.5%) at 90.5% street-known**,
+not 337,581 at 1.0%. The OSM side reproduced exactly (154,552 distinct keys,
+178,491 elements, 13% ways, 2018 peak 73,569), so only the source resolution was
+ever broken. Peel drops below york in the sorted table.
+
+- [ ] **Mississauga is a new candidate** the survey wrote off: 116,109 missing
+      at **96.6% street-known**, the best score of any shortlist candidate,
+      Hamilton included. Sole source, no city layer tracked. Needs the `05`
+      entry-state probe before it can be ranked — and it is the first case where
+      `municipality_name` handling (`03`) blocks a specific attractive city
+      rather than a category.
+- [ ] `has_street_type` must be evaluated **after** street resolution, never
+      against raw canonical fields (`03`). Ordering decides the answer.
+- [ ] A failed capability should print the values it judged. The guard metric
+      flagged Peel correctly; the absurd number was read as "dataset broken"
+      rather than "our reading is broken", and those are indistinguishable from
+      the metric alone.
+
 ## Not blocking, worth doing when touching the normalizer
 
 Cheap suffix-table wins measured by the survey: `AV`, `CR`, `BV`, `WY`, `TERR`,

@@ -117,8 +117,10 @@ canonical fields suffice for a consumer. **The portfolio survey disproved this.*
 `street` is not a dependable street. Of 42 datasets, **18 store the name
 component only** — `MAIN` where conflation needs `MAIN STREET`. The field is
 populated and looks fine; it is simply a different thing in different datasets.
-Peel is the extreme case at 96% typeless, and a consumer trusting `street`
-there matches nothing while reporting a clean ~100% gap (`03`).
+Peel is the extreme case at 96%: a consumer trusting `street` there matches
+nothing and reports a clean ~100% gap. The type is sitting in `STREETTYPE` on
+98.8% of rows the whole time, which is precisely the point — the canonical field
+being useless says nothing about the dataset being usable (`03`).
 
 So a **street resolution step is mandatory per dataset, ahead of any
 normalization**, and it belongs in this contract rather than in each consumer:

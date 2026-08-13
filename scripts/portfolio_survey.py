@@ -70,12 +70,14 @@ RESOLUTION: dict[str, dict] = {
     # No canonical `full`; reassemble name + type + direction from props.
     "durham": {"name": "ROAD_NAME", "type": "ROAD_TYPE", "dir": "ROAD_DIR"},
     "niagara-falls": {"name": "StreetName", "type": "StreetType", "dir": "StreetDir"},
-    # No street type anywhere in the layer: STREETTYPE is populated for 4% of
-    # rows (exotic types like ABBEY) while Bloor/Hurontario/Dundas sit bare.
-    # Not a tracker omission -- peel-region.toml sets no keep_fields, so this
-    # is the source's own shape. Conflating it needs type inferred from the
-    # road network, so its gap number is not trustworthy.
-    "peel-region": {"typeless": True},
+    # Corrected 2026-08-13. The first run recorded peel-region as `typeless` on
+    # the strength of a 4% figure that was measured against the canonical
+    # `street` column -- which maps to STREETNAME, the name component only.
+    # STREETTYPE itself is populated for 98.8% of rows (Mississauga 98.2%,
+    # Brampton 99.8%, Caledon 100%), so this is the same name+type split as
+    # durham and niagara-falls above, not a source defect.
+    "peel-region": {"name": "STREETNAME", "type": "STREETTYPE",
+                    "dir": "STREETDIRECTION"},
 }
 
 

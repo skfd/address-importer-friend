@@ -1,10 +1,19 @@
 # Portfolio survey results — 42 datasets, 2026-08-12
 
-Status: **run and validated.** Supersedes the hypotheses in
-[08-portfolio-survey.md](08-portfolio-survey.md). Raw output:
+Status: **run and validated**, with one row corrected. Supersedes the hypotheses
+in [08-portfolio-survey.md](08-portfolio-survey.md). Raw output:
 [08-survey-results-2026-08-12.json](08-survey-results-2026-08-12.json).
 Produced by `scripts/portfolio_survey.py` (throwaway research script, kept for
 re-runs, not a library).
+
+**Amendments after the original 2026-08-12 run.** Tier 2 findings (the 2018
+peak, Ottawa, York, Wellington, Hamilton, Oakville) are dated in place. Two
+later passes changed the document rather than extending it:
+
+- **peel-region was misread as typeless** and is retracted below; its row in the
+  full table is re-measured. The JSON still carries the original figures.
+- **A source-overlap census** (2026-08-13) found the datasets barely overlap
+  each other, which splits `10` into two mechanisms.
 
 ## Method
 
@@ -60,11 +69,20 @@ Reported honestly rather than buried. The `street-known%` column is the guard:
 for each missing address, does its street exist in OSM without that
 housenumber? High means a real gap; low means the match failed.
 
-- **peel-region (1.0%)** — the source carries no street type for 96% of rows
-  (`STREETTYPE` is populated for 4%, exotic types like `ABBEY`, while
-  Bloor/Hurontario/Dundas sit bare). Not a tracker omission: `peel-region.toml`
-  sets no `keep_fields`. **Its 337,581 is not a gap number.** Conflating Peel
-  needs street type inferred from the road network.
+- ~~**peel-region (1.0%)**~~ — **retracted 2026-08-13. This entry was wrong.**
+  It read: "the source carries no street type for 96% of rows… its 337,581 is
+  not a gap number… conflating Peel needs street type inferred from the road
+  network." In fact `STREETTYPE` is populated for **98.8%** of Peel rows
+  (Mississauga 98.2%, Brampton 99.8%, Caledon 100%). The 4% figure was measured
+  against the canonical `street` column, which maps to `STREETNAME` — the name
+  component only, exactly the same name+type split as `durham` and
+  `niagara-falls`, which the same run resolved correctly.
+
+  Re-measured with the right recipe, Peel's `street-known%` is **90.5%**, one of
+  the better scores in the portfolio, and its gap is a real 270,150. The 1.0%
+  score was the guard metric working — an absurd number *did* mean something was
+  wrong — but the fault was in the reading, not the dataset. See `03` for the
+  design consequence.
 - **ottawa (26.2%)** — `PRIV` (21,642 rows, Ottawa's "Private" suffix), `TERR`,
   and French `RUE`/`BOUL`/`DE`/`DU`. The 53,508 gap is materially overstated.
 - **muskoka (24.6%)**, **cornwall (50.5%)**, **frontenac (55.2%)**,
@@ -98,6 +116,12 @@ Resolution is best *measured*, not declared: the typed-token distribution is
 sharply bimodal, so "use `street` if ≥80% of its values carry a type, else
 `full`, else reassemble from props" classifies all 42 correctly. Anything from
 40 to 85 gives the same answer.
+
+**But measure the right column.** This score is a property of the *canonical
+field*, not of the dataset, and reading it as the latter is what wrote Peel off
+as unusable (retracted above). Peel scores 9% here while carrying `STREETTYPE`
+on 98.8% of its rows. A low score means "resolution is required", never "the
+type is missing".
 
 Traps found the hard way, each of which silently corrupted a first run:
 
@@ -141,8 +165,8 @@ share in the 20 densest (low = diffuse, high = concentrated).
 
 | dataset | source | OSM | missing | miss% | street-known% | way% | col | cells | top20% | peak year |
 |---|--:|--:|--:|--:|--:|--:|:--|--:|--:|:--|
-| peel-region | 338,238 | 154,552 | 337,581 | 99.8 | 1.0 | 13 | typeless | 4,125 | 3 | 2018 (73,569) |
 | york | 364,225 | 274,938 | 277,946 | 76.3 | 84.4 | 15 | street | 5,541 | 3 | 2026 (128,307) |
+| peel-region † | 339,723 | 154,552 | 270,150 | 79.5 | 90.5 | 13 | props | 3,803 | — | 2018 (73,569) |
 | durham | 231,354 | 160,749 | 181,390 | 78.4 | 84.0 | 23 | props | 6,502 | 5 | 2018 (69,484) |
 | niagara-falls | 180,519 | 103,614 | 142,875 | 79.1 | 85.6 | 5 | props | 6,016 | 5 | 2018 (87,530) |
 | brampton | 164,524 | 45,427 | 135,117 | 82.1 | 87.1 | 16 | full | 981 | 7 | 2018 (24,785) |
@@ -183,6 +207,26 @@ share in the 20 densest (low = diffuse, high = concentrated).
 | cornwall | 18,330 | 7,891 | 14,871 | 81.1 | 50.5 | 36 | full | 189 | 39 | 2018 (3,467) |
 | toronto | 522,262 | 583,393 | 2,810 | 0.5 | 76.9 | 14 | street | 953 | 24 | 2026 (464,853) |
 | guelph | 40,632 | 45,875 | 2,574 | 6.3 | 98.9 | 90 | street | 249 | 49 | 2025 (44,279) |
+
+† **peel-region re-measured 2026-08-13** against the same PBF, after the
+`typeless` misreading was corrected (see below). The OSM side reproduced
+exactly — 154,552 distinct keys, 178,491 elements, 13% ways, 2018 peak 73,569 —
+which confirms only the source resolution was ever broken. `top20%` was not
+recomputed; it needs a second full PBF pass and is the least load-bearing column
+in the table.
+
+Because Peel is the sole source for two of its three municipalities, its gap
+splits usefully:
+
+| municipality | source | missing | miss% | street-known% |
+|---|--:|--:|--:|--:|
+| Mississauga | 148,262 | 116,109 | 78.3 | **96.6** |
+| Brampton | 162,260 | 131,963 | 81.3 | 88.3 |
+| Caledon | 29,201 | 22,078 | 75.6 | 71.9 |
+
+Brampton's row here (131,963 / 88.3%) against the City layer's own row above
+(135,117 / 87.1%) is a useful cross-validation: two independently published
+layers, resolved by different recipes, agree on the gap to within 2%.
 
 ## The 2018 peak — answered (Tier 2, 2026-08-13)
 
@@ -270,6 +314,66 @@ Note the containment is *total*, not partial as York's was — Guelph is a
 separated city that sits geographically inside Wellington County, so the county
 dataset's rectangle can never avoid it. No amount of bbox tuning fixes this one;
 it needs the polygon (`10`).
+
+## Finding: the source datasets barely overlap each other (2026-08-13)
+
+The Wellington/Guelph result above is about **OSM elements** inside a rectangle.
+The obvious follow-on — do the two *sources* also publish the same addresses? —
+turns out to have a much cleaner answer, and it separates a problem that `10`
+was treating as one thing.
+
+Census over all 861 dataset pairs: bbox intersection → point containment →
+shared `number|street` key → coordinate proximity under 150 m. Scripted as
+`scripts/source_overlap_census.py`; the design consequence is written up in
+`10`.
+
+**Wellington and Guelph do not overlap at all.** Wellington's 42,925 rows carry
+a `Municipality` field with exactly seven values — Centre Wellington, Erin,
+Wellington North, Guelph-Eramosa, Mapleton, Minto, Puslinch. Guelph is not among
+them, because a separated city is legally outside its county. The 1,442
+Wellington points inside Guelph's *rectangle* are Guelph-Eramosa (922) and
+Puslinch (520) addresses in the corners.
+
+The 73 genuine duplicates run the **opposite way to the assumption**: both sides
+label them `PLACE='Guelph/Eramosa Twp'` and `Municipality='Guelph-Eramosa'`. One
+subdivision in the NE corner (Eramosa Cres, Promenade Rd, Hillside Dr, Gazer
+Cres). It is Guelph's layer reaching *out* past the city boundary — the same 75
+rows `10` already noted — not Wellington reaching in.
+
+The same shape holds for every separated city in the portfolio: cornwall/sdg 0
+duplicates, brantford/brant 0, kingston/frontenac 0, barrie/york 0,
+toronto/york 0 (against 6,792 shared keys — the keys collide, the coordinates
+never do).
+
+**Only two pairs in 42 genuinely duplicate**, and both are a lower-tier
+municipality inside its upper tier rather than a separated city:
+
+| pair | shared, colocated | share of the city layer | median offset |
+|---|--:|--:|--:|
+| lambton ⊃ sarnia | 25,704 | 96.1% | 0 m (90.6% coordinate-identical) |
+| peel-region ⊃ brampton | 161,200 | 98.0% | 3 m |
+
+Where they overlap, the city layer wins, but for different reasons. **Brampton
+beats Peel decisively** — 34 populated props including `POSTAL_CODE` (229,865)
+and `UNIT_NO` (69,186) against Peel's 12 and no postcode, plus 54 tracked
+snapshots against Peel's 1. **Sarnia beats Lambton narrowly** — 26,568 keys
+against 26,288, near-identical field sets, neither carrying units. The
+disagreements read as genuine rather than as one copy lagging — of 5,611 keys
+exclusive to one side, 7 have ever been seen on the other — though only the
+Brampton side has enough snapshot history (54, against 1–2 for the rest) to make
+that a strong test.
+
+Worth stating because it is the opposite of what the portfolio-scale worry
+predicted: **no two municipal sources disagree about where a house is.** Where
+they overlap they agree to 3 m, and 90.6% of the Lambton/Sarnia pairs are
+identical to the metre. Source conflict is not the problem; source *ownership*
+is, and Ontario's two-tier municipal structure already answers it. The design
+consequence — dedup on the municipality attribute, reserve the polygon for the
+OSM side — is written up in `10`.
+
+Third category, not overlap but the reason regional datasets cannot simply be
+deprioritised: **Peel is the sole source for Mississauga and Caledon**, as
+Durham is for its 8 municipalities, York for its 9, Niagara for its 12.
 
 ## Hamilton's entry state — established (Tier 2, 2026-08-13)
 
@@ -363,16 +467,30 @@ Cities, not regions, and only where `street-known%` supports the number:
    import, no wiki page, no active importer.
 2. **London** — 98,973 missing, 77.9%, single municipality, clean `street`
    column.
-3. **Brampton** — 135,117 missing, 87.1%. Caveat: the City layer and the Region
-   of Peel layer are separate datasets covering the same ground
-   (`brampton.toml` vs `peel-region.toml`), and Peel's is unusable. Decide which
-   is authoritative before touching either.
+3. **Brampton** — 135,117 missing, 87.1%. The City layer and the Region of Peel
+   layer do cover the same ground (98.0% shared keys, 3 m median offset), but
+   the caveat that used to sit here is **resolved as of 2026-08-13**: the City
+   layer is authoritative on field richness (34 populated props incl.
+   `POSTAL_CODE` and `UNIT_NO`, against Peel's 12) and on tracking history (54
+   snapshots against 1). Use `brampton.toml`; Peel keeps Mississauga and
+   Caledon.
 4. **Windsor** (74,551, 72.8%) and **Kitchener** (48,489, 84.9%) behind those.
+
+**Added 2026-08-13: Mississauga**, at 116,109 missing and **96.6%
+street-known** — the highest street-known score of any candidate on this list,
+Hamilton included. It ranks between Hamilton and London on size and above both
+on data quality, and the Peel correction is the only reason it was not here from
+the start. Two things hold it back from being ranked outright: it has no city
+layer of its own, so it can only be reached through the regional dataset
+(`municipality_name` handling, `03`), and **its entry state has never been
+probed** — the one thing that cleared Hamilton. Treat it as the next `05` probe
+rather than as a ranked candidate.
 
 Regional datasets (york 277,946, durham 181,390) are larger but each spans many
 municipalities, which makes `municipality_name` handling (`03`) and polygon
 clipping (`10`) prerequisites rather than nice-to-haves. `08` guessed ~19 of 42
-are counties or regions; that holds.
+are counties or regions; that holds. Mississauga is the first case where that
+prerequisite blocks a specific, attractive city rather than a category.
 
 ## What this changes
 
@@ -383,8 +501,16 @@ are counties or regions; that holds.
 - **`02` needs a correction**: canonical fields are not conflation-ready, and
   street resolution is a required per-dataset step.
 - **`03`'s capability gating gains a concrete first case**: `has_street_type`.
-  Peel fails it, and a consumer that doesn't check will silently produce
-  garbage rather than refusing to run.
+  A consumer that doesn't check will silently produce garbage rather than
+  refusing to run. Peel was cited here as the dataset that fails it; **it does
+  not** (correction above), and the capability must be measured *after* street
+  resolution or it answers the wrong question.
+- **A survey can be wrong in the direction of refusal, not just of confidence.**
+  Peel was written off as unusable for a day on a metric that was measuring the
+  tracker's change-detection key rather than the dataset. The guard metric fired
+  correctly; the reading of it did not. Every "this number is not trustworthy"
+  verdict in this document deserves the same suspicion as the numbers it
+  disqualifies.
 - **`05` needs a new detection case.** The NRCan work carries no `import=yes`
   and no `import:page`, so a prior-import check that looks only for import tags
   returns "greenfield" for a city that already has a bulk-loaded address layer.
@@ -403,3 +529,9 @@ are counties or regions; that holds.
   activity.** The naive reading of the `peak year` column was wrong in every
   case it looked interesting. Treat the column as a prompt to investigate, never
   as a finding.
+- **Source-side overlap is nearly absent, and `10` splits in two** (2026-08-13).
+  Only 2 of 861 dataset pairs genuinely duplicate. Ontario's two-tier structure
+  decides it: separated cities are outside their county's layer by construction,
+  lower-tier municipalities are inside it. So source dedup is a municipality
+  **attribute** lookup, and the polygon is needed for the **OSM** side — where
+  every conclusion a rectangle actually changed was found.
