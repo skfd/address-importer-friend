@@ -88,6 +88,14 @@ Toronto was the outlier, not the template. Building-footprint imports have
 already seeded most mid-size Canadian cities. Assume every new city is
 brownfield until a survey proves otherwise.
 
+**Corrected 2026-08-12 by the portfolio survey
+([08-survey-results-2026-08-12.md](08-survey-results-2026-08-12.md)): the
+generalisation above is wrong.** Toronto (0.5% missing) and Guelph (6.3%) are
+the only two datasets below 15%; 33 of 42 are above 75%. Ontario is mostly
+greenfield, and Guelph was a coincidence rather than evidence. What survives is
+the narrower lesson: **survey before committing to a city** — just expect a gap
+rather than expect it to be gone.
+
 ## Index
 
 - [01-core-library.md](01-core-library.md) — extract the shared conflation +
@@ -108,6 +116,11 @@ brownfield until a survey proves otherwise.
   implementation target.
 - [08-portfolio-survey.md](08-portfolio-survey.md) — sweep all 42 tracked
   datasets to design against real distributions instead of two data points.
+  **Run 2026-08-12** →
+  [08-survey-results-2026-08-12.md](08-survey-results-2026-08-12.md) (+ raw
+  [JSON](08-survey-results-2026-08-12.json)). Validated against Guelph and
+  Toronto; inverts the greenfield/brownfield assumption and shows the tracker's
+  canonical `street` column is not conflation-ready.
 - [09-units.md](09-units.md) — `addr:unit`, deferred but recorded. Guelph has
   13,162 unit rows and stacks of up to 214 at one civic address.
 - [10-boundary-clipping.md](10-boundary-clipping.md) — bbox bleed into
@@ -123,8 +136,9 @@ Carried into the next session, in priority order:
 1. Adjudication data model — scope levels, key stability, auto-reopen (`06`).
    Largest remaining design. Everything else adapts to it.
 2. How much pushes back into OSM natively vs stays in the store (`06`).
-3. Whether to run the 42-dataset survey now (`08`) — cheap, mostly offline, and
-   would replace several inferred claims with measured ones.
+3. ~~Whether to run the 42-dataset survey now (`08`)~~ — **done 2026-08-12.**
+   Replaced by two new questions it raised: which of Hamilton / London /
+   Brampton is city #2, and what the province-wide 2018 edit peak actually was.
 4. Units: collapse-and-defer vs design first (`09`). Blocks any Guelph work.
 5. Does `accordeur`'s dataset config gain an explicit `feature_type` key (`11`)?
 6. Whether to contact `ARandomThumbtack_Import` before doing anything in
