@@ -110,6 +110,42 @@ Three things this fixes in the design:
    but it is now hypothetical again, and `08`'s table records no `typeless`
    dataset.
 
+### Second concrete capability: `has_municipality` (measured 2026-08-13)
+
+`MUNICIPALITY_NAME` sits in the Toronto-only table above as a dependency of
+cross-municipality dedup keying. The Mississauga probe (`08`) turned it into a
+measured capability rather than an assumed blocker.
+
+Peel's `MUNICIPALITY` field, latest non-skipped snapshot:
+
+| value | rows | `STREETNAME` | `STREETTYPE` |
+|---|--:|--:|--:|
+| Mississauga | 264,641 | 100% | 98.2% |
+| Brampton | 207,421 | 100% | 99.8% |
+| Caledon | 31,861 | 100% | 100% |
+
+No nulls, no spelling variants, no third-party municipalities leaking in. The
+capability **passes**, and a city inside a regional dataset is reachable by
+attribute filter alone.
+
+Two design consequences:
+
+1. **This capability gates a *slice*, not a run.** The other capabilities answer
+   "can this dataset be processed at all". This one answers "can this dataset be
+   *subdivided*", and the answer determines whether a regional feed yields one
+   work item or several. That is a third thing a capability can do, alongside
+   *disable and report* and *refuse to run*.
+2. **Per-dataset, not per-class.** `08` recorded `municipality_name` handling as
+   blocking regional datasets as a category, and specifically as blocking
+   Mississauga. Peel disproves the category claim. Roughly 19 of 42 datasets are
+   regional; each needs measuring before its cities are deferred, and the cheap
+   probe is a distinct-value count on the municipality field.
+
+Note the pairing with `10`: a clean municipality attribute settles the **source**
+side only. The OSM side of the same city still needs a polygon, because OSM
+elements carry no authoritative municipality tag to filter on. The two halves of
+the boundary problem have different solutions and different readiness.
+
 ## Design sketch
 
 Not settled. The direction discussed:

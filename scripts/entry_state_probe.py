@@ -41,6 +41,18 @@ CITIES = {
         },
         "wiki": ["Canada:Ontario:Hamilton", "Hamilton, Ontario"],
     },
+    "mississauga": {
+        "bbox": (43.48500, -79.83000, 43.71800, -79.52500),
+        # Port Credit and Streetsville were incorporated towns until the 1974
+        # amalgamation; Malton is the detached north-east community by the
+        # airport. Same rationale as Hamilton's Dundas / Stoney Creek.
+        "samples": {
+            "port-credit": (43.548, -79.589, 43.560, -79.577),
+            "streetsville": (43.575, -79.716, 43.587, -79.704),
+            "malton": (43.700, -79.641, 43.712, -79.629),
+        },
+        "wiki": ["Canada:Ontario:Mississauga", "Mississauga"],
+    },
     # Wellington boxes are untested approximations for the 2025-spike question
     # (TODO #3) -- sanity-check the element counts before trusting a run.
     "wellington": {
@@ -55,7 +67,7 @@ CITIES = {
 }
 
 
-def _get(url, data=None, tries=4):
+def _get(url, data=None, tries=6):
     for i in range(tries):
         try:
             req = urllib.request.Request(url, data=data, headers={"User-Agent": UA})
@@ -64,7 +76,9 @@ def _get(url, data=None, tries=4):
         except urllib.error.HTTPError as ex:
             if ex.code not in (429, 502, 503, 504) or i == tries - 1:
                 raise
-            wait = 20 * (i + 1)
+            # Overpass shedding load needs minutes, not seconds: the 20/40/60s
+            # ladder ran out mid-run on the Mississauga probe (2026-08-13).
+            wait = 30 * (i + 1)
             print(f"    [{ex.code}] retrying in {wait}s ...", flush=True)
             time.sleep(wait)
 

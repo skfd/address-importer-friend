@@ -20,8 +20,44 @@ Follow-ups this leaves open, none blocking:
       hand and said so in their changeset comments
 - [ ] Decide what we write for `addr:city` in an amalgamated city (Hamilton's
       own rename left `Dundas` and `Stoney Creek` behind) and for
-      `addr:province` (`ON` 27 vs `Ontario` 2 — no convention to honour)
-- [ ] Adjudication policy for municipal-vs-CanVec disagreement (`06`)
+      `addr:province` (`ON` 27 vs `Ontario` 2 — no convention to honour).
+      **Narrowed 2026-08-13:** the `addr:city` half is Hamilton-specific —
+      Mississauga's rename finished (893 `Mississauga`, 1 `Port Credit`), so
+      this is not a general amalgamated-city policy question. `addr:province`
+      is unconventioned in both and stays general.
+- [ ] Adjudication policy for municipal-vs-CanVec disagreement (`06`).
+      **Now covers both candidates**: the same Mojgan Jadidi StatCan GTHA
+      campaign seeded Hamilton (cs 37445896) and Mississauga (cs 37570399) five
+      days apart in 2016, so one policy settles both.
+
+## 1c. Mississauga's entry state — DONE 2026-08-13
+
+**Greenfield, and now a ranked co-candidate with Hamilton.** Probed per `05`
+with the same script (`mississauga` boxes: Port Credit, Streetsville, Malton;
+1,086 elements). Same CanVec + StatCan strata as Hamilton, no wiki page, no
+import tags, no active importer, and **no manual infiller to stand down for** —
+the contact list is Matthew Darwin alone, whom Hamilton already names.
+
+Written up in `08-survey-results-2026-08-12.md`. Three things it settled beyond
+the entry state itself:
+
+- **`MUNICIPALITY` splits Peel cleanly** — Mississauga 264,641 / Brampton
+  207,421 / Caledon 31,861, no nulls, no variants, 100% `STREETNAME`. So `03`'s
+  `municipality_name` gate does not block this city, and reaching Mississauga
+  does not wait on `10`.
+- **Its year peaks are pure retag artifact** — 2019 and 2018 are both Matthew
+  Darwin province-wide `addr:province`/`addr:state` cleanups. Malton's modal
+  year is 2018 and Port Credit's is 2019 for no reason but which sweep landed
+  last.
+- **2026 is POI mapping, not an import** (item 1b's question, for this city).
+
+- [ ] **Break the Hamilton/Mississauga tie.** The survey numbers don't do it
+      (see §"How it ranks"). It is a question of whether city #2 should exercise
+      the single-city path already built (Hamilton) or force the
+      regional-dataset path 19 of 42 datasets will need, on its easiest
+      instance (Mississauga). A decision, not a measurement.
+- [ ] Units decide part of it — Mississauga defers 3,548 condo-tower addresses
+      (2.4%), Hamilton defers none. Feeds `09`.
 
 ## 1b. Oakville is brownfield-active — do not touch
 
@@ -31,7 +67,9 @@ onward. Oakville is dataset #29 in the portfolio (49,322 missing). It was never
 on the shortlist, so nothing is lost — but it is now marked.
 
 - [ ] Re-read the 2026 peaks in the Tier 1 table as possible live activity now
-      that one of them demonstrably is
+      that one of them demonstrably is. **Mississauga checked 2026-08-13: not
+      live** — its 2026 elements are commercial-strip POI mapping, and the 100
+      most recent changesets over the extent carry no import tag. One down.
 
 ## 2. Teach `05` shape-based prior-import detection — DONE 2026-08-13
 
@@ -113,12 +151,13 @@ not 337,581 at 1.0%. The OSM side reproduced exactly (154,552 distinct keys,
 178,491 elements, 13% ways, 2018 peak 73,569), so only the source resolution was
 ever broken. Peel drops below york in the sorted table.
 
-- [ ] **Mississauga is a new candidate** the survey wrote off: 116,109 missing
+- [x] **Mississauga is a new candidate** the survey wrote off: 116,109 missing
       at **96.6% street-known**, the best score of any shortlist candidate,
-      Hamilton included. Sole source, no city layer tracked. Needs the `05`
-      entry-state probe before it can be ranked — and it is the first case where
-      `municipality_name` handling (`03`) blocks a specific attractive city
-      rather than a category.
+      Hamilton included. Sole source, no city layer tracked. ~~Needs the `05`
+      entry-state probe before it can be ranked~~ — **probed 2026-08-13, §1c.**
+      The `municipality_name` worry did not survive measurement: Peel's field is
+      three clean values, so `03` gates this city in principle and passes it in
+      fact.
 - [ ] `has_street_type` must be evaluated **after** street resolution, never
       against raw canonical fields (`03`). Ordering decides the answer.
 - [ ] A failed capability should print the values it judged. The guard metric

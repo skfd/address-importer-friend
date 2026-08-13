@@ -30,6 +30,31 @@ Measured 2026-08-10 against snapshot 37 (2026-08-09), 53,846 active rows:
 Naively ingesting Guelph today would attempt to upload 172 stacked nodes at a
 single point. The OSM community would reject that on sight, and correctly.
 
+## The Mississauga numbers (2026-08-13)
+
+A second data point, measured against Peel's latest non-skipped snapshot,
+264,641 Mississauga rows. It changes how expensive option 1 is:
+
+- **116,442 rows (44.0%) carry a `UNIT_IDENTIFIER`** — nearly double Guelph's
+  share of rows.
+- Collapsing gives **148,037 distinct `(number, street)`** civic addresses.
+- But **only 3,548 civic addresses (2.4%) are stacked at all.** The other
+  144,489 are already one-to-one.
+- Stacks are correspondingly deeper: 34 units on average, **591** at 4011
+  Brickstone Mews, 484 and 482 at 3880/3888 Duke of York Blvd, 472 at 310
+  Burnhamthorpe Rd — all Mississauga city-centre condo towers.
+
+**Rows are the wrong denominator.** Guelph reads as 24.4% and Mississauga as
+44.0% by rows, which suggests Mississauga is the harder case; by *addresses*
+Mississauga is 2.4% and the deferral is an enumerable list of towers, while
+Guelph's stacking is spread across a much larger share of its civic addresses.
+The cost of option 1 is the share of **distinct addresses** that lose data, not
+the share of rows — and those two numbers can point in opposite directions.
+
+This also sharpens the guardrail below: the summary to print before upload is
+per-coordinate stack depth, since one 591-unit tower is the entire problem and
+144,489 clean addresses are not.
+
 ## What the prior importer did
 
 Guelph's existing import (`05`) mapped `UNIT_NO` → `addr:unit` directly, with

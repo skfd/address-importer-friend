@@ -437,6 +437,119 @@ import. Approach accordingly. Matthew Darwin is the second contact, as the
 Ontario-wide maintainer whose fingerprints are on the 2018 sweep here, in
 Bruce, and in Guelph's tally.
 
+## Mississauga's entry state — established (Tier 2, 2026-08-13)
+
+Mississauga became a candidate only after the Peel correction, and the shortlist
+entry above deferred it for want of a probe. Probed the same way: three
+~0.012 deg `out meta` boxes in Port Credit, Streetsville and Malton — the two
+towns that were independently incorporated until the 1974 amalgamation, plus the
+detached north-east community — **1,086 elements**, plus changeset lookups, a tag
+tally and a wiki check.
+
+**Verdict: greenfield for a municipal address import.** The same strata as
+Hamilton, minus the manual infiller. No wiki page, no import tags, no active
+importer.
+
+| stratum | evidence | year |
+|---|---|---|
+| NRCan/CanVec base layer | `source=CanVec 6.0 - NRCan` (309), `NRCan-CanVec-7.0` (251) — 80% of the 698 source-tagged elements | pre-2018 |
+| StatCan address ranges | Mojgan Jadidi, cs 37570399, 2,102 changes, `source=StatCan 92-500-X`, "Adding address ranges for GTHA" | 2016 |
+| POI mapping on top | `Bing` (50), `yahoo` (11); `shop`/`amenity`/`phone`/`website`/`check_date` throughout | ongoing |
+
+Users: Matthew Darwin 637, andrewpmk 172, Mojgan Jadidi 54, Bootprint 41,
+Schmooploop 35. Years: 2019 (581), 2026 (124), 2018 (71), 2016 (69), 2025 (69).
+
+**The same StatCan campaign covers both cities.** Mojgan Jadidi's cs 37570399
+here and cs 37445896 in Hamilton are the same 2016 "address ranges for the GTHA"
+push, five days apart. Whatever adjudication policy we settle for one of these
+cities against the federal layer applies unchanged to the other.
+
+**The year distribution is entirely retag artifact.** Every peak resolves to one
+of Matthew Darwin's province-wide cleanup sweeps, none of which added an address:
+
+- 2019 (581) — cs 74017685 (6,942 changes) and 74017655 (7,074), both
+  *"Remove redundant addr:country, addr:province"*
+- 2018 (71) — cs 56806457 (9,831 changes), *"Remove addr:state in ON. addr:state
+  is not used in Canada"*
+
+The split across boxes makes the point sharply: 2019 is 293 of Port Credit and
+286 of Streetsville but **2 of Malton**, while Malton's own modal year is 2018
+(61 of 107). Nothing distinguishes those neighbourhoods except which sweep
+touched them last. This is `05`'s last-touch-year caveat in its purest form —
+the visible year says only when a bot-scale cleanup passed over, and the data
+underneath is CanVec plus StatCan 2016 in both cases.
+
+**The 2026 count is POI mapping, not an import** — which settles TODO item 1b's
+question for this city. Port Credit carries 111 of the 124, and its box is a
+dense commercial main street: `check_date` on 138 elements, `shop` on 106,
+`amenity` on 112. The heaviest 2026 changesets are andrewpmk's ("Created a
+beauty shop; Updated an estate_agent office…"). The 100 most recent changesets
+over the full extent carry **no** `import` or `import:page` tag; the largest are
+trails, sidewalks, crossings and Lyft-affiliated POI work.
+
+### Tag convention to match
+
+Dominant form is `addr:city` + `addr:housenumber` + `addr:street` (770 of 1,086),
+with `addr:housenumber` + `addr:street` alone on 168.
+
+**`addr:city` is uniformly `Mississauga`** — 893, against a single `Port Credit`.
+This is the one place Mississauga is *cleaner* than Hamilton, where 32 `Dundas`
+and 5 `Stoney Creek` survived the rename. Mississauga's amalgamation cleanup
+finished; Hamilton's did not. The open `addr:city` policy question in TODO item 1
+is therefore a Hamilton problem, not a general amalgamated-city one.
+
+`addr:province` splits `ON` (46) against `Ontario` (16) — the same absence of a
+convention found in Hamilton, in the same direction and ratio.
+
+`addr:postcode` is on only 69 of 1,086 (6.4%). Peel publishes no postcode
+either (`10`'s field-richness table), so unlike Guelph there is no enrichment
+win available here.
+
+### Who to talk to
+
+Detection produces **Matthew Darwin** and no one else — the Ontario-wide
+maintainer already named as Hamilton's second contact. There is no Kevo
+equivalent: nobody has been hand-adding Mississauga addresses. Mojgan Jadidi is
+a 2016 contact at most. This is a *shorter* contact list than Hamilton's, and
+the two cities share it.
+
+### How it ranks
+
+Against Hamilton, on the four things that decide city #2:
+
+| | Hamilton | Mississauga |
+|---|---|---|
+| missing | 128,065 | 116,109 |
+| street-known | 91.6% | **96.6%** |
+| entry state | greenfield | greenfield |
+| source | own dataset | Peel, via `MUNICIPALITY` |
+| `addr:city` policy | **unresolved** (Dundas, Stoney Creek) | settled |
+| someone to stand down for | Kevo (manual infiller) | nobody |
+
+**`MUNICIPALITY` is a clean split, measured 2026-08-13**, so the
+`municipality_name` reservation the shortlist attached to Mississauga is weaker
+than it looked. Peel's latest snapshot carries exactly three values, no nulls
+and no variants: Mississauga 264,641 rows, Brampton 207,421, Caledon 31,861,
+each 100% `STREETNAME`-populated and ≥98.2% `STREETTYPE`. Per the overlap
+census, source-side separation is an attribute lookup and needs no polygon — so
+reaching Mississauga does **not** wait on `10`.
+
+**Units are the real asymmetry, and they are cheaper than `09` implies.**
+Mississauga's 264,641 rows collapse to 148,037 distinct `number|street` keys
+(the survey's independently-derived 148,262, to within 0.2%). The stacking is
+almost entirely condo towers:
+
+- 144,489 keys (97.6%) carry exactly one unit
+- 3,548 keys (2.4%) absorb the remaining 120,152 rows — 34 deep on average,
+  **591** at 4011 Brickstone Mews, then 3880/3888 Duke of York Blvd (484, 482)
+  and 310 Burnhamthorpe Rd (472), all city-centre towers
+
+`09` treats units as blocking, on Guelph's 24.4%-of-rows figure. Mississauga is
+44% of rows but 2.4% of *addresses*, which is a different problem: the deferral
+is an enumerable exclusion list of 3,548 civic addresses, not a pervasive
+condition. Deferring units costs Mississauga 2.4% of its coverage; Hamilton's
+dataset carries no unit field to defer at all.
+
 ## Oakville is brownfield-active — found by accident
 
 The recent-changeset check over Hamilton's extent surfaced eight changesets from
@@ -480,11 +593,23 @@ Cities, not regions, and only where `street-known%` supports the number:
 street-known** — the highest street-known score of any candidate on this list,
 Hamilton included. It ranks between Hamilton and London on size and above both
 on data quality, and the Peel correction is the only reason it was not here from
-the start. Two things hold it back from being ranked outright: it has no city
-layer of its own, so it can only be reached through the regional dataset
-(`municipality_name` handling, `03`), and **its entry state has never been
-probed** — the one thing that cleared Hamilton. Treat it as the next `05` probe
-rather than as a ranked candidate.
+the start.
+
+**Probed and ranked the same day** (§"Mississauga's entry state" above). Both
+reservations dissolved: it is greenfield on the same evidence that cleared
+Hamilton, and `MUNICIPALITY` splits Peel cleanly enough that reaching it is an
+attribute filter rather than a `10` dependency. It belongs **at position 1 or 2,
+tied with Hamilton**, and the survey numbers do not break the tie — Hamilton is
+10% larger, Mississauga is 5 points cleaner and has a settled `addr:city` and
+nobody to stand down for; Mississauga owes 2.4% of its addresses to deferred
+units and Hamilton owes none.
+
+The tie breaks on what we want city #2 to *prove*, which is a judgment the
+survey cannot make. Hamilton exercises the single-city path already built.
+Mississauga forces the regional-dataset path (`03`'s `municipality_name`) that
+19 of 42 datasets will eventually need, on the friendliest possible instance of
+it — one attribute, three clean values, no polygon. Picking Mississauga buys
+generalisation; picking Hamilton buys a shorter road to a second import.
 
 Regional datasets (york 277,946, durham 181,390) are larger but each spans many
 municipalities, which makes `municipality_name` handling (`03`) and polygon
@@ -516,6 +641,11 @@ prerequisite blocks a specific, attractive city rather than a category.
   returns "greenfield" for a city that already has a bulk-loaded address layer.
   Detect on *shape* — one user, one year, thousands of changes in a changeset —
   not on tags alone.
+- **`03`'s `municipality_name` gate is narrower than assumed.** It was recorded
+  as blocking Mississauga specifically. Peel's `MUNICIPALITY` field turns out to
+  be three clean values, so the gate is real but the *capability* is satisfied
+  here — which is the first evidence that regional datasets vary on this rather
+  than failing as a class. Measure it per dataset before deferring a city for it.
 - **Hamilton is cleared as city #2** (2026-08-13). The probe found a CanVec base
   layer and a manual local infiller, not a municipal import. `source` on the
   elements, not changeset tags, is what identified it.

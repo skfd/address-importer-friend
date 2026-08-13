@@ -137,8 +137,11 @@ Carried into the next session, in priority order:
    Largest remaining design. Everything else adapts to it.
 2. How much pushes back into OSM natively vs stays in the store (`06`).
 3. ~~Whether to run the 42-dataset survey now (`08`)~~ — **done 2026-08-12.**
-   Replaced by two new questions it raised: which of Hamilton / London /
-   Brampton is city #2, and what the province-wide 2018 edit peak actually was.
+   Replaced by two new questions it raised: which city is #2, and what the
+   province-wide 2018 edit peak actually was. The peak is answered (a retag
+   sweep, Tier 2). City #2 narrowed 2026-08-13 to **Hamilton vs Mississauga**,
+   both probed and both greenfield; the tie is a question of which path to
+   exercise, not which numbers are better (`08`, "How it ranks").
 4. Units: collapse-and-defer vs design first (`09`). Blocks any Guelph work.
 5. Does `accordeur`'s dataset config gain an explicit `feature_type` key (`11`)?
 6. Whether to contact `ARandomThumbtack_Import` before doing anything in
