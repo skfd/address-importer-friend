@@ -515,6 +515,15 @@ the two cities share it.
 
 ### How it ranks
 
+**Outcome, 2026-08-13: Hamilton was chosen.** Nothing in the table below decided
+it — read it as the record of why the numbers *couldn't*. The deciding argument
+was sequencing: Hamilton is a sole-source, unit-free dataset that runs on the
+single-city path this repo already has, so city #2 tests the generalization on
+its own. Mississauga would have added a regional source split and a unit
+deferral to that same first outing. It remains the designated first instance of
+the regional-dataset path (19 of 42 datasets), and everything measured here
+stands for when it comes up.
+
 Against Hamilton, on the four things that decide city #2:
 
 | | Hamilton | Mississauga |

@@ -76,6 +76,13 @@ should align to that pattern rather than invent a second one.
     the adjudication store, and the vault keeping the raw record. Three names
     that explain their relationship rather than three unrelated words.
 
+12. **City #2 is Hamilton** (decided 2026-08-13). Both it and Mississauga
+    probed greenfield and the survey numbers tied; the tie-break was to keep the
+    first generalization outing on the single-city path already built, rather
+    than test a regional source split and a unit deferral at the same time.
+    Mississauga becomes the designated first regional-dataset city. See TODO
+    §1c and `08`'s "How it ranks".
+
 ## The finding that drove all of this
 
 Guelph was picked as city #2 on intuition. A survey on 2026-08-10 found it is
@@ -136,13 +143,15 @@ Carried into the next session, in priority order:
 1. Adjudication data model — scope levels, key stability, auto-reopen (`06`).
    Largest remaining design. Everything else adapts to it.
 2. How much pushes back into OSM natively vs stays in the store (`06`).
-3. ~~Whether to run the 42-dataset survey now (`08`)~~ — **done 2026-08-12.**
-   Replaced by two new questions it raised: which city is #2, and what the
-   province-wide 2018 edit peak actually was. The peak is answered (a retag
-   sweep, Tier 2). City #2 narrowed 2026-08-13 to **Hamilton vs Mississauga**,
-   both probed and both greenfield; the tie is a question of which path to
-   exercise, not which numbers are better (`08`, "How it ranks").
-4. Units: collapse-and-defer vs design first (`09`). Blocks any Guelph work.
+3. ~~Whether to run the 42-dataset survey now (`08`)~~ — **done 2026-08-12**,
+   and ~~which city is #2~~ — **answered 2026-08-13: Hamilton.** Both it and
+   Mississauga probed greenfield; the tie was which path to exercise first, and
+   Hamilton runs on the single-city path already built. Mississauga is the
+   designated first regional-dataset city, deferred not rejected (TODO §1c).
+   The survey's other question — the province-wide 2018 edit peak — is answered
+   too (a retag sweep, Tier 2).
+4. Units: collapse-and-defer vs design first (`09`). Blocks Guelph and
+   Mississauga; **does not block Hamilton**, which defers no unit addresses.
 5. Does `accordeur`'s dataset config gain an explicit `feature_type` key (`11`)?
 6. Whether to contact `ARandomThumbtack_Import` before doing anything in
    Guelph (`05`). An action decision, not a design one, and the kind that gets

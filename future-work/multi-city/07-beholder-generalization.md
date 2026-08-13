@@ -42,8 +42,11 @@ of 42 cities, the PBF path matters more than Overpass — see `04`.
 `06`. Its three preset tags are a good starting taxonomy and should be
 preserved as the seed vocabulary.
 
-**Auth** (`beholder/auth.py`): `allowlist = ["skfd"]` becomes OSM OAuth plus a
-reputation gate plus per-city moderators (`06`).
+**Auth** (`beholder/auth.py`): `allowlist = ["skfd"]` keeps its shape and
+becomes **per-dataset**, keyed on OSM usernames via OAuth (`06`). Reputation
+gates and moderation queues were sketched here originally and are now
+deliberately deferred — the hand-edited allowlist closes the abuse surface by
+construction, so there is nothing to moderate.
 
 ## Deployment shape — settled
 

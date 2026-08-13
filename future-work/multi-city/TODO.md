@@ -14,13 +14,17 @@ not an import. No wiki page, no active importer, nobody to stand down for.
 Written up in `08-survey-results-2026-08-12.md`; scripted as
 `scripts/entry_state_probe.py` (rerunnable, Wellington boxes pre-filled).
 
-Follow-ups this leaves open, none blocking:
+**Selected as city #2 on 2026-08-13** (see §1c for the tie-break). The
+follow-ups below were "none blocking" while Hamilton was a candidate; picking it
+promotes the first two onto the critical path.
 
 - [ ] Contact **Kevo** before doing anything visible — they did this work by
-      hand and said so in their changeset comments
+      hand and said so in their changeset comments. **Now blocking**: this is a
+      courtesy owed before the first Hamilton changeset, not before design.
 - [ ] Decide what we write for `addr:city` in an amalgamated city (Hamilton's
       own rename left `Dundas` and `Stoney Creek` behind) and for
       `addr:province` (`ON` 27 vs `Ontario` 2 — no convention to honour).
+      **Now blocking** for the same reason — it is a tag we will write.
       **Narrowed 2026-08-13:** the `addr:city` half is Hamilton-specific —
       Mississauga's rename finished (893 `Mississauga`, 1 `Port Credit`), so
       this is not a general amalgamated-city policy question. `addr:province`
@@ -51,13 +55,16 @@ the entry state itself:
   last.
 - **2026 is POI mapping, not an import** (item 1b's question, for this city).
 
-- [ ] **Break the Hamilton/Mississauga tie.** The survey numbers don't do it
-      (see §"How it ranks"). It is a question of whether city #2 should exercise
-      the single-city path already built (Hamilton) or force the
-      regional-dataset path 19 of 42 datasets will need, on its easiest
-      instance (Mississauga). A decision, not a measurement.
-- [ ] Units decide part of it — Mississauga defers 3,548 condo-tower addresses
-      (2.4%), Hamilton defers none. Feeds `09`.
+- [x] **Tie broken 2026-08-13: city #2 is Hamilton.** The survey numbers never
+      did it (see §"How it ranks"); the decision was which path to exercise
+      first. Hamilton runs on the single-city path this repo already has, so
+      city #2 tests the *generalization* rather than testing generalization and
+      a new source shape at once. Mississauga stays the designated first
+      instance of the regional-dataset path 19 of 42 datasets will need — it is
+      deferred, not rejected, and its probe write-up stands.
+- [x] Units fed into it — Mississauga defers 3,548 condo-tower addresses
+      (2.4%), Hamilton defers none. Choosing Hamilton means `09` does not gate
+      city #2; units stay blocking only for Guelph and for Mississauga later.
 
 ## 1b. Oakville is brownfield-active — do not touch
 

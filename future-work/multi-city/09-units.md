@@ -3,6 +3,13 @@
 Status: **deferred, recorded so it is not rediscovered.** Captured 2026-08-10.
 No design decision taken.
 
+**Does not gate city #2 (2026-08-13).** Hamilton was chosen, and like Toronto
+its source carries no unit field — so the first generalized import can ship
+without resolving anything here. Units become blocking again at Guelph (24.4%
+of rows) and at Mississauga (44% of rows, but only 2.4% of civic addresses —
+see `08`, "How it ranks"). The two shapes are different enough that measuring
+both before designing is now possible.
+
 ## Why this is not a refactor
 
 Toronto's source has no unit field, so `t2` has no concept of one — not in
