@@ -47,7 +47,7 @@ and the override is a no-op. If so, revert the three edits and tell the user.
 
 ## 3. Find affected non-uploaded runs
 
-The override only runs at ingest, so runs already in `data/tool.db` still carry
+The override only runs at ingest, so runs already in `data/<slug>/tool.db` still carry
 the old name. Compute the old normalized name with
 `t2.conflate.normalize_street(SOURCE)` and query:
 
@@ -63,11 +63,11 @@ Report the runs found. If there are none, you are done after steps 1-2.
 ## 4. Refresh affected runs (confirm before mutating the DB)
 
 If runs were found, tell the user and ask whether to refresh them now. Only
-proceed on an explicit yes — this mutates `data/tool.db`. The pipeline has no
+proceed on an explicit yes — this mutates `data/<slug>/tool.db`. The pipeline has no
 re-ingest path (`ingest` is `INSERT OR IGNORE`; `conflate` only touches
 `stage='INGESTED'`), so the refresh is surgical:
 
-1. Back up `data/tool.db` via the sqlite online-backup API (`src.backup(dst)` —
+1. Back up `data/<slug>/tool.db` via the sqlite online-backup API (`src.backup(dst)` —
    handles WAL).
 2. In one transaction, for the affected candidates (the non-uploaded runs'
    candidates whose `street_norm` is the old form): rewrite `street_raw` and

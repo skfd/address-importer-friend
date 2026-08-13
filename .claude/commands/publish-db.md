@@ -3,7 +3,7 @@ description: Publish a credential-scrubbed snapshot of the living tool.db as a d
 argument-hint: [YYYYMMDD]
 ---
 
-Publish a snapshot of the single living `data/tool.db` (pilot + citywide import
+Publish a snapshot of the living `data/<slug>/tool.db` of the configured `[city]` (pilot + citywide import
 plus all merged maintenance) as a dated GitHub release asset. Run this after
 finalizing a maintenance month.
 

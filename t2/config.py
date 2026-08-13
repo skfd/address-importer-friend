@@ -41,6 +41,13 @@ class Config:
     flask_secret_key: str
     fernet_key: str
 
+    # Shared across cities: the OSM extract (its own key above), the OAuth token
+    # blob, and publish/archive artifacts. Per-city working state — tool.db,
+    # tiles, streets, run caches — lives under data_dir = data_root/<slug>, so a
+    # second city cannot interleave runs into Toronto's DB or overwrite its tile
+    # layer, and snapshot ids in `runs` stay unambiguous (they are per-source-DB,
+    # and each city's runs now live with that city).
+    data_root: Path = field(default=ROOT / "data")
     tool_db_path: Path = field(default=ROOT / "data" / "tool.db")
     migrations_dir: Path = field(default=ROOT / "migrations")
     data_dir: Path = field(default=ROOT / "data")
@@ -117,8 +124,24 @@ def load() -> Config:
 
     export_section = cfg.get("export", {})
 
+    city_slug = str(city_section["slug"])
+    data_dir = ROOT / "data" / city_slug
+
+    # Guard against a pre-slug layout: per-city state used to live directly in
+    # data/. A tool.db at the root with none under data/<slug>/ means this
+    # checkout has the new code but unmigrated data — running anyway would
+    # silently start a fresh, empty DB beside 1,300 runs of history.
+    legacy_db = ROOT / "data" / "tool.db"
+    if legacy_db.exists() and not (data_dir / "tool.db").exists():
+        raise RuntimeError(
+            f"{legacy_db} is the pre-multi-city layout. Move the per-city files "
+            f"into {data_dir} (tool.db + -wal/-shm, tiles.json, tiles/, "
+            "neighbourhoods/, streets.json, osm_current_run*.json, "
+            "upload_run_*.osm, multi_fixes/) — see DONE.md 'Slugged data layout'."
+        )
+
     return Config(
-        city_slug=str(city_section["slug"]),
+        city_slug=city_slug,
         city_name=str(city_section["name"]),
         city_neighbourhoods_url=str(city_section.get("neighbourhoods_url", "")).strip(),
         source_sqlite_path=cfg["source"]["sqlite_path"],
@@ -142,4 +165,6 @@ def load() -> Config:
         osm_redirect_uri=env.get("OSM_REDIRECT_URI") or "http://127.0.0.1:5000/oauth/callback",
         flask_secret_key=env.get("FLASK_SECRET_KEY") or "dev-secret",
         fernet_key=env.get("FERNET_KEY", ""),
+        data_dir=data_dir,
+        tool_db_path=data_dir / "tool.db",
     )

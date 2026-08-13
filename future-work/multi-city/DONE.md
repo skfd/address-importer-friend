@@ -47,6 +47,43 @@ Not included, and still Toronto-specific by design: the footer links and the
 proposal/repo URLs in `base.html`, which name the project rather than the import
 target.
 
+## Slugged data layout — DONE 2026-08-13
+
+Not on `02`'s tier list — surfaced when planning the Hamilton switch: Tiers 1
+and 4 made the *code* city-neutral while the *data layer* stayed a Toronto
+singleton. Flipping `config.toml` to Hamilton would have overwritten Toronto's
+`tiles.json` and interleaved Hamilton runs into the living `tool.db`, where
+`runs.source_snapshot_id` would become silently ambiguous — snapshot ids are
+per-source-DB (see `memory/maintenance_tool.md` for the id-translation trap).
+
+**The move, not the migration.** Per-city state now lives under
+`data/<slug>/` — `tool.db`, `tiles.json` + `tiles/`, `neighbourhoods/`,
+`streets.json`, `osm_current_run*.json`, `upload_run_*.osm`, `multi_fixes/`,
+sweep/status files. Deliberately **no** `city` column in `tool.db`: decision 7
+(README) makes the dataset the unit of work, so isolation is by database, not
+by row — no migration on a living 2 GiB DB, no filter on every query forever,
+and each DB's snapshot ids mean what they always meant.
+
+Stays at the shared `data/` root: `osm/` (one Ontario PBF serves every city;
+the filtered jsons are already slugged), `osm_auth.json` (the OAuth token
+belongs to the OSM account, which uploads for all cities — switching `[city]`
+must not force a re-login), `release/`, `archive/`, and the one-off artifacts.
+`cfg.data_root` names it; `cfg.data_dir` is now `data_root/<slug>`.
+
+A guard in `config.load()` refuses to run when `data/tool.db` exists at the
+root but `data/<slug>/tool.db` does not — a checkout with new code and
+unmigrated data would otherwise start a fresh empty DB beside 1,300 runs of
+history. (Verified to fire on the true unmigrated branch; both-exist is fine —
+the slugged DB wins.)
+
+Toronto's 1,311 files were moved 2026-08-13 (WAL was checkpointed; no -wal/-shm
+existed). Verified after the move: 1,301 runs / 768,976 candidates readable,
+1,297 tiles load, 73 tests pass, and the dashboard renders byte-identical to
+before the move. `scripts/publish_db.py`, `build_operator_animation.py` and
+`count_entrance_addrs.py` now derive paths from config instead of hardcoding
+`data/`; `merge_v1_living.py` was left untouched as a record of a completed
+one-off against the old layout.
+
 ## Tier 4 no-neighbourhood-layer fallback — DONE 2026-08-13
 
 `02` predicted the quadtree was already generic and only needed a fallback.

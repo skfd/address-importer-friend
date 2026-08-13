@@ -40,7 +40,9 @@ def _fernet() -> Fernet:
 # last-writer-wins (atomic via os.replace); that matches the old kv upsert and is
 # safe because parallel upload workers only ever rewrite the same token blob,
 # never the transient PKCE rows (those are written only during interactive auth).
-_AUTH_PATH = _CONFIG.data_dir / "osm_auth.json"
+# data_root, not data_dir: the OAuth token belongs to the OSM account, which
+# uploads for every city — switching [city] must not force a re-login.
+_AUTH_PATH = _CONFIG.data_root / "osm_auth.json"
 
 
 def _auth_read() -> dict[str, str]:
@@ -51,7 +53,7 @@ def _auth_read() -> dict[str, str]:
 
 
 def _auth_write(data: dict[str, str]) -> None:
-    _CONFIG.data_dir.mkdir(parents=True, exist_ok=True)
+    _CONFIG.data_root.mkdir(parents=True, exist_ok=True)
     tmp = _AUTH_PATH.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(data), encoding="utf-8")
     os.replace(tmp, _AUTH_PATH)  # atomic on the same filesystem

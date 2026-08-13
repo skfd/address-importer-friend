@@ -20,6 +20,10 @@ the source at Hamilton and running it.
 - [x] **Tier 1, mechanical** (`02`) — done 2026-08-13.
 - [x] **Tier 4, geography** (`02`) — done 2026-08-13. The prediction held: the
       quadtree needed no change.
+- [x] **Slugged data layout** — done 2026-08-13 (DONE.md). Not on `02`'s tier
+      list; found when planning the switch. Per-city state is `data/<slug>/`,
+      so flipping `config.toml` can no longer overwrite Toronto's tiles or
+      interleave runs into its DB.
 - [ ] Point the source at
       `ontario-address-changes/data/hamilton/hamilton.db` — already on disk,
       dataset slug `hamilton`. **This is the next step**, and the first one that

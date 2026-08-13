@@ -165,7 +165,7 @@ source addresses inside each polygon, quadtree-splits any neighbourhood with
 more than 500 addresses, then merges any tile under 250 addresses into a
 border-sharing neighbour (soft ceiling 500, hard ceiling 750) so the operator
 never reviews a near-empty tile. The result (~1,300 tiles, 250–750 addresses
-each) lands in `data/tiles.json` + a `data/tiles/meta.json` sidecar.
+each) lands in `data/<slug>/tiles.json` + a `data/<slug>/tiles/meta.json` sidecar.
 Regenerate when a new source snapshot lands.
 
 A city with no such layer leaves `neighbourhoods_url` empty. The builder then
@@ -204,7 +204,7 @@ Every candidate has a `stage` column. Killing the process mid-run and
 restarting is safe — each stage skips work already done:
 
 - Re-running **Ingest** only adds new rows (`INSERT OR IGNORE`).
-- Re-running **Fetch** reuses the cached `data/osm_current_run<id>.json`.
+- Re-running **Fetch** reuses the cached `data/<slug>/osm_current_run<id>.json`.
 - Re-running **Conflate** resumes from any candidate still at `INGESTED`.
 - Re-running **Checks** skips any `(candidate, check_id, check_version)` that
   already has a result row. Bump a check's `version` in code to force rerun.
@@ -331,7 +331,7 @@ python -m scripts.drift_backscan --min-flags 3         # widen the summary
 python -m scripts.drift_backscan --out C:/tmp/d.csv    # custom CSV path
 ```
 
-It writes one CSV row per flagged candidate (`data/drift_backscan.csv` by
+It writes one CSV row per flagged candidate (`data/<slug>/drift_backscan.csv` by
 default) — matched OSM element, the closer different-numbered OSM element,
 and both distances — and prints a console summary of "systemic" runs (those
 at or above `--min-flags`) and their drifted streets. The check's `slack_m`
@@ -390,7 +390,9 @@ record (review verdicts, multi-address verdicts, drift-street statuses).
 
 **Where it lives**
 
-- Locally as `data/tool.db` (gitignored). The pre-merge backups
+- Locally as `data/<slug>/tool.db` (gitignored; per-city since 2026-08-13 —
+  shared, cross-city files like the OSM extract and the OAuth blob stay at the
+  `data/` root). The pre-merge backups
   `data/maint-live-premerge.db` and `data/archive/tool-v1-20260603.db` are also
   kept locally and gitignored.
 - Published **periodically** as a dated GitHub release asset

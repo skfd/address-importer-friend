@@ -1,6 +1,6 @@
 """Build a standalone HTML animation of operator review/upload activity over tiles.
 
-Reads `data/tool.db` (events) + `data/tiles.json` (polygons) and writes
+Reads the configured city's `tool.db` (events) + `tiles.json` (polygons) and writes
 `docs/operator-animation.html` — a single page that replays each tile's operator
 work in chronological order, compressing idle gaps > 15 minutes.
 
@@ -12,12 +12,18 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
+import sys
 from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-DB_PATH = ROOT / "data" / "tool.db"
-TILES_PATH = ROOT / "data" / "tiles.json"
+sys.path.insert(0, str(ROOT))
+
+from t2 import config as _config
+
+_CFG = _config.load()
+DB_PATH = _CFG.tool_db_path
+TILES_PATH = _CFG.data_dir / "tiles.json"
 OUT_PATH = ROOT / "docs" / "operator-animation.html"
 
 REVIEW_KINDS = ("REVIEW_APPROVED", "REVIEW_REJECTED", "REVIEW_OVERRIDE", "REVIEW_CLEARED")

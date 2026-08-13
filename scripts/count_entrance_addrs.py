@@ -11,7 +11,10 @@ from collections import Counter
 from t2.conflate import _is_poi_node
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PATTERN = os.path.join(ROOT, "data", "osm_current_run*.json")
+
+from t2 import config as _config
+
+PATTERN = str(_config.load().data_dir / "osm_current_run*.json")
 
 
 def main() -> int:

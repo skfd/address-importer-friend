@@ -22,11 +22,12 @@ import shutil
 import sqlite3
 import sys
 from datetime import date, datetime
-from pathlib import Path
 
-DATA = Path("data")
-LIVE = DATA / "tool.db"
-OUT_DIR = DATA / "release"
+from t2 import config as _config
+
+_CFG = _config.load()
+LIVE = _CFG.tool_db_path            # data/<slug>/tool.db — the configured city's DB
+OUT_DIR = _CFG.data_root / "release"  # shared: releases are dated, not slugged (yet)
 WATERMARK_KEY = "maintenance.watermark_snapshot"
 CRED_PREDICATE = "key LIKE 'osm_oauth%' OR key LIKE 'pkce:%'"
 
