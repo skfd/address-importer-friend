@@ -137,8 +137,8 @@ Guardrail: Toronto's match rates must not move (`tool.db` is living).
 
 ## Housekeeping
 
-- [ ] 5 commits on `main` are unpushed (`659467f`, `e438e23`, `4c5258f`,
-      `93a5754`, plus the Tier 2 completion commit)
+- [ ] The whole multi-city line of work is unpushed on `main` — everything from
+      `659467f` (design docs) onward. Check `git log origin/main..HEAD`.
 - [ ] Maintenance run is due ~2026-08-22 (last: `maint-snap90`, 2026-07-23,
       watermark snapshot 90 / 2026-07-22). Unrelated to the above — it conflates
       against live Overpass and needs none of this.
