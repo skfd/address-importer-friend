@@ -105,6 +105,11 @@ rather than expect it to be gone.
 
 ## Index
 
+The action list is [TODO.md](TODO.md) — open work only, ordered by what blocks
+what. Finished items live in [DONE.md](DONE.md), kept because several open
+items depend on what was decided there. Start in TODO.md; the numbered design
+docs below are reference.
+
 - [01-core-library.md](01-core-library.md) — extract the shared conflation +
   street-normalization core. The normalizer is currently triplicated.
 - [02-city-config-contract.md](02-city-config-contract.md) — the per-city TOML,
