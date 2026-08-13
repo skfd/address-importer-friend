@@ -184,17 +184,68 @@ share in the 20 densest (low = diffuse, high = concentrated).
 | toronto | 522,262 | 583,393 | 2,810 | 0.5 | 76.9 | 14 | street | 953 | 24 | 2026 (464,853) |
 | guelph | 40,632 | 45,875 | 2,574 | 6.3 | 98.9 | 90 | street | 249 | 49 | 2025 (44,279) |
 
-## The 2018 peak
+## The 2018 peak — answered (Tier 2, 2026-08-13)
 
 Nearly every dataset peaks in **2018**, including rural counties with almost no
-address coverage. That is one province-scale event, not 42 local efforts, and
-nothing in this repo's design docs accounts for it. It matters because whatever
-it was already put a partial address layer into most of Ontario, and its tagging
-conventions are the ones any import would have to be consistent with.
+address coverage. Four small Overpass `out meta` samples plus changeset lookups:
 
-Identifying it needs one Overpass `out meta` query and one changeset lookup —
-the single highest-value Tier 2 probe, and it applies to the whole portfolio at
-once rather than city by city.
+| county | user | changeset | comment | source tag |
+|---|---|---|---|---|
+| Huron | `LogicalViolinist` | 58533674 | "adding missing addresses" | `NRCan` |
+| Bruce | `Matthew Darwin` | 56622908 | "Municipality of Kincardine => Kincardine" | `Discussion on talk-ca; NRCan` |
+
+Both JOSM, both bulk (10,000 and 3,815 changes), and **neither carries
+`import=yes` or `import:page`**. So rural Ontario already has an
+**NRCan-derived address layer** that formal prior-import detection (`05`) would
+miss completely — it is tagged like ordinary editing. That is a gap in `05`'s
+method, not just a fact about Ontario.
+
+**Two corrections this forces:**
+
+1. Bruce's changeset is a mass `addr:city` **rename**, not an address import.
+   So the 2018 peak is partly *retagging of older data*, and the underlying
+   NRCan import may predate it. **`peak year` in the table below measures last
+   touch, not import date** — it should not be read as dating anything.
+2. The pre-existing layer is **federal** (NRCan) while our sources are
+   **municipal**. Where the two disagree, the OSM value is differently-sourced
+   rather than simply wrong — which is an adjudication question (`06`), not a
+   conflation bug.
+
+Caveat: two rural samples of ~300 elements each. "Province-wide NRCan layer" is
+a well-supported inference, not proof.
+
+### Ottawa is not an import
+
+Separate probe, because Ottawa's profile differs from everything else: five-plus
+distinct users (`Matthew Darwin`, `DannyMcD`, `ott2map`, `andrewpmk`,
+`ordinarysparrow`) with edits spread evenly across 2022-2026. A sustained local
+community, matching its 82% way ratio and smallest-in-portfolio gap. Ottawa is a
+"coordinate with locals" city, not an import target.
+
+### York's 2026 spike was us
+
+York's 128,307-element 2026 peak looked like an active import — `05`'s
+"brownfield, active" case, the one that forbids acting before contacting
+someone. It isn't. York's source bbox starts at lat **43.753**, south of
+Steeles, overlapping Toronto's bbox by 0.101 deg — **38% of Toronto's height**.
+Splitting the York extent at Toronto's northern bbox edge, where no Toronto
+element can reach:
+
+| year | overlap band (43.753-43.854) | pure York (>43.854) |
+|---|--:|--:|
+| 2026 | 126,524 | 1,203 |
+| 2025 | 6,998 | 3,511 |
+| 2024 | 6,630 | 6,345 |
+
+**99.1% of the 2026 spike is in the Toronto overlap band** — our own upload.
+Pure York shows 1,203, ordinary organic activity. Nobody is importing York and
+there is no one to contact.
+
+This is `10`'s rectangular-bbox problem changing a *conclusion*, not just
+inflating a count, and it is the strongest argument yet for polygon clipping:
+the naive reading would have had us stand down from a city on the strength of
+our own edits. York's OSM-side numbers in the table below are contaminated for
+the same reason.
 
 ## Candidate shortlist
 
@@ -227,7 +278,13 @@ are counties or regions; that holds.
 - **`03`'s capability gating gains a concrete first case**: `has_street_type`.
   Peel fails it, and a consumer that doesn't check will silently produce
   garbage rather than refusing to run.
-- **Tier 2 targets** are now a short list, not 42: identify the 2018 event;
-  confirm York's 2026 spike (128,307 — someone may be importing right now, which
-  would be `05`'s "brownfield, active" case and the one requiring contact before
-  anything else); and check Wellington's 2025 spike (48,096).
+- **`05` needs a new detection case.** The NRCan work carries no `import=yes`
+  and no `import:page`, so a prior-import check that looks only for import tags
+  returns "greenfield" for a city that already has a bulk-loaded address layer.
+  Detect on *shape* — one user, one year, thousands of changes in a changeset —
+  not on tags alone.
+- **Tier 2 remaining**: Wellington's 2025 spike (48,096) is unexplained, and
+  Hamilton's entry state was never established (the probe was cut short). Do
+  Hamilton before committing to it as city #2 — everything above says it is the
+  best candidate, but "no prior import" is currently an assumption, and the
+  NRCan finding is exactly the kind of thing that hides from a naive check.
