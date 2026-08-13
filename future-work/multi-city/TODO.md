@@ -183,8 +183,8 @@ Guardrail: Toronto's match rates must not move (`tool.db` is living).
 
 ## Housekeeping
 
-- [ ] The whole multi-city line of work is unpushed on `main` — everything from
-      `659467f` (design docs) onward. Check `git log origin/main..HEAD`.
+- [x] The multi-city line of work is pushed — `659467f` (design docs) through
+      `33cdd12`, pushed 2026-08-13. `main` is in sync with `origin/main`.
 - [ ] Maintenance run is due ~2026-08-22 (last: `maint-snap90`, 2026-07-23,
       watermark snapshot 90 / 2026-07-22). Unrelated to the above — it conflates
       against live Overpass and needs none of this.
