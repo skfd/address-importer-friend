@@ -26,7 +26,7 @@ from .conflate import _is_poi_node, normalize_street
 def _source_streets(cfg, snapshot_id: int) -> dict[str, dict]:
     counts: dict[str, int] = defaultdict(int)
     raws: dict[str, str] = {}
-    for row in source_db.iter_active_addresses_in_bbox(cfg.osm_toronto_bbox, snapshot_id):
+    for row in source_db.iter_active_addresses_in_bbox(cfg.osm_city_bbox, snapshot_id):
         raw = (row.get("linear_name_full") or "").strip()
         if not raw:
             continue
@@ -39,7 +39,7 @@ def _source_streets(cfg, snapshot_id: int) -> dict[str, dict]:
 
 
 def _osm_streets(cfg) -> dict[str, dict]:
-    json_path = cfg.osm_extract_dir / "toronto-addresses.json"
+    json_path = cfg.osm_extract_json
     if not json_path.exists():
         raise FileNotFoundError(
             f"OSM extract missing at {json_path}; run python -m t2.osm_refresh first."
@@ -118,7 +118,7 @@ def compute(cfg=None) -> dict:
         "source_snapshot_downloaded": snap.get("downloaded"),
         "osm_extract_downloaded": osm_meta.get("downloaded_at"),
         "osm_extract_json_sha256": osm_meta.get("json_sha256"),
-        "toronto_bbox": list(cfg.osm_toronto_bbox),
+        "city_bbox": list(cfg.osm_city_bbox),
         "totals": {
             "source_streets": len(source),
             "osm_streets": len(osm),

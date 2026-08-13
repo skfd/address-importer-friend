@@ -329,7 +329,7 @@ def _hn_sort_key(hn: str) -> int:
 def collect(snapshot_id: int | None = None) -> dict:
     """Run the reverse sweep, cached by (json_mtime, snapshot_id)."""
     cfg = _config.load()
-    json_path = cfg.osm_extract_dir / "toronto-addresses.json"
+    json_path = cfg.osm_extract_json
     if not json_path.exists():
         return {"missing_extract": True, "json_path": str(json_path)}
     if snapshot_id is None:
@@ -369,7 +369,7 @@ def collect(snapshot_id: int | None = None) -> dict:
         "snapshot_id": snapshot_id,
         "snapshot": snap_info,
         "source_index_size": len(source_idx),
-        "bbox": list(cfg.osm_toronto_bbox),
+        "bbox": list(cfg.osm_city_bbox),
         "boundary_applied": boundary is not None,
         "boundary_path": str(boundary_path) if boundary is not None else None,
         "outside_boundary_count": outside_count,

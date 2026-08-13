@@ -123,7 +123,7 @@ Toronto data anyway. Only the upload target changes.
 
 ## Local OSM extract (default source)
 
-Stage 2 reads addresses from a locally-cached Toronto extract instead of
+Stage 2 reads addresses from a locally-cached city extract instead of
 querying Overpass every time. First-time setup:
 
 ```bash
@@ -132,8 +132,8 @@ python -m t2.osm_refresh
 
 This downloads the latest Ontario PBF from Geofabrik (~600 MB) into
 `data/osm/ontario-latest.osm.pbf`, filters it to `addr:housenumber`-tagged
-features clipped to the City-of-Toronto bbox in `config.toml`, and writes
-`data/osm/toronto-addresses.json` + a `meta.json` sidecar. Stage 2 then just
+features clipped to `[osm] city_bbox` in `config.toml`, and writes
+`data/osm/<slug>-addresses.json` (`[city] slug`) + a `meta.json` sidecar. Stage 2 then just
 bbox-clips that JSON per run — no network, sub-second.
 
 Re-run whenever you want a fresher snapshot. The tool HEAD-checks Geofabrik
@@ -147,7 +147,7 @@ CLI as a detached subprocess, so Flask stays responsive while the download
 runs.
 
 To fall back to live Overpass queries (e.g. bbox experiments outside
-Toronto), set `[osm] source = "overpass"` in `config.toml`.
+`city_bbox`), set `[osm] source = "overpass"` in `config.toml`.
 
 ## Tile layer (run area picker)
 

@@ -36,7 +36,7 @@
 <div class="card">
   <h2>Multi-address housenumbers <span class="pill">{{ '{:,}'.format(stats.multi_total) }}</span></h2>
   {% if stats.get('missing') %}
-    <p><span class="pill bad">missing extract</span> Run an OSM refresh first; no <code>toronto-addresses.json</code> on disk.</p>
+    <p><span class="pill bad">missing extract</span> Run an OSM refresh first; no <code>{{ cfg.osm_extract_json.name }}</code> on disk.</p>
   {% else %}
     <p class="muted">
       Source: <code>{{ stats.source_path }}</code> · {{ bytes(stats.source_bytes) }}

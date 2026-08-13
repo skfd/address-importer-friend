@@ -301,7 +301,7 @@ def prepare(watermark: int | None = None, run_name: str | None = None) -> dict:
     cfg = _config.load()
     name = run_name or run_name_for(latest)
 
-    run_id = pipeline.start_run(name, cfg.osm_toronto_bbox)
+    run_id = pipeline.start_run(name, cfg.osm_city_bbox)
     set_run_window(run_id, delta["watermark"], latest)
     inserted = candidates.ingest_rows(run_id, delta["new_rows"])
 

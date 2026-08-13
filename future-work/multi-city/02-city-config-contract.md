@@ -16,16 +16,21 @@ from that registry. Follow it.
 
 Measured 2026-08-10. Tiers are ordered by effort, not importance.
 
-**Tier 1 — mechanical.**
-- `cfg.osm_toronto_bbox` (`t2/config.py:28,84,103`) → a city-neutral name.
-- The literal filename `toronto-addresses.json` in `t2/osm_refresh.py:44`,
-  `t2/streets.py:42`, `t2/reverse_sweep.py:332`, and `t2/web/app.py:1660,1667,1674,1943`.
-- `STATIC_TAGS = {"source": "City of Toronto Open Data"}` (`t2/osm_export.py:12-14`).
-- `[upload] changeset_comment_template` in `config.toml` — already templated,
-  but the literal string says Toronto.
+**Tier 1 — mechanical. IMPLEMENTED 2026-08-13** (see DONE.md for what shipped
+and why the two judgement calls went the way they did).
+- ~~`cfg.osm_toronto_bbox`~~ → `cfg.osm_city_bbox`, from `[osm] city_bbox`.
+- ~~The literal filename `toronto-addresses.json`~~ → `cfg.osm_extract_json`,
+  derived from `[city] slug`.
+- ~~`STATIC_TAGS = {"source": "City of Toronto Open Data"}`~~ →
+  `[export] attribution`, enforced on the upload path.
+- ~~`[upload] changeset_comment_template`~~ → takes `{city}` from `[city] name`.
 - `[osm] pbf_url` — already config, and notably **unchanged for Guelph**: the
   Geofabrik Ontario extract covers every city in the portfolio. Only the clip
   changes.
+
+Confirmed while implementing: `[city]` and `[export]` are the two blocks the
+sketch below did not have. `slug` and `name` are required with no default —
+identity must not fall back to Toronto.
 
 **Tier 2 — the source projection.** See `03`. This is the real work.
 

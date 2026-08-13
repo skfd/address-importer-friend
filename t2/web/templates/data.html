@@ -50,7 +50,7 @@
   <p class="muted"><code>{{ stats.osm_extract.dir }}</code></p>
   <table>
     <tr><th>ontario-latest.osm.pbf</th><td>{{ bytes(stats.osm_extract.pbf_bytes) }}</td></tr>
-    <tr><th>toronto-addresses.json</th><td>{{ bytes(stats.osm_extract.json_bytes) }}</td></tr>
+    <tr><th>{{ cfg.osm_extract_json.name }}</th><td>{{ bytes(stats.osm_extract.json_bytes) }}</td></tr>
   </table>
 </div>
 

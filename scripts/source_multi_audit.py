@@ -15,10 +15,11 @@ from collections import Counter, defaultdict
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
+from t2 import config as _config
 from t2.conflate import expand_street_name
 from t2.source_db import connect_readonly, latest_snapshot_id
 
-OSM_JSON = os.path.join(ROOT, "data", "osm", "toronto-addresses.json")
+OSM_JSON = str(_config.load().osm_extract_json)
 
 
 def header(title: str) -> None:

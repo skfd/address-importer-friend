@@ -682,7 +682,7 @@ def run(force: bool = False, dry_run: bool = False) -> dict:
         _log(f"loaded {len(features)} neighbourhood features")
 
         t_build = time.monotonic()
-        tiles, stats = build_tiles(features, points_xy, cfg.osm_toronto_bbox)
+        tiles, stats = build_tiles(features, points_xy, cfg.osm_city_bbox)
         build_s = time.monotonic() - t_build
         _log(
             f"built {stats['tile_count']} tiles in {build_s:.1f}s; "

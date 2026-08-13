@@ -8,7 +8,7 @@
   <p class="muted">
     source <span data-tip="{{ tip('field.osm_source') }}"><code>{{ cfg.osm_source }}</code></span>
     · PBF <a href="{{ cfg.osm_pbf_url }}" target="_blank" rel="noopener" data-tip="{{ tip('field.osm_pbf_url') }}">{{ cfg.osm_pbf_url.split('/')[-1] }}</a>
-    · clip bbox <code data-tip="{{ tip('field.osm_toronto_bbox') }}">{{ '%.3f, %.3f → %.3f, %.3f' % (cfg.osm_toronto_bbox[0], cfg.osm_toronto_bbox[1], cfg.osm_toronto_bbox[2], cfg.osm_toronto_bbox[3]) }}</code>
+    · clip bbox <code data-tip="{{ tip('field.osm_city_bbox') }}">{{ '%.3f, %.3f → %.3f, %.3f' % (cfg.osm_city_bbox[0], cfg.osm_city_bbox[1], cfg.osm_city_bbox[2], cfg.osm_city_bbox[3]) }}</code>
   </p>
 
   {% if meta %}

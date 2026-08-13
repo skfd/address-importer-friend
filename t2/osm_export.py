@@ -9,8 +9,21 @@ from . import audit, config as _config, db as _db
 
 _CONFIG = _config.load()
 
+def _attribution() -> str:
+    """`source` tag for every node we create. Deliberately checked here rather
+    than at config load: a city can conflate and be reviewed before its
+    attribution string is settled, but it must never upload without one."""
+    value = _CONFIG.export_attribution
+    if not value:
+        raise ValueError(
+            "config.toml [export] attribution is empty — it becomes the `source` "
+            "tag on every uploaded node and cannot be omitted."
+        )
+    return value
+
+
 STATIC_TAGS = {
-    "source": "City of Toronto Open Data",
+    "source": _CONFIG.export_attribution,
 }
 
 
@@ -47,15 +60,22 @@ def changeset_tags(run_id: int) -> dict[str, str]:
     if not row:
         raise ValueError(f"run {run_id} not found")
     token = row["client_token"] or _ensure_client_token(run_id)
-    comment = _CONFIG.changeset_comment_template.format(run_name=row["name"])
+    comment = _CONFIG.changeset_comment_template.format(
+        run_name=row["name"], city=_CONFIG.city_name
+    )
+    if not _CONFIG.export_import_plan:
+        raise ValueError(
+            "config.toml [export] import_plan is empty — the changeset must point "
+            "at this city's import wiki page."
+        )
     return {
         "comment": comment,
-        "source": "City of Toronto Open Data",
+        "source": _attribution(),
         "import": "yes",
         "bot": "no",
         "created_by": "t2-address-import",
         "import:client_token": token,
-        "import_plan": "https://wiki.openstreetmap.org/wiki/Toronto/Import/AddressPoints",
+        "import_plan": _CONFIG.export_import_plan,
     }
 
 
@@ -235,7 +255,7 @@ def build_tags(it: dict) -> dict[str, str]:
     tags = {
         "addr:housenumber": (it.get("housenumber") or "").strip(),
         "addr:street": (it.get("street_raw") or "").strip(),
-        **STATIC_TAGS,
+        "source": _attribution(),
     }
     postcode = (it.get("proposed_postcode") or "").strip()
     if postcode:

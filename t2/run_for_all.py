@@ -18,7 +18,7 @@ Deterministic run names (``{tile_id}-batch-{YYYYMMDD}``) make re-clicking
 all four stages green are marked ``skipped`` and the worker returns fast.
 
 Each worker is a separate Python process with its own ``osm_fetch`` cache —
-the shared toronto-addresses.json is parsed once per worker, then reused for
+the shared OSM extract is parsed once per worker, then reused for
 every tile that worker handles. Memory cost: ~one parsed copy of the extract
 per worker.
 """

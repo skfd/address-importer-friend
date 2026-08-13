@@ -1,3 +1,12 @@
+[city]
+# Which city this checkout imports. `slug` names the per-city files under
+# [osm] extract_dir (`<slug>-addresses.json`); `name` is what appears in
+# human-readable strings. Both are required — there is deliberately no
+# default, so a config that predates multi-city fails loudly instead of
+# silently importing Toronto.
+slug = "toronto"
+name = "Toronto"
+
 [source]
 sqlite_path = "C:/Users/kk/Code/ontario-address-changes/data/toronto/toronto.db"
 
@@ -10,12 +19,14 @@ overpass_url = "https://overpass-api.de/api/interpreter"
 # Where stage 2 reads OSM data from. "local" reads the cached extract refreshed
 # via `python -m t2.osm_refresh`. "overpass" posts a live query to overpass_url.
 source = "local"
-# Geofabrik PBF covering Toronto. Ontario is the smallest Geofabrik region
-# that includes the city; ~600MB on first download, diff-friendly.
+# Geofabrik PBF covering the city. Ontario is the smallest Geofabrik region
+# that includes Toronto, and it covers every other city in the portfolio too,
+# so this line does not change per city; ~600MB on first download, diff-friendly.
 pbf_url = "https://download.geofabrik.de/north-america/canada/ontario-latest.osm.pbf"
-# City-of-Toronto-ish clip applied after tag filtering. Anything outside this
-# rectangle is discarded from the local extract to keep it small.
-toronto_bbox = [43.58, -79.64, 43.86, -79.11]
+# City-ish clip applied after tag filtering. Anything outside this rectangle is
+# discarded from the local extract to keep it small. Required — a rectangle is
+# not a boundary (see future-work/multi-city/10-boundary-clipping.md).
+city_bbox = [43.58, -79.64, 43.86, -79.11]
 # Where the PBF, filtered JSON, meta sidecar, lock and log live.
 extract_dir = "data/osm"
 
@@ -56,4 +67,11 @@ slack_m = 2.0
 
 [upload]
 changesets_per_minute = 1
-changeset_comment_template = "Toronto Open Data address import, run={run_name}"
+# {city} is [city].name, {run_name} the run's own name.
+changeset_comment_template = "{city} Open Data address import, run={run_name}"
+
+[export]
+# Goes into `source` on every uploaded node and on the changeset itself.
+attribution = "City of Toronto Open Data"
+# Changeset `import_plan` tag — the wiki page documenting this city's import.
+import_plan = "https://wiki.openstreetmap.org/wiki/Toronto/Import/AddressPoints"

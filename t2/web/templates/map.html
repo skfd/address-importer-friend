@@ -63,7 +63,7 @@
 <script>
   (function () {
     const tiles = {{ tiles|tojson }};
-    const bbox  = {{ toronto_bbox|tojson }};
+    const bbox  = {{ city_bbox|tojson }};
     const map = L.map('tile-map').fitBounds([[bbox[0], bbox[1]], [bbox[2], bbox[3]]]);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
       { maxZoom: 19, attribution: '© OSM' }).addTo(map);

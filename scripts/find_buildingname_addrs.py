@@ -17,7 +17,11 @@ import sys
 from collections import Counter
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-EXTRACT = os.path.join(ROOT, "data", "osm", "toronto-addresses.json")
+sys.path.insert(0, ROOT)
+
+from t2 import config as _config
+
+EXTRACT = str(_config.load().osm_extract_json)
 
 
 def classify(tags: dict) -> str:

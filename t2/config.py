@@ -13,6 +13,8 @@ OSM_ENV = "dev"
 
 @dataclass
 class Config:
+    city_slug: str
+    city_name: str
     source_sqlite_path: str
     default_bbox: tuple[float, float, float, float]
     overpass_url: str
@@ -25,8 +27,11 @@ class Config:
 
     osm_source: str
     osm_pbf_url: str
-    osm_toronto_bbox: tuple[float, float, float, float]
+    osm_city_bbox: tuple[float, float, float, float]
     osm_extract_dir: Path
+
+    export_attribution: str
+    export_import_plan: str
 
     osm_api_base: str
     osm_client_id: str
@@ -38,6 +43,13 @@ class Config:
     tool_db_path: Path = field(default=ROOT / "data" / "tool.db")
     migrations_dir: Path = field(default=ROOT / "migrations")
     data_dir: Path = field(default=ROOT / "data")
+
+    @property
+    def osm_extract_json(self) -> Path:
+        """The filtered OSM extract stage 2 reads. One definition, so the
+        filename is city-derived everywhere instead of a literal in nine
+        modules."""
+        return self.osm_extract_dir / f"{self.city_slug}-addresses.json"
 
 
 def _read_env_file(path: Path) -> dict[str, str]:
@@ -81,14 +93,32 @@ def load() -> Config:
         "pbf_url",
         "https://download.geofabrik.de/north-america/canada/ontario-latest.osm.pbf",
     ))
-    toronto_bbox = tuple(osm_section.get("toronto_bbox", [43.58, -79.64, 43.86, -79.11]))
-    assert len(toronto_bbox) == 4
+    if "city_bbox" not in osm_section:
+        raise ValueError(
+            f"{toml_path} is missing [osm] city_bbox. It was called toronto_bbox "
+            "before multi-city; rename the key rather than relying on a default, "
+            "so a stale config cannot silently clip a second city to Toronto."
+        )
+    city_bbox = tuple(osm_section["city_bbox"])
+    assert len(city_bbox) == 4
     extract_dir_raw = str(osm_section.get("extract_dir", "data/osm"))
     extract_dir = Path(extract_dir_raw)
     if not extract_dir.is_absolute():
         extract_dir = ROOT / extract_dir
 
+    city_section = cfg.get("city", {})
+    missing = [k for k in ("slug", "name") if not city_section.get(k)]
+    if missing:
+        raise ValueError(
+            f"{toml_path} is missing [city] {', '.join(missing)} — required since "
+            "multi-city; see future-work/multi-city/02-city-config-contract.md."
+        )
+
+    export_section = cfg.get("export", {})
+
     return Config(
+        city_slug=str(city_section["slug"]),
+        city_name=str(city_section["name"]),
         source_sqlite_path=cfg["source"]["sqlite_path"],
         default_bbox=bbox,  # type: ignore
         overpass_url=cfg["run_defaults"]["overpass_url"],
@@ -100,8 +130,10 @@ def load() -> Config:
         changeset_comment_template=cfg["upload"]["changeset_comment_template"],
         osm_source=osm_source,
         osm_pbf_url=osm_pbf_url,
-        osm_toronto_bbox=toronto_bbox,  # type: ignore
+        osm_city_bbox=city_bbox,  # type: ignore
         osm_extract_dir=extract_dir,
+        export_attribution=str(export_section.get("attribution", "")),
+        export_import_plan=str(export_section.get("import_plan", "")),
         osm_api_base=env.get("OSM_API_BASE") or default_api,
         osm_client_id=env.get("OSM_CLIENT_ID", ""),
         osm_client_secret=env.get("OSM_CLIENT_SECRET", ""),

@@ -143,6 +143,12 @@ def create_app() -> Flask:
     }
 
     @app.context_processor
+    def _inject_config():
+        # Templates name the city in a few places (the extract filename, the
+        # clip bbox). Injecting cfg beats threading it through every route.
+        return {"cfg": cfg}
+
+    @app.context_processor
     def _inject_source_snapshot():
         return {"source_snapshot_info": source_db.latest_snapshot_info()}
 
@@ -238,7 +244,7 @@ def create_app() -> Flask:
             "map.html",
             tiles=tiles,
             meta=meta,
-            toronto_bbox=list(cfg.osm_toronto_bbox),
+            city_bbox=list(cfg.osm_city_bbox),
             default_workers=initial_workers,
             cpu_count=os.cpu_count() or 1,
         )
@@ -1656,22 +1662,19 @@ def create_app() -> Flask:
 
     @app.get("/osm/multi")
     def osm_multi_view():
-        extract_dir = cfg.osm_extract_dir
-        json_path = extract_dir / "toronto-addresses.json"
+        json_path = cfg.osm_extract_json
         stats = _multi_addresses.collect(json_path)
         return render_template("osm_multi.html", stats=stats)
 
     @app.get("/osm/multi/corners")
     def osm_multi_corners_view():
-        extract_dir = cfg.osm_extract_dir
-        json_path = extract_dir / "toronto-addresses.json"
+        json_path = cfg.osm_extract_json
         listing = _multi_addresses.list_corner_lots(json_path)
         return render_template("osm_multi_corners.html", listing=listing)
 
     @app.get("/osm/multi/all")
     def osm_multi_all_view():
-        extract_dir = cfg.osm_extract_dir
-        json_path = extract_dir / "toronto-addresses.json"
+        json_path = cfg.osm_extract_json
         listing = _multi_addresses.list_entries(json_path)
         verdicts = _multi_fixes.load_verdicts()
         exported = _multi_fixes.load_exported_set()
@@ -1940,7 +1943,7 @@ def _collect_data_stats(cfg) -> dict:
 
     extract_dir = cfg.osm_extract_dir
     pbf_path = extract_dir / "ontario-latest.osm.pbf"
-    json_path = extract_dir / "toronto-addresses.json"
+    json_path = cfg.osm_extract_json
 
     run_json_files: list[dict] = []
     run_json_total = 0

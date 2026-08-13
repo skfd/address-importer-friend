@@ -18,7 +18,7 @@
 
   {% if listing.get('missing') %}
     <p><span class="pill bad">missing extract</span>
-      Run an OSM refresh first; no <code>toronto-addresses.json</code> on disk.</p>
+      Run an OSM refresh first; no <code>{{ cfg.osm_extract_json.name }}</code> on disk.</p>
   {% else %}
     <p class="muted" style="margin-bottom:.4rem">
       Source: <code>{{ listing.source_path }}</code> ·

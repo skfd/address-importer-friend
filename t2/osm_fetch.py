@@ -2,11 +2,11 @@
 
 Source is selected by ``config.osm.source``:
 
-* ``local``    — clip the shared extract at ``config.osm_extract_dir/toronto-addresses.json``
+* ``local``    — clip the shared extract at ``config.osm_extract_dir/<slug>-addresses.json``
                  (refreshed via ``python -m t2.osm_refresh``) to the run bbox.
                  Fast, offline, reproducible.
 * ``overpass`` — POST an Overpass query for the run bbox. Network-dependent;
-                 kept as a fallback for bbox experiments outside Toronto.
+                 kept as a fallback for bbox experiments outside the city bbox.
 
 Both paths write the result to ``data/osm_current_run<id>.json`` so downstream
 ``osm_fetch.load_cached(run_id)`` and ``conflate.build_osm_index`` are unchanged.
@@ -115,7 +115,7 @@ def _fetch_from_local(
         digest = hashlib.sha256(path.read_bytes()).hexdigest()
         return path, digest
 
-    shared = _CONFIG.osm_extract_dir / "toronto-addresses.json"
+    shared = _CONFIG.osm_extract_json
     if not shared.exists():
         raise FileNotFoundError(
             f"Local OSM extract not found at {shared}. "

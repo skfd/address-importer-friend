@@ -6,6 +6,47 @@ decided here, and the reasoning is not recoverable from the code.
 
 Full context lives in [08-survey-results-2026-08-12.md](08-survey-results-2026-08-12.md).
 
+## Tier 1 de-Torontoization — DONE 2026-08-13
+
+The mechanical half of `02`'s coupling list. Every Toronto literal that a second
+city would have had to edit code to change is now config.
+
+**New in `config.toml`:** a `[city]` block (`slug`, `name`) and an `[export]`
+block (`attribution`, `import_plan`). `[osm] toronto_bbox` is now
+`[osm] city_bbox`; `cfg.osm_toronto_bbox` is `cfg.osm_city_bbox`.
+
+**The filename.** `toronto-addresses.json` was a literal in nine places. It is
+now one property, `cfg.osm_extract_json` = `extract_dir/<slug>-addresses.json`.
+With `slug = "toronto"` it resolves to the existing file, so **no data
+migration** — the 94 MiB extract on disk is still the one stage 2 reads.
+
+**Two deliberate choices.**
+
+1. *No defaults for city identity.* `[city] slug`/`name` and `[osm] city_bbox`
+   raise at config load if absent, naming the old key in the message. A default
+   would let a stale config clip Hamilton to Toronto's rectangle and look like
+   it worked — the failure mode `03` warns about, where a bad reading is
+   indistinguishable from a bad dataset.
+2. *Attribution is checked at upload, not at load.* `[export] attribution` and
+   `import_plan` are optional to load and raise inside `osm_export.build_tags` /
+   `changeset_tags`. A city can conflate and be reviewed before its attribution
+   string and wiki page exist; it must never upload without them. This keeps
+   Tier 1 from blocking TODO §1's conflation on TODO §2's wiki page.
+
+**Persisted-key rename.** `meta.json` and the streets artifact write `city_bbox`
+now. `streets.html` reads `data.city_bbox or data.toronto_bbox`, so pages
+computed before today still render.
+
+**Guardrail held.** Toronto's emitted tags are byte-identical — `source=City of
+Toronto Open Data`, the same `import_plan` URL, and the templated changeset
+comment still renders `Toronto Open Data address import, run={run_name}`. 70/70
+tests pass; `/osm`, `/osm/multi`, `/data`, `/streets` and `/` all render. Nothing
+in conflation was touched, so match rates cannot have moved.
+
+Not included, and still Toronto-specific by design: the footer links and the
+proposal/repo URLs in `base.html`, which name the project rather than the import
+target.
+
 ## Hamilton's entry state — DONE 2026-08-13
 
 **Cleared as city #2.** Greenfield for a municipal import: a CanVec/NRCan base

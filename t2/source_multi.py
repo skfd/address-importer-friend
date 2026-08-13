@@ -41,7 +41,7 @@ def _build_osm_housenumber_index(cfg) -> dict[tuple[str, str], tuple[str, int]]:
     (split by ; , /) each register a separate key. First element to claim a
     key wins, so callers get a stable representative for the link.
     """
-    json_path = cfg.osm_extract_dir / "toronto-addresses.json"
+    json_path = cfg.osm_extract_json
     if not json_path.exists():
         return {}
     elements = json.loads(json_path.read_text(encoding="utf-8"))

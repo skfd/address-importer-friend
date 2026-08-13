@@ -1,11 +1,11 @@
-"""Download a Geofabrik OSM extract and filter it to Toronto address features.
+"""Download a Geofabrik OSM extract and filter it to the city's address features.
 
 Canonical entry point: ``python -m t2.osm_refresh``.
 
 Writes to ``config.osm_extract_dir`` (default ``data/osm``):
 
     ontario-latest.osm.pbf    raw PBF download
-    toronto-addresses.json    filtered element list (shape matches Overpass `out center;`)
+    <slug>-addresses.json     filtered element list (shape matches Overpass `out center;`)
     meta.json                 source URL + timestamps + sha256 + element counts
     refresh.lock              PID of the running refresh (present only while running)
     refresh.log               stdout+stderr of the last refresh run
@@ -41,7 +41,7 @@ def _paths(cfg) -> dict[str, Path]:
     return {
         "dir": d,
         "pbf": d / "ontario-latest.osm.pbf",
-        "json": d / "toronto-addresses.json",
+        "json": cfg.osm_extract_json,
         "meta": d / "meta.json",
         "lock": d / "refresh.lock",
         "log": d / "refresh.log",
@@ -300,7 +300,7 @@ def _filter(pbf_path: Path, bbox: tuple[float, float, float, float]) -> tuple[li
             if not has_hn and not has_interp:
                 return
             # Match Overpass `way(...)(bbox)` semantics: keep the way if its
-            # bounding box intersects the Toronto bbox, not just if its center
+            # bounding box intersects the city bbox, not just if its center
             # falls inside.
             if not _bounds_intersect_bbox(bounds, bbox):
                 counts["outside_bbox"] += 1
@@ -411,9 +411,9 @@ def run(force: bool = False, dry_run: bool = False, rebuild: bool = False) -> di
             pbf_sha = prior.get("pbf_sha256") or _sha256_file(paths["pbf"])
             pbf_bytes = paths["pbf"].stat().st_size
 
-            _log(f"filtering with pyosmium to bbox {cfg.osm_toronto_bbox}")
+            _log(f"filtering with pyosmium to bbox {cfg.osm_city_bbox}")
             t_filter = time.monotonic()
-            elements, counts = _filter(paths["pbf"], cfg.osm_toronto_bbox)
+            elements, counts = _filter(paths["pbf"], cfg.osm_city_bbox)
             filter_s = time.monotonic() - t_filter
             _log(f"filter done in {filter_s:.1f}s — {counts}")
 
@@ -430,7 +430,7 @@ def run(force: bool = False, dry_run: bool = False, rebuild: bool = False) -> di
                 "json_sha256": json_sha,
                 "json_bytes": len(body),
                 "element_counts": counts,
-                "toronto_bbox": list(cfg.osm_toronto_bbox),
+                "city_bbox": list(cfg.osm_city_bbox),
                 "downloaded_at": prior.get("downloaded_at", _iso_now()),
                 "rebuilt_at": _iso_now(),
                 "filter_duration_s": round(filter_s, 2),
@@ -477,9 +477,9 @@ def run(force: bool = False, dry_run: bool = False, rebuild: bool = False) -> di
         pbf_sha, pbf_bytes = _download(cfg.osm_pbf_url, paths["pbf"])
         _log(f"downloaded {pbf_bytes} bytes, sha256 {pbf_sha[:16]}…")
 
-        _log(f"filtering with pyosmium to bbox {cfg.osm_toronto_bbox}")
+        _log(f"filtering with pyosmium to bbox {cfg.osm_city_bbox}")
         t_filter = time.monotonic()
-        elements, counts = _filter(paths["pbf"], cfg.osm_toronto_bbox)
+        elements, counts = _filter(paths["pbf"], cfg.osm_city_bbox)
         filter_s = time.monotonic() - t_filter
         _log(f"filter done in {filter_s:.1f}s — {counts}")
 
@@ -496,7 +496,7 @@ def run(force: bool = False, dry_run: bool = False, rebuild: bool = False) -> di
             "json_sha256": json_sha,
             "json_bytes": len(body),
             "element_counts": counts,
-            "toronto_bbox": list(cfg.osm_toronto_bbox),
+            "city_bbox": list(cfg.osm_city_bbox),
             "downloaded_at": _iso_now(),
             "filter_duration_s": round(filter_s, 2),
             "total_duration_s": round(time.monotonic() - t_start, 2),
@@ -512,7 +512,7 @@ def run(force: bool = False, dry_run: bool = False, rebuild: bool = False) -> di
 def _cli() -> int:
     parser = argparse.ArgumentParser(
         prog="python -m t2.osm_refresh",
-        description="Download + filter the Toronto OSM extract used by stage 2.",
+        description="Download + filter the city OSM extract used by stage 2.",
     )
     parser.add_argument("--force", action="store_true",
                         help="Re-download even if Geofabrik Last-Modified is unchanged.")

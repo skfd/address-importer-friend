@@ -44,7 +44,7 @@ def test_fetch_includes_halo_excludes_beyond(local_extract):
     inside = _node(1, lat=43.005, lon=-79.495)         # inside tight bbox
     halo = _node(2, lat=43.01 + 0.00108, lon=-79.495)  # ~120 m N -> within 150 m halo
     beyond = _node(3, lat=43.01 + 0.0030, lon=-79.495)  # ~334 m N -> outside halo
-    (local_extract / "toronto-addresses.json").write_text(
+    (local_extract / osm_fetch._CONFIG.osm_extract_json.name).write_text(
         json.dumps([inside, halo, beyond]), encoding="utf-8"
     )
 

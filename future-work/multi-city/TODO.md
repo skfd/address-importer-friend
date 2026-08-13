@@ -14,17 +14,10 @@ doc work, Wellington's spike, and the Peel correction.
 (DONE.md) but nothing on this list tracked producing the import, only the policy
 and design work surrounding it. Written down 2026-08-13.
 
-Blocked on the Tier 1 and Tier 4 decoupling in `02`, because `config.toml` is
-still single-city by construction: `[source] sqlite_path` points at
-`toronto.db`, `[osm] toronto_bbox` names the clip, and
-`[upload] changeset_comment_template` says Toronto in the literal.
+Tier 1 is **done** (2026-08-13, see DONE.md). Tier 4 is still open, and the
+source still points at `toronto.db`.
 
-- [ ] **Tier 1, mechanical** (`02`): city-neutral name for `cfg.osm_toronto_bbox`
-      (`t2/config.py:28,84,103`); the literal `toronto-addresses.json` in
-      `t2/osm_refresh.py:44`, `t2/streets.py:42`, `t2/reverse_sweep.py:332`,
-      `t2/web/app.py:1660,1667,1674,1943`; `STATIC_TAGS` in
-      `t2/osm_export.py:12-14`; the changeset comment. `[osm] pbf_url` needs
-      **no** change — the Geofabrik Ontario extract already covers Hamilton.
+- [x] **Tier 1, mechanical** (`02`) — done 2026-08-13.
 - [ ] Point the source at
       `ontario-address-changes/data/hamilton/hamilton.db` — already on disk,
       dataset slug `hamilton`.
