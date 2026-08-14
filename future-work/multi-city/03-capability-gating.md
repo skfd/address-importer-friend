@@ -1,6 +1,10 @@
 # Capability gating
 
-Status: **proposed, not implemented.** Captured 2026-08-10.
+Status: **declared-field gating implemented 2026-08-14** (see DONE.md) — the
+design sketch below shipped: generated `_ADDRESS_COLS`, per-check `requires`,
+disabled-for-cause visible in the run UI, explicit-enable refusal. Still open:
+**measured** capabilities (`has_street_type` after resolution, refusals that
+print the values they judged). Captured 2026-08-10.
 
 ## The problem, stated precisely
 

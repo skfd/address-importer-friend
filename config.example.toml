@@ -20,6 +20,30 @@ neighbourhoods_url = "https://ckan0.cf.opendata.inter.prod-toronto.ca/dataset/fc
 [source]
 sqlite_path = "C:/Users/kk/Code/ontario-address-changes/data/toronto/toronto.db"
 
+# Where each logical field lives in this city's tracker DB — the per-city
+# projection recipe (multi-city Tier 2). The tracker's canonical columns are
+# not dependable across cities (18 of 42 datasets store the street *name
+# component* only), so street/full resolution is declared per city, and each
+# optional key below is a capability: leave it out and the engine projects
+# NULL for it and visibly disables every feature that reads it, instead of
+# running those features silently against nothing (see
+# future-work/multi-city/03-capability-gating.md).
+[source_fields]
+# "street" | "full" | "props:<KEY>". Toronto's canonical street is
+# linear_name_full — typed on 99% of rows — so the column is usable directly.
+street_from = "street"
+# "full" (the tracker's combined column) | "number+street" (synthesized, for
+# sources that publish no combined address — e.g. Hamilton).
+full_from = "full"
+# Optional capabilities, each "props:<KEY>". Absent key = absent capability.
+municipality = "props:MUNICIPALITY_NAME"   # cross-municipality dedup keying
+ward = "props:WARD_NAME"
+lo_num = "props:LO_NUM"                    # address ranges: suffix_range check,
+lo_num_suf = "props:LO_NUM_SUF"            # range coverage + safety gate
+hi_num = "props:HI_NUM"
+hi_num_suf = "props:HI_NUM_SUF"
+address_class = "props:ADDRESS_CLASS_DESC" # Land Entrance skip + Land dedup
+
 [run_defaults]
 # Small downtown rectangle for first test run
 bbox = [43.645, -79.42, 43.665, -79.39]

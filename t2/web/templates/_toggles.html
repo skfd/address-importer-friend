@@ -6,6 +6,12 @@
       <td><code data-tip="{{ check.description }}">{{ cid }}</code></td>
       <td>{{ check.version }}</td>
       <td>
+        {% if cid in unavailable %}
+          {# Disabled-for-cause: the city's source lacks the fields this check
+             reads. Distinct from an operator's "off" — no button, so it cannot
+             be mistaken for a choice (03-capability-gating.md). #}
+          <span class="pill" title="Source declares no {{ unavailable[cid] }} in [source_fields].">n/a</span>
+        {% else %}
         <form hx-post="/runs/{{ run_id }}/toggle/{{ cid }}" hx-target="#toggles" class="inline">
           <input type="hidden" name="enabled" value="{{ '0' if toggles.get(cid) else '1' }}" />
           <button class="{% if not toggles.get(cid) %}secondary{% endif %}"
@@ -14,8 +20,9 @@
             {{ 'ON' if toggles.get(cid) else 'off' }}
           </button>
         </form>
+        {% endif %}
       </td>
-      <td class="muted">{{ check.description }}</td>
+      <td class="muted">{% if cid in unavailable %}<strong>Cannot run for this city</strong> — source declares no {{ unavailable[cid] }}. {% endif %}{{ check.description }}</td>
     </tr>
     {% endfor %}
   </tbody>

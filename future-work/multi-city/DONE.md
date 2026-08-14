@@ -6,6 +6,59 @@ decided here, and the reasoning is not recoverable from the code.
 
 Full context lives in [08-survey-results-2026-08-12.md](08-survey-results-2026-08-12.md).
 
+## Tier 2 source projection + capability gating — DONE 2026-08-14
+
+The real work of `02`, and the dangerous half of `03`. The engine no longer
+bakes in Toronto's props keys anywhere.
+
+**New required config block: `[source_fields]`** — the per-city projection
+recipe. `street_from` / `full_from` are mandatory (no default, so a config
+cannot silently inherit another city's street resolution); the optional keys
+(`municipality`, `ward`, `lo_num(_suf)`, `hi_num(_suf)`, `address_class`) are
+*capabilities* — absent means the projection emits SQL `NULL` and dependents
+are disabled-for-cause. Unknown keys raise (a typo would otherwise silently
+drop a capability).
+
+**`_ADDRESS_COLS` is generated** (`source_db.build_address_cols`, pure, plus
+`source_db.expr()` for callers building their own source queries — `ranges`
+and `source_multi` now go through it instead of embedding `$.LO_NUM`
+literals). The guardrail held by construction: a test asserts Toronto's
+declaration generates the pre-Tier-2 SQL **byte-identically**, and a live
+smoke test against both checkouts confirmed Toronto unchanged and Hamilton
+projecting correctly (31,279 rows in the Gore Park test bbox; synthesized
+`address_full`, typed streets, `COMMUNITY` as municipality, NULL ranges).
+
+**Checks declare `requires`** (logical `[source_fields]` names). At run start,
+a check whose requirements the city lacks is forced off; the run UI shows
+"n/a — source declares no lo_num, hi_num" instead of an operator toggle, so
+*could not run* is never mistaken for *ran and found nothing* or for a
+choice. Gated for Hamilton: `suffix_range` (no ranges) and
+`intra_source_duplicate` (no address class). The reason is derived from config
+at render time, not persisted — the recipe is git-tracked in the city
+checkout, so no schema change.
+
+**A config that explicitly enables an impossible check fails the run start**
+(`ValueError` naming the missing fields) rather than being silently
+overridden — Hamilton's config.toml had exactly this bug (`suffix_range =
+true`, copied from Toronto's) and now documents why the line is absent.
+
+**Two judgement calls.**
+
+1. *`suffix_range` gates whole*, though its I/O/Q-suffix half could run from
+   `housenumber` alone. Splitting the check is deferred until a rangeless city
+   demonstrably wants suffix flagging (noted in TODO "Not blocking").
+2. *Hamilton's `street_from` is `"street"`, not props.* The survey's
+   `street_source: "props"` described the survey's own resolution recipe;
+   Hamilton's tracker TOML already maps `street = FULL_STREET_NAME`, typed and
+   100% populated. The correction in `02` ("canonical fields are not
+   conflation-ready") stands portfolio-wide — it just isn't Hamilton's case.
+
+The Land Entrance skip reads its props key from config too
+(`address_class_key`), so it is Toronto-only by construction now, not by
+string literal. What `03` still leaves open: **measured** capabilities
+(`has_street_type` evaluated after resolution, refusal printing the values it
+judged) — the declared-field half is done, the measured half is not.
+
 ## Repo-per-city split — DONE 2026-08-13
 
 The single Toronto repo became three, following the `address-layerist` house

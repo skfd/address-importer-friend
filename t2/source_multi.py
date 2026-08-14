@@ -104,19 +104,21 @@ def collect(snapshot_id: int | None = None) -> dict:
             (snapshot_id,),
         ).fetchone()[0]
 
+        lo_expr = source_db.expr("lo_num", "")
+        hi_expr = source_db.expr("hi_num", "")
         range_rows = conn.execute(
-            "SELECT CAST(json_extract(props,'$.LO_NUM') AS INTEGER) AS lo_num, "
-            "       CAST(json_extract(props,'$.HI_NUM') AS INTEGER) AS hi_num, "
-            "       NULLIF(json_extract(props,'$.LO_NUM_SUF'),'None') AS lo_num_suf, "
-            "       NULLIF(json_extract(props,'$.HI_NUM_SUF'),'None') AS hi_num_suf, "
-            "       full AS address_full, street AS linear_name_full, "
-            "       json_extract(props,'$.MUNICIPALITY_NAME') AS municipality_name "
+            f"SELECT {lo_expr} AS lo_num, "
+            f"       {hi_expr} AS hi_num, "
+            f"       {source_db.expr('lo_num_suf', '')} AS lo_num_suf, "
+            f"       {source_db.expr('hi_num_suf', '')} AS hi_num_suf, "
+            f"       {source_db.expr('full', '')} AS address_full, "
+            f"       {source_db.expr('street', '')} AS linear_name_full, "
+            f"       {source_db.expr('municipality', '')} AS municipality_name "
             "FROM addresses "
-            "WHERE max_snapshot_id=? AND json_extract(props,'$.LO_NUM') IS NOT NULL "
-            "  AND json_extract(props,'$.HI_NUM') IS NOT NULL "
-            "  AND json_extract(props,'$.LO_NUM') != json_extract(props,'$.HI_NUM') "
-            "ORDER BY (CAST(json_extract(props,'$.HI_NUM') AS INTEGER) - "
-            "          CAST(json_extract(props,'$.LO_NUM') AS INTEGER)) DESC, full",
+            f"WHERE max_snapshot_id=? AND {lo_expr} IS NOT NULL "
+            f"  AND {hi_expr} IS NOT NULL "
+            f"  AND {lo_expr} != {hi_expr} "
+            f"ORDER BY ({hi_expr} - {lo_expr}) DESC, {source_db.expr('full', '')}",
             (snapshot_id,),
         ).fetchall()
         ranges = [dict(r) for r in range_rows]
@@ -175,14 +177,14 @@ def collect(snapshot_id: int | None = None) -> dict:
         top_streets = [{"street": s, "count": c} for s, c in top_streets]
 
         half_rows = conn.execute(
-            "SELECT full AS address_full, "
-            "       CAST(json_extract(props,'$.LO_NUM') AS INTEGER) AS lo_num, "
-            "       NULLIF(json_extract(props,'$.LO_NUM_SUF'),'None') AS lo_num_suf, "
-            "       street AS linear_name_full, "
-            "       json_extract(props,'$.MUNICIPALITY_NAME') AS municipality_name "
+            f"SELECT {source_db.expr('full', '')} AS address_full, "
+            f"       {source_db.expr('lo_num', '')} AS lo_num, "
+            f"       {source_db.expr('lo_num_suf', '')} AS lo_num_suf, "
+            f"       {source_db.expr('street', '')} AS linear_name_full, "
+            f"       {source_db.expr('municipality', '')} AS municipality_name "
             "FROM addresses "
-            "WHERE max_snapshot_id=? AND json_extract(props,'$.LO_NUM_SUF')='1/2' "
-            "ORDER BY street, CAST(json_extract(props,'$.LO_NUM') AS INTEGER)",
+            f"WHERE max_snapshot_id=? AND {source_db.expr('lo_num_suf', '')}='1/2' "
+            f"ORDER BY {source_db.expr('street', '')}, {source_db.expr('lo_num', '')}",
             (snapshot_id,),
         ).fetchall()
         halves = [dict(h) for h in half_rows]

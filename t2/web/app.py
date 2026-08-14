@@ -566,6 +566,7 @@ def create_app() -> Flask:
             run_id, "missing_sample", "every_nth", 50
         )
         return render_template("run.html", run=run, counts=counts, toggles=toggles,
+                               unavailable=pipeline.unavailable_checks(),
                                registry=REGISTRY, tile=tile,
                                tile_index=tile_index, tile_total=tile_total,
                                status=status, stage_order=("ingest", "fetch", "conflate", "checks"),
@@ -680,9 +681,17 @@ def create_app() -> Flask:
     def run_toggle(run_id: int, check_id: str):
         _abort_if_uploaded(run_id)
         enabled = request.form.get("enabled", "0") == "1"
-        pipeline.set_toggle(run_id, check_id, enabled)
+        try:
+            pipeline.set_toggle(run_id, check_id, enabled)
+        except ValueError as exc:
+            # Enabling a check the city's [source_fields] cannot support. The
+            # template renders no button for those, so only a hand-crafted
+            # request lands here.
+            abort(400, description=str(exc))
         toggles = _get_toggles(run_id)
-        return render_template("_toggles.html", toggles=toggles, registry=REGISTRY, run_id=run_id)
+        return render_template("_toggles.html", toggles=toggles,
+                               unavailable=pipeline.unavailable_checks(),
+                               registry=REGISTRY, run_id=run_id)
 
     @app.post("/runs/<int:run_id>/sample_rate")
     def run_sample_rate(run_id: int):

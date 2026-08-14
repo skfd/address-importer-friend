@@ -15,6 +15,10 @@ class SuffixRangeCheck:
     version = 2
     default_enabled = True
     description = "Flags housenumber ranges (100-110) and digit-confusable suffix letters (I, O, Q). Other suffixes (A, B, R, 1/2, …) pass."
+    # The whole check is gated on the range fields even though the suffix half
+    # could run from housenumber alone — splitting it is not worth doing until
+    # a rangeless city demonstrably wants suffix flagging (TODO.md).
+    requires = ("lo_num", "hi_num")
 
     def applies(self, cand: Candidate, ctx: CheckContext) -> bool:
         return cand.verdict == "MISSING"

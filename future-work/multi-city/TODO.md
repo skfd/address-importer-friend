@@ -32,8 +32,12 @@ the source at Hamilton and running it.
       `ontario-address-changes/data/hamilton/hamilton.db` — done 2026-08-13:
       `hamilton-address-import/config.toml` declares it, with a measured
       `city_bbox` (273,441 rows, lat 43.051..43.468, lon -80.244..-79.625).
-      No pipeline run has consumed it yet — Tier 2, the source projection
-      (`03`), starts to bite at the first ingest.
+- [x] **Tier 2, the source projection + declared-field gating** (`02`/`03`) —
+      done 2026-08-14 (DONE.md). `[source_fields]` per city; projection
+      generated (Toronto byte-identical, guardrail test); `suffix_range` and
+      `intra_source_duplicate` disabled-for-cause for Hamilton, visible in
+      the run UI. Smoke-tested against both real checkouts. Nothing blocks
+      the first Hamilton ingest now.
 - [ ] Run **baseline conflation in full** — README decision 1: conflation always
       runs in full for every city, upload is the conditional part.
 - [ ] Guardrail throughout: **Toronto's match rates must not move** (`tool.db`
@@ -120,6 +124,12 @@ The correction itself is in DONE.md; these two consequences are not done.
       the metric alone.
 
 ## Not blocking, worth doing when touching the normalizer
+
+Split `suffix_range` if a rangeless city ever wants the I/O/Q
+digit-confusable-suffix half: it could run from `housenumber` alone, but the
+whole check is gated on `lo_num`/`hi_num` for now (decided 2026-08-14 with
+Tier 2; Hamilton loses nothing — its odd suffixes are street types, not
+housenumber letters).
 
 Cheap suffix-table wins measured by the survey: `AV`, `CR`, `BV`, `WY`, `TERR`,
 `TL`, `PRIV`, plus French `RUE`/`BOUL`/`PROM`/`CROIS`. Would materially move

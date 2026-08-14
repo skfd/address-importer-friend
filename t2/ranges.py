@@ -33,14 +33,16 @@ def coverage(cand: dict, snap_id: int | None, source_conn=None) -> dict:
     own_conn = source_conn is None
     conn = source_conn if source_conn is not None else source_db.connect_readonly()
     try:
+        lo_expr = source_db.expr("lo_num", "")
         rows = conn.execute(
-            "SELECT CAST(json_extract(props,'$.LO_NUM') AS INTEGER) AS lo_num, "
-            "       street AS linear_name_full, full AS address_full, "
+            f"SELECT {lo_expr} AS lo_num, "
+            f"       {source_db.expr('street', '')} AS linear_name_full, "
+            f"       {source_db.expr('full', '')} AS address_full, "
             "       latitude, longitude, identity_key AS address_point_id "
             "FROM addresses "
-            "WHERE max_snapshot_id=? AND json_extract(props,'$.HI_NUM') IS NULL "
-            "  AND json_extract(props,'$.MUNICIPALITY_NAME') IS ? "
-            "  AND CAST(json_extract(props,'$.LO_NUM') AS INTEGER) BETWEEN ? AND ?",
+            f"WHERE max_snapshot_id=? AND {source_db.expr('hi_num', '')} IS NULL "
+            f"  AND {source_db.expr('municipality', '')} IS ? "
+            f"  AND {lo_expr} BETWEEN ? AND ?",
             (snap_id, mun, lo_i, hi_i),
         ).fetchall()
     finally:
@@ -115,13 +117,14 @@ def compute_for_run(run_id: int) -> int:
             overall_hi = max(max(c["lo_num"], c["hi_num"]) for c in cands)
             src_conn = source_db.connect_readonly()
             try:
+                lo_expr = source_db.expr("lo_num", "")
                 rows = src_conn.execute(
-                    "SELECT CAST(json_extract(props,'$.LO_NUM') AS INTEGER) AS lo_num, "
-                    "       street AS linear_name_full, "
-                    "       json_extract(props,'$.MUNICIPALITY_NAME') AS municipality_name "
+                    f"SELECT {lo_expr} AS lo_num, "
+                    f"       {source_db.expr('street', '')} AS linear_name_full, "
+                    f"       {source_db.expr('municipality', '')} AS municipality_name "
                     "FROM addresses "
-                    "WHERE max_snapshot_id=? AND json_extract(props,'$.HI_NUM') IS NULL "
-                    "  AND CAST(json_extract(props,'$.LO_NUM') AS INTEGER) BETWEEN ? AND ?",
+                    f"WHERE max_snapshot_id=? AND {source_db.expr('hi_num', '')} IS NULL "
+                    f"  AND {lo_expr} BETWEEN ? AND ?",
                     (snap_id, overall_lo, overall_hi),
                 ).fetchall()
             finally:

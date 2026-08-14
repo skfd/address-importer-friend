@@ -23,6 +23,9 @@ class IntraSourceDuplicateCheck:
         "another active Land row in the same run, unless every row in that "
         "group already matched OSM (nothing importable)."
     )
+    # 'Land' is an address-class value: without the class field, conflate never
+    # builds dup groups and this check would silently pass everything.
+    requires = ("address_class",)
 
     def applies(self, cand: Candidate, ctx: CheckContext) -> bool:
         if cand.dup_sibling_candidate_id is None:

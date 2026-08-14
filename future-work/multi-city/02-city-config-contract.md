@@ -1,6 +1,7 @@
 # Per-city config contract
 
-Status: **proposed, not implemented.** Captured 2026-08-10.
+Status: **Tiers 1, 2 and 4 implemented** (see DONE.md); Tier 3 (street
+conventions, `01`) open. Captured 2026-08-10.
 
 ## Motivation
 
@@ -32,7 +33,12 @@ Confirmed while implementing: `[city]` and `[export]` are the two blocks the
 sketch below did not have. `slug` and `name` are required with no default —
 identity must not fall back to Toronto.
 
-**Tier 2 — the source projection.** See `03`. This is the real work.
+**Tier 2 — the source projection. IMPLEMENTED 2026-08-14** (see DONE.md).
+`[source_fields]` is the required per-city recipe; `source_db.build_address_cols`
+generates the projection from it, byte-identical to the old hardcoded SQL for
+Toronto's declaration. The `street_from` sketch at the bottom of this file
+shipped almost as written (spec strings `"street"` / `"full"` / `"props:<KEY>"`,
+plus `full_from = "number+street"` for sources with no combined column).
 
 **Tier 3 — street conventions.** See `01`.
 

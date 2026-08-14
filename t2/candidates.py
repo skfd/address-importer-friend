@@ -2,7 +2,9 @@
 import json
 from datetime import datetime, timezone
 
-from . import audit, db as _db, source_db
+from . import audit, config as _config, db as _db, source_db
+
+_SOURCE_FIELDS = _config.load().source_fields
 
 
 def _street_from_row(row: dict) -> str:
@@ -40,10 +42,16 @@ def _candidate_values(run_id: int, row: dict, now: str) -> tuple | None:
     street_raw = expand_street_name(apply_street_override(_street_from_row(row)))
     housenumber = row.get("address_number") or ""
     extra_raw = row.get("extra")
-    try:
-        address_class = (json.loads(extra_raw) if extra_raw else {}).get("ADDRESS_CLASS_DESC")
-    except (ValueError, TypeError):
-        address_class = None
+    # Which props key holds the class is per-city ([source_fields]); a city
+    # that declares none gets address_class NULL, which also keeps the Land
+    # Entrance skip below Toronto-only by construction.
+    class_key = _SOURCE_FIELDS.address_class_key
+    address_class = None
+    if class_key:
+        try:
+            address_class = (json.loads(extra_raw) if extra_raw else {}).get(class_key)
+        except (ValueError, TypeError):
+            address_class = None
     # Land Entrance rows model driveway/gate entry points (closest OSM concept
     # is barrier=gate, not an address) and are out of scope — see
     # IMPORT_PROPOSAL.mediawiki § Goals and non-goals.

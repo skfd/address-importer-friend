@@ -92,15 +92,22 @@ def snapshot_date(snapshot_id: int, conn: sqlite3.Connection | None = None) -> s
             conn.close()
 
 
-# The source is now ontario-address-changes' generic `toronto.db` (SCD-2, one
-# `props` JSON blob per row) instead of the retired per-city `addresses.db` with
-# flat Toronto columns. This projection maps the generic schema back to the row
-# contract the rest of t2 already consumes, so callers are unchanged:
-#   identity_key -> address_point_id, full/number -> address_full/address_number,
-#   street -> linear_name_full, LO_NUM/HI_NUM(+suf), MUNICIPALITY_NAME, WARD_NAME
-#   and ADDRESS_CLASS_DESC pulled out of `props` (kept there via toronto.toml
-#   keep_fields). `props` is exposed as `extra` because t2 only reads
-#   ADDRESS_CLASS_DESC from it.
+# The source is ontario-address-changes' generic tracker schema (SCD-2, one
+# `props` JSON blob per row). This projection maps it back to the row contract
+# the rest of t2 consumes — address_point_id, address_full, linear_name_full,
+# lo_num/hi_num(+suf), municipality_name, ward_name, `props` as `extra` —
+# but where each value comes from is per-city config ([source_fields], see
+# future-work/multi-city/02-city-config-contract.md): the canonical columns
+# are not dependable across cities, and the Toronto-only props keys must not
+# be baked in (03-capability-gating.md). An undeclared optional field projects
+# SQL NULL, so callers keep their contract and capability gating decides what
+# may run.
+# Toronto's declaration generates byte-for-byte the SQL that was previously
+# hardcoded here (asserted by tests/test_source_fields.py — the guardrail:
+# tool.db is living, Toronto's behaviour must not move):
+#   full -> address_full, street -> linear_name_full, LO_NUM/HI_NUM(+suf),
+#   MUNICIPALITY_NAME, WARD_NAME and ADDRESS_CLASS_DESC out of `props` (kept
+#   there via toronto.toml keep_fields).
 # `props` stores the source's literal string 'None' for empty suffixes; NULLIF
 # restores the SQL NULL the old columns had, so `(r["lo_num_suf"] or "")` logic
 # in ranges/reverse_sweep keeps working. linear_name/_type/_dir are dropped by
@@ -108,19 +115,69 @@ def snapshot_date(snapshot_id: int, conn: sqlite3.Connection | None = None) -> s
 # always present), so they project as NULL.
 # Qualified with the `a.` alias so the SELECT list is unambiguous when the
 # delta queries below join `addresses a` against a per-point aggregate.
-_ADDRESS_COLS = (
-    "a.identity_key AS address_point_id, a.full AS address_full, "
-    "a.number AS address_number, "
-    "CAST(json_extract(a.props,'$.LO_NUM') AS INTEGER) AS lo_num, "
-    "NULLIF(json_extract(a.props,'$.LO_NUM_SUF'),'None') AS lo_num_suf, "
-    "CAST(json_extract(a.props,'$.HI_NUM') AS INTEGER) AS hi_num, "
-    "NULLIF(json_extract(a.props,'$.HI_NUM_SUF'),'None') AS hi_num_suf, "
-    "a.street AS linear_name_full, "
-    "NULL AS linear_name, NULL AS linear_name_type, NULL AS linear_name_dir, "
-    "json_extract(a.props,'$.MUNICIPALITY_NAME') AS municipality_name, "
-    "json_extract(a.props,'$.WARD_NAME') AS ward_name, "
-    "a.longitude, a.latitude, a.props AS extra"
-)
+
+
+def _spec_sql(spec: str, alias: str) -> str:
+    """SQL value expression for one [source_fields] spec.
+
+    ``alias`` prefixes column references ("a" for the delta queries' joined
+    form, "" for callers selecting from a bare `addresses`)."""
+    p = f"{alias}." if alias else ""
+    if spec in ("street", "full", "number"):
+        return f"{p}{spec}"
+    key = spec.removeprefix("props:")
+    return f"json_extract({p}props,'$.{key}')"
+
+
+def field_sql(sf: _config.SourceFields, name: str, alias: str = "a") -> str:
+    """SQL value expression (no AS) for a logical source field under recipe
+    ``sf``. Undeclared optional fields project literal NULL — visible in the
+    generated SQL rather than an absent key at runtime."""
+    if name == "street":
+        return _spec_sql(sf.street_from, alias)
+    if name == "full":
+        if sf.full_from == "full":
+            return _spec_sql("full", alias)
+        # "number+street": the source publishes no combined column (e.g.
+        # Hamilton), so synthesize the tracker reports' own fallback form.
+        p = f"{alias}." if alias else ""
+        street = field_sql(sf, "street", alias)
+        return f"NULLIF(TRIM(COALESCE({p}number,'') || ' ' || COALESCE({street},'')),'')"
+    if name in ("lo_num", "hi_num"):
+        spec = getattr(sf, name)
+        return f"CAST({_spec_sql(spec, alias)} AS INTEGER)" if spec else "NULL"
+    if name in ("lo_num_suf", "hi_num_suf"):
+        spec = getattr(sf, name)
+        return f"NULLIF({_spec_sql(spec, alias)},'None')" if spec else "NULL"
+    if name in ("municipality", "ward"):
+        spec = getattr(sf, name)
+        return _spec_sql(spec, alias) if spec else "NULL"
+    raise KeyError(f"unknown logical source field {name!r}")
+
+
+def expr(name: str, alias: str = "a") -> str:
+    """field_sql bound to this process's city config — for callers (ranges,
+    source_multi) that build their own source-DB queries."""
+    return field_sql(_CONFIG.source_fields, name, alias)
+
+
+def build_address_cols(sf: _config.SourceFields) -> str:
+    return (
+        f"a.identity_key AS address_point_id, {field_sql(sf, 'full')} AS address_full, "
+        "a.number AS address_number, "
+        f"{field_sql(sf, 'lo_num')} AS lo_num, "
+        f"{field_sql(sf, 'lo_num_suf')} AS lo_num_suf, "
+        f"{field_sql(sf, 'hi_num')} AS hi_num, "
+        f"{field_sql(sf, 'hi_num_suf')} AS hi_num_suf, "
+        f"{field_sql(sf, 'street')} AS linear_name_full, "
+        "NULL AS linear_name, NULL AS linear_name_type, NULL AS linear_name_dir, "
+        f"{field_sql(sf, 'municipality')} AS municipality_name, "
+        f"{field_sql(sf, 'ward')} AS ward_name, "
+        "a.longitude, a.latitude, a.props AS extra"
+    )
+
+
+_ADDRESS_COLS = build_address_cols(_CONFIG.source_fields)
 
 
 def iter_active_addresses_in_bbox(bbox: tuple[float, float, float, float], snapshot_id: int):
@@ -204,7 +261,7 @@ def iter_retired_since(watermark_snapshot_id: int, snapshot_id: int | None = Non
             WHERE NOT EXISTS (
                 SELECT 1 FROM addresses b
                 WHERE b.number   = a.number
-                  AND b.street   = a.street
+                  AND {field_sql(_CONFIG.source_fields, 'street', 'b')}   = {field_sql(_CONFIG.source_fields, 'street', 'a')}
                   AND b.identity_key <> a.identity_key
                   AND b.max_snapshot_id   = ?
             )

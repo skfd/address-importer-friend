@@ -25,9 +25,41 @@ def _ensure_checks_catalog(conn):
         )
 
 
-def _seed_toggles(conn, run_id: int, enabled_from_config: dict[str, bool]):
+def unavailable_checks(source_fields=None) -> dict[str, str]:
+    """check_id -> the [source_fields] keys it needs but this city lacks.
+
+    Derived from config at call time rather than persisted: the recipe lives
+    in the city checkout's git-tracked config.toml, so 'why is this check
+    off' stays answerable without a schema column that would be NULL for any
+    fully-declared city."""
+    if source_fields is None:
+        source_fields = _config.load().source_fields
+    out: dict[str, str] = {}
     for check in REGISTRY.values():
-        enabled = enabled_from_config.get(check.id, check.default_enabled)
+        missing = [f for f in getattr(check, "requires", ()) if not source_fields.declares(f)]
+        if missing:
+            out[check.id] = ", ".join(missing)
+    return out
+
+
+def _seed_toggles(conn, run_id: int, enabled_from_config: dict[str, bool],
+                  unavailable: dict[str, str] | None = None):
+    if unavailable is None:
+        unavailable = unavailable_checks()
+    for check in REGISTRY.values():
+        if check.id in unavailable:
+            # A config that *explicitly* enables an impossible check is lying
+            # to its operator — refuse to run rather than fail silently open
+            # (03-capability-gating.md). Merely defaulting on is forced off.
+            if enabled_from_config.get(check.id):
+                raise ValueError(
+                    f"config.toml enables check '{check.id}', but [source_fields] "
+                    f"declares no {unavailable[check.id]} — this source cannot "
+                    "support it. Remove it from [checks]."
+                )
+            enabled = False
+        else:
+            enabled = enabled_from_config.get(check.id, check.default_enabled)
         conn.execute(
             "INSERT OR IGNORE INTO check_toggles (run_id, check_id, enabled) VALUES (?, ?, ?)",
             (run_id, check.id, 1 if enabled else 0),
@@ -408,6 +440,12 @@ def set_check_param(run_id: int, check_id: str, key: str, value) -> None:
 
 
 def set_toggle(run_id: int, check_id: str, enabled: bool) -> None:
+    unavailable = unavailable_checks()
+    if enabled and check_id in unavailable:
+        raise ValueError(
+            f"check '{check_id}' cannot run for this city: [source_fields] "
+            f"declares no {unavailable[check_id]}."
+        )
     conn = _db.connect()
     try:
         conn.execute("BEGIN IMMEDIATE")

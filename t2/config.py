@@ -1,4 +1,5 @@
 import os
+import re
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -20,12 +21,118 @@ CITY_DIR = Path(os.environ.get("T2_CITY_DIR") or ROOT).resolve()
 OSM_ENV = "dev"
 
 
+# A [source_fields] value is either a canonical tracker column ("street",
+# "full") or "props:<KEY>", a key inside the tracker's per-row props JSON.
+# Keys are embedded into SQL string literals, so the charset is restricted.
+_PROPS_KEY_RE = re.compile(r"^props:[A-Za-z0-9_]+$")
+
+
+@dataclass(frozen=True)
+class SourceFields:
+    """Where each logical field lives in this city's source DB — the per-city
+    projection recipe from future-work/multi-city/02-city-config-contract.md.
+
+    The tracker's canonical columns are not dependable across cities (18 of 42
+    datasets store the street name component only; Hamilton publishes no
+    combined address at all), so every city must say where street/full come
+    from, and which optional props exist. An undeclared optional field is an
+    absent *capability*: the projection emits SQL NULL for it and every
+    feature that reads it is disabled-for-cause (see 03-capability-gating.md),
+    never silently run against NULLs.
+    """
+
+    street_from: str            # "street" | "full" | "props:<KEY>"
+    full_from: str              # "full" | "number+street" (synthesized)
+    municipality: str | None    # "props:<KEY>" or None = capability absent
+    ward: str | None
+    lo_num: str | None
+    lo_num_suf: str | None
+    hi_num: str | None
+    hi_num_suf: str | None
+    address_class: str | None
+
+    def declares(self, name: str) -> bool:
+        """True when the optional field ``name`` is mapped for this city."""
+        return getattr(self, name) is not None
+
+    @property
+    def has_ranges(self) -> bool:
+        return self.declares("lo_num") and self.declares("hi_num")
+
+    @property
+    def address_class_key(self) -> str | None:
+        """The props key holding the address class, or None if undeclared."""
+        if self.address_class is None:
+            return None
+        return self.address_class.removeprefix("props:")
+
+
+_SOURCE_FIELD_OPTIONAL = (
+    "municipality", "ward", "lo_num", "lo_num_suf", "hi_num", "hi_num_suf",
+    "address_class",
+)
+
+
+def parse_source_fields(section: dict, origin: str = "config.toml") -> SourceFields:
+    """Validate and build the [source_fields] projection recipe.
+
+    Loud by design: a missing section, an unknown key (likely a typo that
+    would otherwise silently drop a capability), or a malformed spec all
+    raise. ``origin`` names the config file in error messages."""
+    if not section:
+        raise ValueError(
+            f"{origin} is missing [source_fields] — required since multi-city "
+            "Tier 2. Declare where street/full come from and which optional "
+            "props exist; see future-work/multi-city/02-city-config-contract.md "
+            "and config.example.toml for Toronto's worked example."
+        )
+    known = {"street_from", "full_from", *_SOURCE_FIELD_OPTIONAL}
+    unknown = sorted(set(section) - known)
+    if unknown:
+        raise ValueError(
+            f"{origin} [source_fields] has unknown key(s) {unknown}; "
+            f"valid keys are {sorted(known)}."
+        )
+
+    def _spec(key: str, value, allowed_literals: tuple[str, ...]) -> str:
+        if not isinstance(value, str) or not (
+            value in allowed_literals or _PROPS_KEY_RE.match(value)
+        ):
+            raise ValueError(
+                f"{origin} [source_fields] {key} = {value!r} is invalid; "
+                f"expected one of {allowed_literals} or 'props:<KEY>' "
+                "(<KEY> limited to [A-Za-z0-9_])."
+            )
+        return value
+
+    for req in ("street_from", "full_from"):
+        if req not in section:
+            raise ValueError(
+                f"{origin} [source_fields] is missing {req} — required with no "
+                "default, so a config cannot silently inherit another city's "
+                "street resolution."
+            )
+    street_from = _spec("street_from", section["street_from"], ("street", "full"))
+    full_from = section["full_from"]
+    if full_from not in ("full", "number+street"):
+        raise ValueError(
+            f"{origin} [source_fields] full_from = {full_from!r} is invalid; "
+            "expected 'full' or 'number+street'."
+        )
+    optional = {
+        name: _spec(name, section[name], ()) if name in section else None
+        for name in _SOURCE_FIELD_OPTIONAL
+    }
+    return SourceFields(street_from=street_from, full_from=full_from, **optional)
+
+
 @dataclass
 class Config:
     city_slug: str
     city_name: str
     city_neighbourhoods_url: str
     source_sqlite_path: str
+    source_fields: SourceFields
     default_bbox: tuple[float, float, float, float]
     overpass_url: str
     match_radius_m: float
@@ -163,6 +270,7 @@ def load() -> Config:
         city_name=str(city_section["name"]),
         city_neighbourhoods_url=str(city_section.get("neighbourhoods_url", "")).strip(),
         source_sqlite_path=cfg["source"]["sqlite_path"],
+        source_fields=parse_source_fields(cfg.get("source_fields", {}), str(toml_path)),
         default_bbox=bbox,  # type: ignore
         overpass_url=cfg["run_defaults"]["overpass_url"],
         match_radius_m=float(cfg["conflation"]["match_radius_m"]),

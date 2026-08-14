@@ -52,6 +52,12 @@ class Check(Protocol):
     version: int
     default_enabled: bool
     description: str
+    # Optional source fields ([source_fields] keys, e.g. "lo_num") this check
+    # reads. When the city's config declares none of them, the check is
+    # disabled-for-cause at run start — visibly, so "could not run" is never
+    # mistaken for "ran and found nothing" (03-capability-gating.md). Checks
+    # with no such dependency simply omit the attribute (treated as ()).
+    requires: tuple[str, ...]
 
     def applies(self, cand: Candidate, ctx: CheckContext) -> bool: ...
     def evaluate(self, cand: Candidate, ctx: CheckContext) -> Verdict: ...
