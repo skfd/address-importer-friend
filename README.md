@@ -1,31 +1,29 @@
-# t2-address-import
+# address-importer-friend
 
-[GitHub](https://github.com/skfd/toronto-2-address-import) · [Pilot evidence site](https://skfd.github.io/toronto-2-address-import/) · [OSM community discussion](https://community.openstreetmap.org/t/address-import-for-toronto/119368) · MIT licensed
+[GitHub](https://github.com/skfd/address-importer-friend) · MIT licensed
 
-Local tool that reads Toronto address points from the sibling
-[`ontario-address-changes`](https://github.com/skfd/ontario-address-changes) tracker's SQLite DB
-(successor to the archived [`toronto-addresses-import`](https://github.com/skfd/toronto-addresses-import)),
-conflates them against live OSM data, routes questionable items to a human
-reviewer via a web UI, and uploads approved candidates to the OpenStreetMap
-**dev sandbox** (`master.apis.dev.openstreetmap.org`). Every auto and manual
-action is written to an append-only audit log.
+The engine of the address-import family: reads a city's address points from an
+[`ontario-address-changes`](https://github.com/skfd/ontario-address-changes)
+tracker SQLite DB, conflates them against live OSM data, routes questionable
+items to a human reviewer via a web UI, and uploads approved candidates to
+OpenStreetMap (dev sandbox by default). Every auto and manual action is
+written to an append-only audit log.
 
-## Status
+This repo holds **only the tool**. Each city is a thin sibling checkout
+carrying its `config.toml`, `.env.*`, and `data/` (tool.db, tiles, caches),
+selected at launch with `--city-dir`:
 
-Live status of the [import proposal](IMPORT_PROPOSAL.mediawiki) against the [OSM Import Guidelines](https://wiki.openstreetmap.org/wiki/Import/Guidelines) workflow:
-
-| Stage | State |
+| City checkout | Status |
 |---|---|
-| Draft proposal | Complete (last revised 2026-05-28) |
-| Wiki page (`Toronto/Import/AddressPoints`) | [Published 2026-05-01](https://wiki.openstreetmap.org/wiki/Toronto/Import/AddressPoints) |
-| OSM Community Forum announcement | Posted 2026-05-01 — [thread](https://community.openstreetmap.org/t/address-import-for-toronto/119368) (tagged `import`; the [Import Guidelines](https://wiki.openstreetmap.org/wiki/Import/Guidelines) route announcements through the forum now, not the deprecated `imports@` list) |
-| 14-day feedback window | Closed 2026-05-15 (measured from wiki publication; discussion resolved) |
-| Phase 1 pilot upload (production) | Completed 2026-05-13 — [changeset 182585291](https://www.openstreetmap.org/changeset/182585291) (tile `high-park-swansea-sw-se`, 176 uploaded, 72 skipped, 4 rejected) |
-| Phases 2 + 3 (citywide rollout) | Completed 2026-05-28 — all 1,297 tiles processed; 1,297 changesets (`182585291` … `183305851`) on the [`skfd imports`](https://www.openstreetmap.org/user/skfd%20imports/history) account; ~449k addresses uploaded, ~311k skipped (mostly already in OSM), ~9.2k operator-rejected. Day-by-day notes in [`blog.md`](blog.md). |
-| Phase 4 — closeout | In progress. [Cumulative upload manifest](https://skfd.github.io/toronto-2-address-import/pilot/uploads/all.csv) published. Post-import report on the community forum + wiki page pending. 90-day post-import monitoring window (per § Open questions #2 of the proposal) runs through 2026-08-26. |
-| Post-import follow-ups (separate proposals) | (a) `source` → `addr:source` tag rewrite — sketched in [`future-work/source-tag-rewrite.md`](future-work/source-tag-rewrite.md). (b) MapRoulette challenge for ~1,580 OSM buildings with `addr:housenumber` but no street anchor — sketched in [`future-work/no-anchor-osm-buildings.md`](future-work/no-anchor-osm-buildings.md). (c) Interpolation-cleanup mapping party — separate forum thread, organized by Toronto local mappers. |
+| [`toronto-2-address-import`](https://github.com/skfd/toronto-2-address-import) | Initial import complete (2026-05-13 → 2026-05-28, ~449k addresses); monthly maintenance |
+| [`hamilton-address-import`](https://github.com/skfd/hamilton-address-import) | Onboarding — city #2 |
 
-Production uploads were made from the dedicated [`skfd imports`](https://www.openstreetmap.org/user/skfd%20imports) OSM account (not the maintainer's personal account). The pre-Phase-1 evidence changesets on `master.apis.dev.openstreetmap.org` linked from the proposal demonstrate the upload mechanics; the production changesets above are the actual import.
+Forked 2026-08-13 from
+[`toronto-2-address-import`](https://github.com/skfd/toronto-2-address-import)
+with full history — commits before the fork point describe the Toronto
+checkout this engine grew out of; its import milestones are tagged
+(`import-start`, `import-complete`, `maint-1`, `maint-2`). The multi-city
+design discussion lives in [`future-work/multi-city/`](future-work/multi-city/).
 
 ## Terminology
 
@@ -68,16 +66,20 @@ also the unit of upload — one run becomes one OSM changeset.
    For prod, also create `.env.prod` from `.env.prod.example` with a separate
    set of OSM creds (registered on real OSM, not the dev sandbox) and its own
    freshly generated `FERNET_KEY`.
-5. Adjust `config.toml` if your sibling DB lives somewhere else or you want a
-   different default bbox.
+5. Steps 3–4 happen **in the city checkout**, not here: each city dir carries
+   its own `.env.dev` / `.env.prod` and `config.toml` (start from
+   [`config.example.toml`](config.example.toml)).
 
 ## Run
 
 ```bash
-python run.py
+python run.py --city-dir ../toronto-2-address-import
 ```
 
-Then visit <http://localhost:5000/>.
+Then visit <http://localhost:5000/>. `--city-dir` (or the `T2_CITY_DIR` env
+var, which `python -m t2.*` entrypoints also read) selects the city checkout;
+everything the run touches — config, credentials, tool.db, tiles, the OSM
+extract — lives there, so two cities can never interleave state.
 
 ## Targeting dev vs prod OSM
 
@@ -374,36 +376,19 @@ living DB with the `publish-db` skill — see *Database snapshots & releases*.
 
 ## Database snapshots & releases
 
-There is **one living canonical SQLite `tool.db`** (~2 GiB). It holds the pilot
-+ citywide import (Phases 1–3) **and** every monthly-maintenance run folded in,
-so it is the single source of truth for what this project has pushed to OSM.
+Each city has one living canonical SQLite `tool.db` — the single source of
+truth for what that city's import has pushed to OSM. It lives in the city
+checkout as `data/<slug>/tool.db` (gitignored) and is published periodically
+as a dated, credential-scrubbed GitHub release asset
+(`tool-db-<YYYYMMDD>.db.xz`) **on the city repo**, via that repo's
+`/publish-db` command. Toronto's DB history and current release live at
+[`toronto-2-address-import`](https://github.com/skfd/toronto-2-address-import).
 
-> History: the import DB was briefly frozen as an immutable archive on
-> 2026-06-03 (release `v1-db-archive`) while the live DB was reset for separate
-> "v2" work. That was reversed on 2026-06-08 — the maintenance runs were merged
-> back in (renumbered to run_ids 2596–2597), the frozen release was deleted, and
-> the DB went back to being a single living file published periodically.
-
-Current contents (schema_version 16, grows with each maintenance month): 1,300
-runs · 768,927 candidates · 1,299 uploaded changesets, plus the human-review
-record (review verdicts, multi-address verdicts, drift-street statuses).
-
-**Where it lives**
-
-- Locally as `data/<slug>/tool.db` (gitignored; per-city since 2026-08-13 —
-  shared, cross-city files like the OSM extract and the OAuth blob stay at the
-  `data/` root). The pre-merge backups
-  `data/maint-live-premerge.db` and `data/archive/tool-v1-20260603.db` are also
-  kept locally and gitignored.
-- Published **periodically** as a dated GitHub release asset
-  (`tool-db-<YYYYMMDD>.db.xz`, ~124 MB compressed) via the `publish-db` skill.
-
-A published snapshot is **credential-free by construction**: OAuth tokens and
-PKCE verifiers live outside the DB in `data/osm_auth.json`, not in `tool.db`. The
-publish script still runs a belt-and-suspenders `kv` scrub to catch any legacy
-DB, while keeping the maintenance watermark. A snapshot is a read-only reference;
-re-pointing the running tool at it is not the intended use (there is no stored
-OSM auth).
+A published snapshot is credential-free by construction: OAuth tokens and PKCE
+verifiers live outside the DB in `data/osm_auth.json`, not in `tool.db`; the
+publish script still runs a belt-and-suspenders `kv` scrub while keeping the
+maintenance watermark. A snapshot is a read-only reference; re-pointing the
+running tool at it is not the intended use.
 
 **Using a published snapshot**
 

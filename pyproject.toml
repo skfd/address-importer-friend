@@ -1,7 +1,7 @@
 [project]
-name = "toronto-2-address-import"
+name = "address-importer-friend"
 version = "0.1.0"
-description = "Local tool to import Toronto Open Data addresses into OpenStreetMap (dev sandbox)"
+description = "Conflate municipal open-data addresses with OpenStreetMap, review, and upload — engine for thin per-city checkouts"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }

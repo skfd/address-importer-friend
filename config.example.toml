@@ -1,3 +1,8 @@
+# Example city config — copy into a per-city checkout as config.toml and run
+# the engine against it: `python run.py --city-dir <that checkout>`. Values
+# below are Toronto's real ones, kept as a worked example. See
+# future-work/multi-city/02-city-config-contract.md for the contract.
+
 [city]
 # Which city this checkout imports. `slug` names the per-city files under
 # [osm] extract_dir (`<slug>-addresses.json`); `name` is what appears in
