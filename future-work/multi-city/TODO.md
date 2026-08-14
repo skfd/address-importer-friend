@@ -38,10 +38,30 @@ the source at Hamilton and running it.
       `intra_source_duplicate` disabled-for-cause for Hamilton, visible in
       the run UI. Smoke-tested against both real checkouts. Nothing blocks
       the first Hamilton ingest now.
-- [ ] Run **baseline conflation in full** — README decision 1: conflation always
-      runs in full for every city, upload is the conditional part.
-- [ ] Guardrail throughout: **Toronto's match rates must not move** (`tool.db`
-      is living).
+- [x] Run **baseline conflation in full** — done 2026-08-14. 680 tiles (the
+      no-layer quadtree path's first real use), all four stages green:
+      273,233 candidates → 9.4% MATCH, 2.7% MATCH_FAR, 87.9% MISSING against
+      a fresh 2026-08-13 Ontario PBF. Two findings:
+      - **Engine bug fixed:** `missing_sample` did `candidate_id % every_nth`,
+        which is string formatting when the id is the tracker's synthetic
+        `syn:<sha1>` (Hamilton has no numeric point id) — 676/680 tiles
+        errored. Now `_sample_ordinal`: integer ids keep their value (Toronto's
+        sampled set unchanged, no version bump needed), string ids go through
+        crc32. Covered by `tests/test_missing_sample.py`.
+      - **The MISSING number is inflated by unit rows** — see the new item
+        below; read the baseline as ~160k true civic gap, not 240k.
+- [x] Guardrail throughout: **Toronto's match rates must not move** — held: the
+      only engine change is the sampler above, behavior-identical for integer
+      ids (test-pinned); Toronto's tool.db untouched.
+- [ ] **Units gate Hamilton after all** (falsifies `09`'s "does not gate
+      city #2"; measurements now in `09`, "The Hamilton numbers").
+      `UNIT_NUMBER_COMPLETE` sits in props on 36.8% of rows — the tracker maps
+      no canonical unit, which is what the 2026-08-13 survey read. 81,784
+      surplus co-located rows produce ~91k `city_duplicate` review items
+      (≈ all noise) and would be 632 stacked nodes at 75 James St S if
+      uploaded. Pick a `09` option (collapse-to-civic is the Toronto-parity
+      default) **before** review triage or any upload; conflation runs are
+      unaffected and cheap to redo (~4 min full-city).
 
 Ordering against §2: conflation and review can proceed before Kevo is
 contacted. Only *upload* is downstream of §2, which is about the first visible

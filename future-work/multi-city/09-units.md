@@ -3,12 +3,17 @@
 Status: **deferred, recorded so it is not rediscovered.** Captured 2026-08-10.
 No design decision taken.
 
-**Does not gate city #2 (2026-08-13).** Hamilton was chosen, and like Toronto
-its source carries no unit field — so the first generalized import can ship
-without resolving anything here. Units become blocking again at Guelph (24.4%
-of rows) and at Mississauga (44% of rows, but only 2.4% of civic addresses —
-see `08`, "How it ranks"). The two shapes are different enough that measuring
-both before designing is now possible.
+**Does not gate city #2 (2026-08-13)** — **falsified 2026-08-14 by the first
+Hamilton baseline.** The claim "like Toronto its source carries no unit field"
+came from reading the tracker's *canonical* columns, where Hamilton maps no
+unit. But the props do carry one: `UNIT_NUMBER_COMPLETE` on 36.8% of rows
+(measurements below). The baseline surfaced it immediately — 8,621 exactly
+co-located groups, 632 stacked rows at 75 James Street South alone, and ~91k
+`city_duplicate` review flags that are all this one phenomenon. **Units gate
+Hamilton's upload** (not its conflation runs); a decision between the options
+below is needed before the first changeset. The lesson for onboarding (`04`):
+probe for a unit field in the *props*, not just the tracker's canonical
+mapping.
 
 ## Why this is not a refactor
 
@@ -50,6 +55,22 @@ A second data point, measured against Peel's latest non-skipped snapshot,
 - Stacks are correspondingly deeper: 34 units on average, **591** at 4011
   Brickstone Mews, 484 and 482 at 3880/3888 Duke of York Blvd, 472 at 310
   Burnhamthorpe Rd — all Mississauga city-centre condo towers.
+
+## The Hamilton numbers (2026-08-14)
+
+Found by the first baseline conflation, not by a survey — measured against
+snapshot 36 (273,374 active rows):
+
+- **100,587 rows (36.8%) carry `UNIT_NUMBER_COMPLETE`** in props. The tracker
+  TOML maps no canonical unit for Hamilton, which is how the 2026-08-13
+  "no unit field" reading happened.
+- Collapsing gives **172,267 distinct `(number, street)`** civic addresses.
+- **9,708 civic addresses (5.6%) are stacked**, deepest **632** at
+  75 James Street South; 511 at 360 King Street East. Between Guelph's
+  spread-out shape and Mississauga's tower-list shape, closer to Mississauga.
+- Unit rows stack at the parcel point: 8,621 exact-coordinate groups hold
+  81,784 surplus rows. In the baseline these read as MISSING candidates and
+  flood `city_duplicate` (~91k review items ≈ all noise from this).
 
 **Rows are the wrong denominator.** Guelph reads as 24.4% and Mississauga as
 44.0% by rows, which suggests Mississauga is the harder case; by *addresses*
