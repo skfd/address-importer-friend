@@ -6,6 +6,30 @@ decided here, and the reasoning is not recoverable from the code.
 
 Full context lives in [08-survey-results-2026-08-12.md](08-survey-results-2026-08-12.md).
 
+## Repo-per-city split — DONE 2026-08-13
+
+The single Toronto repo became three, following the `address-layerist` house
+pattern (engine + thin per-city checkouts):
+
+- **`address-importer-friend`** (this repo) — the engine, created as a fork of
+  `toronto-2-address-import` with full history, then slimmed of Toronto docs.
+  `run.py --city-dir <checkout>` / `T2_CITY_DIR` selects the city; config,
+  `.env.*`, and all `data/` state resolve against it (`t2/config.py CITY_DIR`).
+- **`toronto-2-address-import`** — kept its name, URL, Pages site, and
+  releases; slimmed to the proposal, evidence, `config.toml`, and (local)
+  `data/`. Import milestones tagged: `import-start` (2026-05-13),
+  `import-complete` (2026-05-28, 1,297 changesets), `maint-1`, `maint-2`.
+  The tags predate the fork, so they exist in both histories.
+- **`hamilton-address-import`** — new thin checkout for city #2, config
+  drafted from the measured source extent; no runs yet.
+
+The beholder got its milestones tagged too (`v0.1` — built in one day,
+2026-06-06 — and `upstream-restructure`, 2026-08-10) but stays a separate,
+Toronto-coupled tool pending `07`.
+
+This split is repo layout only — it does not prejudge the `accordeur`
+library extraction (`01`), which remains open and happens inside this repo.
+
 ## Tier 1 de-Torontoization — DONE 2026-08-13
 
 The mechanical half of `02`'s coupling list. Every Toronto literal that a second

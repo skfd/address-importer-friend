@@ -24,11 +24,16 @@ the source at Hamilton and running it.
       list; found when planning the switch. Per-city state is `data/<slug>/`,
       so flipping `config.toml` can no longer overwrite Toronto's tiles or
       interleave runs into its DB.
-- [ ] Point the source at
-      `ontario-address-changes/data/hamilton/hamilton.db` — already on disk,
-      dataset slug `hamilton`. **This is the next step**, and the first one that
-      cannot be verified by "Toronto is unchanged" — it is where Tier 2, the
-      source projection (`03`), starts to bite.
+- [x] **Repo-per-city split** — done 2026-08-13 (DONE.md). This repo is now the
+      engine (`address-importer-friend`, forked with full history);
+      `toronto-2-address-import` and `hamilton-address-import` are thin city
+      checkouts selected with `run.py --city-dir` / `T2_CITY_DIR`.
+- [x] Point the source at
+      `ontario-address-changes/data/hamilton/hamilton.db` — done 2026-08-13:
+      `hamilton-address-import/config.toml` declares it, with a measured
+      `city_bbox` (273,441 rows, lat 43.051..43.468, lon -80.244..-79.625).
+      No pipeline run has consumed it yet — Tier 2, the source projection
+      (`03`), starts to bite at the first ingest.
 - [ ] Run **baseline conflation in full** — README decision 1: conflation always
       runs in full for every city, upload is the conditional part.
 - [ ] Guardrail throughout: **Toronto's match rates must not move** (`tool.db`
