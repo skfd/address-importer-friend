@@ -10,7 +10,10 @@ from typing import Any, Protocol
 @dataclass
 class Candidate:
     run_id: int
-    candidate_id: int
+    # The source's identity_key: an integer where the source has a stable
+    # numeric id (Toronto), the tracker's synthetic "syn:<sha1>" string
+    # where it does not (Hamilton).
+    candidate_id: int | str
     address_full: str | None
     housenumber: str | None
     street_raw: str | None
@@ -26,7 +29,7 @@ class Candidate:
     nearest_osm_type: str | None
     nearest_dist_m: float | None
     matched_osm_tags: dict[str, str] | None = None
-    dup_sibling_candidate_id: int | None = None
+    dup_sibling_candidate_id: int | str | None = None
     dup_sibling_dist_m: float | None = None
     dup_group_all_match: int | None = None  # 1 when every same-address Land sibling MATCHed OSM
 
