@@ -1,8 +1,17 @@
+import os
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+
+# The city checkout this process operates on. config.toml, .env.*, and data/
+# all resolve against it; only tool assets (migrations/) stay relative to ROOT.
+# Defaults to this repo for a combined checkout. A thin per-city repo selects
+# itself via run.py --city-dir, which sets T2_CITY_DIR before t2 is imported —
+# an env var rather than a flag threaded through, so `python -m t2.*`
+# entrypoints and subprocesses spawned by the web app inherit it for free.
+CITY_DIR = Path(os.environ.get("T2_CITY_DIR") or ROOT).resolve()
 
 # Which OSM server uploads target: "dev" (sandbox) or "prod". Picks which
 # .env file is read. run.py overwrites this from its --env/--prod flag before
@@ -41,16 +50,18 @@ class Config:
     flask_secret_key: str
     fernet_key: str
 
-    # Shared across cities: the OSM extract (its own key above), the OAuth token
-    # blob, and publish/archive artifacts. Per-city working state — tool.db,
-    # tiles, streets, run caches — lives under data_dir = data_root/<slug>, so a
-    # second city cannot interleave runs into Toronto's DB or overwrite its tile
-    # layer, and snapshot ids in `runs` stay unambiguous (they are per-source-DB,
-    # and each city's runs now live with that city).
-    data_root: Path = field(default=ROOT / "data")
-    tool_db_path: Path = field(default=ROOT / "data" / "tool.db")
+    # data_root holds checkout-level state: the OSM extract (its own key
+    # above), the OAuth token blob, and publish/archive artifacts. Per-city
+    # working state — tool.db, tiles, streets, run caches — lives under
+    # data_dir = data_root/<slug>, so a second city cannot interleave runs
+    # into Toronto's DB or overwrite its tile layer, and snapshot ids in
+    # `runs` stay unambiguous (they are per-source-DB, and each city's runs
+    # live with that city). With one repo per city both levels sit inside the
+    # city checkout; a multi-city checkout still keeps slugs apart.
+    data_root: Path = field(default=CITY_DIR / "data")
+    tool_db_path: Path = field(default=CITY_DIR / "data" / "tool.db")
     migrations_dir: Path = field(default=ROOT / "migrations")
-    data_dir: Path = field(default=ROOT / "data")
+    data_dir: Path = field(default=CITY_DIR / "data")
 
     @property
     def osm_extract_json(self) -> Path:
@@ -77,15 +88,22 @@ def load() -> Config:
     env_name = OSM_ENV.strip().lower()
     if env_name not in ("dev", "prod"):
         raise ValueError(f"OSM_ENV must be 'dev' or 'prod', got {env_name!r}")
-    env = _read_env_file(ROOT / f".env.{env_name}")
+    env = _read_env_file(CITY_DIR / f".env.{env_name}")
     default_api = (
         "https://api.openstreetmap.org" if env_name == "prod"
         else "https://master.apis.dev.openstreetmap.org"
     )
 
-    toml_path = ROOT / "config.toml"
-    with open(toml_path, "rb") as f:
-        cfg = tomllib.load(f)
+    toml_path = CITY_DIR / "config.toml"
+    try:
+        with open(toml_path, "rb") as f:
+            cfg = tomllib.load(f)
+    except FileNotFoundError:
+        raise FileNotFoundError(
+            f"No config.toml in {CITY_DIR}. This repo is the engine; city "
+            "config lives in a per-city checkout (e.g. toronto-2-address-import). "
+            "Point at one with run.py --city-dir <path> or T2_CITY_DIR."
+        ) from None
 
     checks_enabled: dict[str, bool] = {k: bool(v) for k, v in cfg.get("checks", {}).items()}
     checks_params: dict[str, dict] = dict(cfg.get("check_params", {}))
@@ -112,7 +130,7 @@ def load() -> Config:
     extract_dir_raw = str(osm_section.get("extract_dir", "data/osm"))
     extract_dir = Path(extract_dir_raw)
     if not extract_dir.is_absolute():
-        extract_dir = ROOT / extract_dir
+        extract_dir = CITY_DIR / extract_dir
 
     city_section = cfg.get("city", {})
     missing = [k for k in ("slug", "name") if not city_section.get(k)]
@@ -125,13 +143,13 @@ def load() -> Config:
     export_section = cfg.get("export", {})
 
     city_slug = str(city_section["slug"])
-    data_dir = ROOT / "data" / city_slug
+    data_dir = CITY_DIR / "data" / city_slug
 
     # Guard against a pre-slug layout: per-city state used to live directly in
     # data/. A tool.db at the root with none under data/<slug>/ means this
     # checkout has the new code but unmigrated data — running anyway would
     # silently start a fresh, empty DB beside 1,300 runs of history.
-    legacy_db = ROOT / "data" / "tool.db"
+    legacy_db = CITY_DIR / "data" / "tool.db"
     if legacy_db.exists() and not (data_dir / "tool.db").exists():
         raise RuntimeError(
             f"{legacy_db} is the pre-multi-city layout. Move the per-city files "
