@@ -40,6 +40,13 @@ Toronto's declaration. The `street_from` sketch at the bottom of this file
 shipped almost as written (spec strings `"street"` / `"full"` / `"props:<KEY>"`,
 plus `full_from = "number+street"` for sources with no combined column).
 
+Extended 2026-08-14 with `unit` (the sketch below always had it) plus a
+`[units]` block: declaring a unit field *requires* choosing a policy, and a
+policy without a declared field is rejected — the two lie together or not at
+all. The only policy so far is `"collapse-to-civic"` (09's option 2, taken for
+Hamilton): one candidate per (number, street, municipality), the unit-less row
+elected representative. See `09-units.md` for why the key needs municipality.
+
 **Tier 3 — street conventions.** See `01`.
 
 **Tier 4 — geography. IMPLEMENTED 2026-08-13.** The URL is now

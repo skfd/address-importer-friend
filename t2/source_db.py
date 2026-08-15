@@ -123,7 +123,7 @@ def _spec_sql(spec: str, alias: str) -> str:
     ``alias`` prefixes column references ("a" for the delta queries' joined
     form, "" for callers selecting from a bare `addresses`)."""
     p = f"{alias}." if alias else ""
-    if spec in ("street", "full", "number"):
+    if spec in ("street", "full", "number", "unit"):
         return f"{p}{spec}"
     key = spec.removeprefix("props:")
     return f"json_extract({p}props,'$.{key}')"
@@ -152,6 +152,11 @@ def field_sql(sf: _config.SourceFields, name: str, alias: str = "a") -> str:
     if name in ("municipality", "ward"):
         spec = getattr(sf, name)
         return _spec_sql(spec, alias) if spec else "NULL"
+    if name == "unit":
+        # Sources write '' or the literal string 'None' for "no unit";
+        # both must read as SQL NULL so the collapse elects those rows.
+        spec = sf.unit
+        return f"NULLIF(NULLIF({_spec_sql(spec, alias)},''),'None')" if spec else "NULL"
     raise KeyError(f"unknown logical source field {name!r}")
 
 
@@ -180,18 +185,148 @@ def build_address_cols(sf: _config.SourceFields) -> str:
 _ADDRESS_COLS = build_address_cols(_CONFIG.source_fields)
 
 
+# --- collapse-to-civic (units_policy, 09-units.md) --------------------------
+# A unit-bearing source publishes one row per unit, stacked at the parcel
+# point (Hamilton: 100,587 of 273,374 rows). Under `[units] policy =
+# "collapse-to-civic"` the projection yields ONE representative row per civic
+# address — keyed (number, street, municipality); municipality is load-bearing,
+# an amalgamated city reuses street names across former municipalities
+# (Hamilton: 776 (number, street) pairs span communities) — electing the
+# unit-less row when one exists (it is the parcel's own civic point), else the
+# lowest identity_key, so the choice is deterministic across runs. With no
+# policy the queries are exactly their pre-collapse forms — the Toronto
+# guardrail extends to query shape, not just the projection.
+
+
+def _unit_rank(sf: _config.SourceFields, alias: str) -> str:
+    p = f"{alias}." if alias else ""
+    return (
+        f"ROW_NUMBER() OVER (PARTITION BY {p}number, "
+        f"{field_sql(sf, 'street', alias)}, {field_sql(sf, 'municipality', alias)} "
+        f"ORDER BY ({field_sql(sf, 'unit', alias)} IS NOT NULL), {p}identity_key"
+        ") AS _unit_rn"
+    )
+
+
+def build_active_bbox_query(sf: _config.SourceFields, collapse: bool) -> str:
+    """Active-rows-in-bbox query. Params: (snapshot, min_lat, max_lat,
+    min_lon, max_lon) in both variants."""
+    cols = build_address_cols(sf)
+    where = (
+        "max_snapshot_id = ?\n"
+        "              AND latitude BETWEEN ? AND ?\n"
+        "              AND longitude BETWEEN ? AND ?"
+    )
+    if not collapse:
+        return f"""
+            SELECT {cols}
+            FROM addresses a
+            WHERE {where}
+        """
+    return f"""
+            SELECT {cols}
+            FROM (
+                SELECT *, {_unit_rank(sf, '')}
+                FROM addresses
+                WHERE {where}
+            ) a
+            WHERE a._unit_rn = 1
+        """
+
+
+def build_new_since_query(sf: _config.SourceFields, collapse: bool) -> str:
+    """New-points-since-watermark query. Named params :wm and :snap.
+
+    The collapsed form ranks over the FULL active set, then filters to new
+    points — so a new unit row at a civic address whose representative already
+    existed never surfaces. (A unit-only civic that later gains its unit-less
+    base row re-elects the representative and surfaces once as "new"; rare —
+    Hamilton has 550 unit-only groups — and it errs toward review, not
+    silence.)"""
+    cols = build_address_cols(sf)
+    first_appeared = (
+        "SELECT identity_key, MIN(min_snapshot_id) AS first_snap\n"
+        "                FROM addresses\n"
+        "                GROUP BY identity_key\n"
+        "                HAVING first_snap > :wm"
+    )
+    if not collapse:
+        return f"""
+            SELECT {cols}
+            FROM addresses a
+            JOIN (
+                {first_appeared}
+            ) n ON n.identity_key = a.identity_key
+            WHERE a.max_snapshot_id = :snap
+        """
+    return f"""
+            SELECT {cols}
+            FROM (
+                SELECT *, {_unit_rank(sf, '')}
+                FROM addresses
+                WHERE max_snapshot_id = :snap
+            ) a
+            JOIN (
+                {first_appeared}
+            ) n ON n.identity_key = a.identity_key
+            WHERE a._unit_rn = 1
+        """
+
+
+def build_retired_since_query(sf: _config.SourceFields, collapse: bool) -> str:
+    """Retired-points query. Named params :wm and :snap.
+
+    The collapsed form ranks over the surviving retired rows, so a civic
+    address whose whole stack retires is flagged once, not once per unit. A
+    partially-retired stack is already suppressed by the re-issue NOT EXISTS
+    (some same-street row is still active)."""
+    cols = build_address_cols(sf)
+    retired_join = (
+        "JOIN (\n"
+        "                SELECT identity_key, MAX(max_snapshot_id) AS last_snap\n"
+        "                FROM addresses\n"
+        "                GROUP BY identity_key\n"
+        "                HAVING last_snap >= :wm AND last_snap < :snap\n"
+        "            ) r ON r.identity_key = a.identity_key\n"
+        "               AND r.last_snap = a.max_snapshot_id"
+    )
+    not_reissued = (
+        "NOT EXISTS (\n"
+        "                SELECT 1 FROM addresses b\n"
+        "                WHERE b.number   = a.number\n"
+        f"                  AND {field_sql(sf, 'street', 'b')}   = {field_sql(sf, 'street', 'a')}\n"
+        "                  AND b.identity_key <> a.identity_key\n"
+        "                  AND b.max_snapshot_id   = :snap\n"
+        "            )"
+    )
+    if not collapse:
+        return f"""
+            SELECT {cols}, r.last_snap AS last_snapshot_id
+            FROM addresses a
+            {retired_join}
+            WHERE {not_reissued}
+        """
+    return f"""
+            SELECT {cols}, a.last_snap AS last_snapshot_id
+            FROM (
+                SELECT a.*, r.last_snap, {_unit_rank(sf, 'a')}
+                FROM addresses a
+                {retired_join}
+                WHERE {not_reissued}
+            ) a
+            WHERE a._unit_rn = 1
+        """
+
+
+_COLLAPSE = _CONFIG.units_policy == "collapse-to-civic"
+
+
 def iter_active_addresses_in_bbox(bbox: tuple[float, float, float, float], snapshot_id: int):
     """Yield rows from the source addresses table active at snapshot_id and inside bbox."""
     min_lat, min_lon, max_lat, max_lon = bbox
     conn = connect_readonly()
     try:
-        q = f"""
-            SELECT {_ADDRESS_COLS}
-            FROM addresses a
-            WHERE max_snapshot_id = ?
-              AND latitude BETWEEN ? AND ?
-              AND longitude BETWEEN ? AND ?
-        """
+        q = build_active_bbox_query(_CONFIG.source_fields, _COLLAPSE)
         for row in conn.execute(q, (snapshot_id, min_lat, max_lat, min_lon, max_lon)):
             yield dict(row)
     finally:
@@ -211,18 +346,8 @@ def iter_new_since(watermark_snapshot_id: int, snapshot_id: int | None = None):
         snapshot_id = latest_snapshot_id()
     conn = connect_readonly()
     try:
-        q = f"""
-            SELECT {_ADDRESS_COLS}
-            FROM addresses a
-            JOIN (
-                SELECT identity_key, MIN(min_snapshot_id) AS first_snap
-                FROM addresses
-                GROUP BY identity_key
-                HAVING first_snap > ?
-            ) n ON n.identity_key = a.identity_key
-            WHERE a.max_snapshot_id = ?
-        """
-        for row in conn.execute(q, (watermark_snapshot_id, snapshot_id)):
+        q = build_new_since_query(_CONFIG.source_fields, _COLLAPSE)
+        for row in conn.execute(q, {"wm": watermark_snapshot_id, "snap": snapshot_id}):
             yield dict(row)
     finally:
         conn.close()
@@ -248,25 +373,8 @@ def iter_retired_since(watermark_snapshot_id: int, snapshot_id: int | None = Non
         snapshot_id = latest_snapshot_id()
     conn = connect_readonly()
     try:
-        q = f"""
-            SELECT {_ADDRESS_COLS}, r.last_snap AS last_snapshot_id
-            FROM addresses a
-            JOIN (
-                SELECT identity_key, MAX(max_snapshot_id) AS last_snap
-                FROM addresses
-                GROUP BY identity_key
-                HAVING last_snap >= ? AND last_snap < ?
-            ) r ON r.identity_key = a.identity_key
-               AND r.last_snap = a.max_snapshot_id
-            WHERE NOT EXISTS (
-                SELECT 1 FROM addresses b
-                WHERE b.number   = a.number
-                  AND {field_sql(_CONFIG.source_fields, 'street', 'b')}   = {field_sql(_CONFIG.source_fields, 'street', 'a')}
-                  AND b.identity_key <> a.identity_key
-                  AND b.max_snapshot_id   = ?
-            )
-        """
-        for row in conn.execute(q, (watermark_snapshot_id, snapshot_id, snapshot_id)):
+        q = build_retired_since_query(_CONFIG.source_fields, _COLLAPSE)
+        for row in conn.execute(q, {"wm": watermark_snapshot_id, "snap": snapshot_id}):
             yield dict(row)
     finally:
         conn.close()

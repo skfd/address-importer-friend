@@ -50,6 +50,10 @@ class SourceFields:
     hi_num: str | None
     hi_num_suf: str | None
     address_class: str | None
+    # "unit" (canonical tracker column) | "props:<KEY>" | None. Declaring it
+    # obliges the config to also pick a [units] policy — a declared unit with
+    # no policy is the silent-drop failure mode 09-units.md exists to prevent.
+    unit: str | None = None
 
     def declares(self, name: str) -> bool:
         """True when the optional field ``name`` is mapped for this city."""
@@ -69,7 +73,7 @@ class SourceFields:
 
 _SOURCE_FIELD_OPTIONAL = (
     "municipality", "ward", "lo_num", "lo_num_suf", "hi_num", "hi_num_suf",
-    "address_class",
+    "address_class", "unit",
 )
 
 
@@ -120,10 +124,52 @@ def parse_source_fields(section: dict, origin: str = "config.toml") -> SourceFie
             "expected 'full' or 'number+street'."
         )
     optional = {
-        name: _spec(name, section[name], ()) if name in section else None
+        name: _spec(name, section[name], ("unit",) if name == "unit" else ())
+        if name in section else None
         for name in _SOURCE_FIELD_OPTIONAL
     }
     return SourceFields(street_from=street_from, full_from=full_from, **optional)
+
+
+UNIT_POLICIES = ("collapse-to-civic",)
+
+
+def parse_units_policy(
+    section: dict, sf: SourceFields, origin: str = "config.toml"
+) -> str | None:
+    """Validate the [units] section against the [source_fields] declaration.
+
+    The two must agree: a source that declares a unit field forces an explicit
+    policy choice (09-units.md — the options differ in what data survives, so
+    the decision must be in config, not a code default), and a policy without
+    a declared unit field is a recipe copied from the wrong city."""
+    unknown = sorted(set(section) - {"policy"})
+    if unknown:
+        raise ValueError(
+            f"{origin} [units] has unknown key(s) {unknown}; the only key is 'policy'."
+        )
+    policy = section.get("policy")
+    if policy is None:
+        if sf.declares("unit"):
+            raise ValueError(
+                f"{origin} [source_fields] declares unit = {sf.unit!r} but has "
+                "no [units] policy. A unit-bearing source must choose one "
+                f"of {list(UNIT_POLICIES)} (see future-work/multi-city/"
+                "09-units.md) — dropping units silently is not an option."
+            )
+        return None
+    if policy not in UNIT_POLICIES:
+        raise ValueError(
+            f"{origin} [units] policy = {policy!r} is invalid; "
+            f"expected one of {list(UNIT_POLICIES)}."
+        )
+    if not sf.declares("unit"):
+        raise ValueError(
+            f"{origin} [units] policy = {policy!r} but [source_fields] declares "
+            "no unit field — nothing to collapse. Declare unit = 'unit' or "
+            "'props:<KEY>', or remove the policy."
+        )
+    return policy
 
 
 @dataclass
@@ -133,6 +179,9 @@ class Config:
     city_neighbourhoods_url: str
     source_sqlite_path: str
     source_fields: SourceFields
+    # None (no unit field) or "collapse-to-civic": one candidate per
+    # (number, street, municipality), unit-less row elected representative.
+    units_policy: str | None
     default_bbox: tuple[float, float, float, float]
     overpass_url: str
     match_radius_m: float
@@ -248,6 +297,7 @@ def load() -> Config:
         )
 
     export_section = cfg.get("export", {})
+    source_fields = parse_source_fields(cfg.get("source_fields", {}), str(toml_path))
 
     city_slug = str(city_section["slug"])
     data_dir = CITY_DIR / "data" / city_slug
@@ -270,7 +320,8 @@ def load() -> Config:
         city_name=str(city_section["name"]),
         city_neighbourhoods_url=str(city_section.get("neighbourhoods_url", "")).strip(),
         source_sqlite_path=cfg["source"]["sqlite_path"],
-        source_fields=parse_source_fields(cfg.get("source_fields", {}), str(toml_path)),
+        source_fields=source_fields,
+        units_policy=parse_units_policy(cfg.get("units", {}), source_fields, str(toml_path)),
         default_bbox=bbox,  # type: ignore
         overpass_url=cfg["run_defaults"]["overpass_url"],
         match_radius_m=float(cfg["conflation"]["match_radius_m"]),

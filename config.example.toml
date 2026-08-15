@@ -43,6 +43,16 @@ lo_num_suf = "props:LO_NUM_SUF"            # range coverage + safety gate
 hi_num = "props:HI_NUM"
 hi_num_suf = "props:HI_NUM_SUF"
 address_class = "props:ADDRESS_CLASS_DESC" # Land Entrance skip + Land dedup
+# unit = "unit" | "props:<KEY>" — declare when the source publishes one row
+# per unit (Toronto doesn't). Declaring it REQUIRES a [units] policy; see
+# future-work/multi-city/09-units.md.
+
+# Required iff [source_fields] declares `unit`. The only policy so far is
+# "collapse-to-civic": one candidate per (number, street, municipality), the
+# unit-less row elected representative — units recorded as an explicit
+# deferral, never a silent drop (09-units.md option 2).
+# [units]
+# policy = "collapse-to-civic"
 
 [run_defaults]
 # Small downtown rectangle for first test run

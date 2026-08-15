@@ -1,7 +1,8 @@
 # Unit-level addresses (`addr:unit`)
 
-Status: **deferred, recorded so it is not rediscovered.** Captured 2026-08-10.
-No design decision taken.
+Status: **option 2 taken for Hamilton, 2026-08-14** (see "The decision, for
+Hamilton" below). Unit-level *modeling* stays deferred; the collapse is an
+explicit, config-declared deferral, not a silent drop. Captured 2026-08-10.
 
 **Does not gate city #2 (2026-08-13)** — **falsified 2026-08-14 by the first
 Hamilton baseline.** The claim "like Toronto its source carries no unit field"
@@ -103,7 +104,49 @@ poor key for anything, and `t2/conflate.py` currently uses
 (`conflate.py:388-451`). Any city with this `full` shape will key badly.
 Prefer composing from `(number, street, unit)` rather than trusting `full`.
 
-## Options, none chosen
+## The decision, for Hamilton (2026-08-14)
+
+**Option 2 — collapse to civic now, design units separately.** Implemented as
+engine config, not a Hamilton hack: `[source_fields] unit` declares where the
+unit lives (`"unit"` or `"props:<KEY>"`), and declaring it *forces* a
+`[units] policy` choice at config load — a unit-bearing source can no longer
+be ingested with units silently flooding review. The one policy so far,
+`"collapse-to-civic"`, makes the source projection emit one representative row
+per civic address (`source_db.build_*_query`, applied to ingest, new-since and
+retired-since alike, so maintenance inherits the behaviour).
+
+Two things the implementation corrected in this file's numbers:
+
+- **The collapse key needs the municipality.** Amalgamated Hamilton reuses
+  street names across its former municipalities: 776 `(number, street)` pairs
+  span communities, so the bare key would merge 818 genuinely distinct civic
+  addresses. Keyed `(number, street, COMMUNITY)` the collapsed set is
+  **173,085**, not the 172,267 quoted below.
+- **Representative election must be deterministic** (candidate ids must be
+  stable across runs): the unit-less row when one exists — it is the parcel's
+  own civic point; all but 87 of Hamilton's 9,196 stacked groups have one to
+  elect — else the lowest `identity_key`. The 550 unit-only groups keep one unit row
+  as representative (its unit value rides along in `extra`, unused).
+
+Covered by `tests/test_units_collapse.py`; the Toronto guardrail holds by
+construction (no policy → the exact pre-collapse queries, and Toronto declares
+no unit field).
+
+**Baseline 2 (2026-08-14, same snapshot 36 / same PBF):** 173,156 candidates →
+**2.9% MATCH (5,024), 0.4% MATCH_FAR (756), 96.7% MISSING (167,376)**; review
+queue 96,267 → 5,103 items (`city_duplicate` 91,638 → 910). The check on
+baseline 1: counting *distinct civic addresses* per verdict in the archived
+pre-collapse DB gives 5,038 / 777 / 167,196 — baseline 2 within 0.3%, so the
+collapse lost nothing. The lesson: **stacking inflated MATCH more than
+MISSING** (the OSM-covered downtown is where the towers are), so baseline 1's
+"9.4% MATCH" flattered coverage by 3×. Hamilton's real state is ~5k of 173k
+civic addresses in OSM. The 71-row excess over the measured 173,085 is
+representative election running per tile-bbox query: a group spread wider than
+a tile (trailer parks, Times Square Blvd) can elect one representative per
+tile it straddles — noise at 0.04%, and visible to `city_duplicate` review.
+Archived: `data/hamilton/tool.db.baseline1-preunits`.
+
+## The options (as originally recorded; option 2 taken for Hamilton, above)
 
 1. **Collapse to civic address, drop units.** Ingest the 40,634 distinct
    `(number, street)` set. Safest and fastest; discards real source data.

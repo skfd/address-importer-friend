@@ -6,6 +6,40 @@ decided here, and the reasoning is not recoverable from the code.
 
 Full context lives in [08-survey-results-2026-08-12.md](08-survey-results-2026-08-12.md).
 
+## Units decision + baseline 2 — DONE 2026-08-14
+
+`09` option 2 taken for Hamilton: **collapse to civic now, design unit-level
+import separately** — as engine config, not a city hack. `[source_fields]`
+gained `unit` (`"unit"` | `"props:<KEY>"`); declaring it *forces* a `[units]
+policy` at config load, so a unit-bearing source can never again silently
+flood review (Guelph and Mississauga hit this guard on onboarding day). The
+one policy, `collapse-to-civic`, wraps all three source iterators (ingest,
+new-since, retired-since — maintenance inherits it) in a window election:
+one row per **(number, street, municipality)**, unit-less row preferred,
+lowest `identity_key` as tie-break.
+
+Two corrections the implementation forced on `09`'s numbers:
+
+- **Municipality is part of the civic key.** 776 `(number, street)` pairs span
+  Hamilton's former municipalities; the bare key would merge 818 real
+  addresses. Collapsed set: **173,085**, not 172,267.
+- **Baseline 1's MATCH was stack-inflated too, by 3×.** Distinct-civic recount
+  of the archived DB: 5,038 MATCH / 777 MATCH_FAR / 167,196 MISSING — the
+  "9.4% MATCH" headline was unit rows riding their parcel's match. Stacking
+  concentrated where OSM coverage is (downtown towers), so it flattered
+  exactly the number used to judge coverage.
+
+**Baseline 2** (same snapshot 36, same PBF, fresh DB; baseline 1 archived as
+`tool.db.baseline1-preunits`): 680/680 tiles green, 173,156 candidates →
+**2.9% MATCH, 0.4% MATCH_FAR, 96.7% MISSING**; matches baseline 1's
+distinct-civic recount within 0.3%, so the collapse provably lost nothing.
+Review queue: 96,267 → **5,103** (`city_duplicate` 91,638 → 910 — the noise
+prediction held). Known artifact: +71 rows over 173,085 from per-tile-bbox
+election on groups wider than a tile (0.04%). Review triage is unblocked;
+upload still waits on TODO §2. Tests: `tests/test_units_collapse.py` (14
+cases); Toronto guardrail by construction — no policy, no wrapper, and the
+byte-identical projection test still pins Toronto's SQL.
+
 ## Tier 2 source projection + capability gating — DONE 2026-08-14
 
 The real work of `02`, and the dangerous half of `03`. The engine no longer

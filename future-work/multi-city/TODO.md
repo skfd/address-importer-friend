@@ -53,15 +53,13 @@ the source at Hamilton and running it.
 - [x] Guardrail throughout: **Toronto's match rates must not move** — held: the
       only engine change is the sampler above, behavior-identical for integer
       ids (test-pinned); Toronto's tool.db untouched.
-- [ ] **Units gate Hamilton after all** (falsifies `09`'s "does not gate
-      city #2"; measurements now in `09`, "The Hamilton numbers").
-      `UNIT_NUMBER_COMPLETE` sits in props on 36.8% of rows — the tracker maps
-      no canonical unit, which is what the 2026-08-13 survey read. 81,784
-      surplus co-located rows produce ~91k `city_duplicate` review items
-      (≈ all noise) and would be 632 stacked nodes at 75 James St S if
-      uploaded. Pick a `09` option (collapse-to-civic is the Toronto-parity
-      default) **before** review triage or any upload; conflation runs are
-      unaffected and cheap to redo (~4 min full-city).
+- [x] **Units gate Hamilton after all** — resolved 2026-08-14 (see DONE.md
+      "Units decision + baseline 2"). `09` option 2 taken: `[source_fields]
+      unit` + `[units] policy = "collapse-to-civic"`, enforced at config load.
+      Baseline 2 ran the same day: 173,156 civic candidates → 2.9% MATCH /
+      96.7% MISSING; review queue fell 96,267 → 5,103. Baseline 1's 9.4%
+      MATCH was itself stack-inflated (distinct-civic recount: 2.9%). Review
+      triage is unblocked.
 
 Ordering against §2: conflation and review can proceed before Kevo is
 contacted. Only *upload* is downstream of §2, which is about the first visible
