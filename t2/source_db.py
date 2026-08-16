@@ -133,6 +133,17 @@ def field_sql(sf: _config.SourceFields, name: str, alias: str = "a") -> str:
     """SQL value expression (no AS) for a logical source field under recipe
     ``sf``. Undeclared optional fields project literal NULL — visible in the
     generated SQL rather than an absent key at runtime."""
+    if name == "number":
+        if sf.number_from == "full":
+            # Leading whitespace token of the combined column (Waterloo's
+            # CIVIC_ADDR — the tracker number column is 100% NULL there).
+            # The trailing "|| ' '" makes single-token fulls terminate.
+            p = f"{alias}." if alias else ""
+            return (
+                f"NULLIF(SUBSTR({p}full, 1, INSTR({p}full || ' ', ' ') - 1),'')"
+            )
+        p = f"{alias}." if alias else ""
+        return f"{p}number"
     if name == "street":
         if sf.street_from == "full":
             # Derive the street by stripping the housenumber prefix from the
@@ -145,7 +156,10 @@ def field_sql(sf: _config.SourceFields, name: str, alias: str = "a") -> str:
             # onboarding probe to verify number-length ≈ leading-token-length
             # on the city's rows.
             p = f"{alias}." if alias else ""
-            return f"NULLIF(TRIM(SUBSTR({p}full, LENGTH(COALESCE({p}number,'')) + 1)),'')"
+            return (
+            f"NULLIF(TRIM(SUBSTR({p}full, "
+            f"LENGTH(COALESCE({field_sql(sf, 'number', alias)},'')) + 1)),'')"
+        )
         return _spec_sql(sf.street_from, alias)
     if name == "full":
         if sf.full_from == "full":
@@ -154,7 +168,10 @@ def field_sql(sf: _config.SourceFields, name: str, alias: str = "a") -> str:
         # Hamilton), so synthesize the tracker reports' own fallback form.
         p = f"{alias}." if alias else ""
         street = field_sql(sf, "street", alias)
-        return f"NULLIF(TRIM(COALESCE({p}number,'') || ' ' || COALESCE({street},'')),'')"
+        return (
+            f"NULLIF(TRIM(COALESCE({field_sql(sf, 'number', alias)},'') || ' ' "
+            f"|| COALESCE({street},'')),'')"
+        )
     if name in ("lo_num", "hi_num"):
         spec = getattr(sf, name)
         return f"CAST({_spec_sql(spec, alias)} AS INTEGER)" if spec else "NULL"
@@ -165,9 +182,20 @@ def field_sql(sf: _config.SourceFields, name: str, alias: str = "a") -> str:
         spec = getattr(sf, name)
         return _spec_sql(spec, alias) if spec else "NULL"
     if name == "unit":
+        spec = sf.unit
+        if spec == "full-after-street":
+            # The unit is whatever trails the street inside the combined
+            # column ("29 BARREL YARDS BLVD 1205" -> "1205"; 41.9% of
+            # Waterloo's rows, 2026-08-16 — hidden units the tracker does not
+            # map). Anchored on the street value; a full that does not
+            # contain " <street>" yields NULL rather than garbage.
+            p = f"{alias}." if alias else ""
+            street = field_sql(sf, "street", alias)
+            probe = f"INSTR({p}full, ' ' || {street})"
+            tail = f"SUBSTR({p}full, {probe} + 1 + LENGTH({street}))"
+            return f"CASE WHEN {probe} > 0 THEN NULLIF(TRIM({tail}),'') END"
         # Sources write '' or the literal string 'None' for "no unit";
         # both must read as SQL NULL so the collapse elects those rows.
-        spec = sf.unit
         return f"NULLIF(NULLIF({_spec_sql(spec, alias)},''),'None')" if spec else "NULL"
     raise KeyError(f"unknown logical source field {name!r}")
 
@@ -181,7 +209,7 @@ def expr(name: str, alias: str = "a") -> str:
 def build_address_cols(sf: _config.SourceFields) -> str:
     return (
         f"a.identity_key AS address_point_id, {field_sql(sf, 'full')} AS address_full, "
-        "a.number AS address_number, "
+        f"{field_sql(sf, 'number')} AS address_number, "
         f"{field_sql(sf, 'lo_num')} AS lo_num, "
         f"{field_sql(sf, 'lo_num_suf')} AS lo_num_suf, "
         f"{field_sql(sf, 'hi_num')} AS hi_num, "
@@ -229,7 +257,7 @@ def _status_filter(
 def _unit_rank(sf: _config.SourceFields, alias: str) -> str:
     p = f"{alias}." if alias else ""
     return (
-        f"ROW_NUMBER() OVER (PARTITION BY {p}number, "
+        f"ROW_NUMBER() OVER (PARTITION BY {field_sql(sf, 'number', alias)}, "
         f"{field_sql(sf, 'street', alias)}, {field_sql(sf, 'municipality', alias)} "
         f"ORDER BY ({field_sql(sf, 'unit', alias)} IS NOT NULL), {p}identity_key"
         ") AS _unit_rn"
@@ -334,7 +362,7 @@ def build_retired_since_query(
     not_reissued = (
         "NOT EXISTS (\n"
         "                SELECT 1 FROM addresses b\n"
-        "                WHERE b.number   = a.number\n"
+        f"                WHERE {field_sql(sf, 'number', 'b')}   = {field_sql(sf, 'number', 'a')}\n"
         f"                  AND {field_sql(sf, 'street', 'b')}   = {field_sql(sf, 'street', 'a')}\n"
         "                  AND b.identity_key <> a.identity_key\n"
         "                  AND b.max_snapshot_id   = :snap\n"

@@ -67,6 +67,19 @@ CITIES = {
         },
         "wiki": ["Guelph/Address_Import", "Canada:Ontario:Guelph"],
     },
+    # Not amalgamated; map-fabric variety across the central/west/northeast
+    # districts. Densities checked against snapshot 1 (the only one — the
+    # tracker's Waterloo pulls stopped 2026-06-27) on 2026-08-16:
+    # 2,984 / 2,653 / 1,639 rows.
+    "waterloo": {
+        "bbox": (43.43596, -80.62121, 43.53087, -80.47520),
+        "samples": {
+            "central": (43.476, -80.532, 43.488, -80.520),
+            "west": (43.452, -80.544, 43.464, -80.532),
+            "northeast": (43.488, -80.496, 43.500, -80.484),
+        },
+        "wiki": ["Canada:Ontario:Waterloo", "Waterloo, Ontario"],
+    },
     # Amalgamated (1973: Galt + Preston + Hespeler), so one box per former
     # municipality, the Hamilton rationale. Densities checked against
     # snapshot 26 on 2026-08-15: 1,904 / 1,806 / 1,293 rows.

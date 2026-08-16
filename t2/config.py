@@ -60,6 +60,11 @@ class SourceFields:
     # a source that publishes Pending/Proposed rows forces an explicit
     # decision about which values are importable reality.
     status: str | None = None
+    # "number" (canonical column, the default) | "full" — the housenumber is
+    # the leading whitespace token of the combined column. Waterloo publishes
+    # ONLY CIVIC_ADDR; its tracker number column is 100% NULL (2026-08-16).
+    # Rejected together with full_from = "number+street" (circular).
+    number_from: str = "number"
 
     def declares(self, name: str) -> bool:
         """True when the optional field ``name`` is mapped for this city."""
@@ -96,7 +101,7 @@ def parse_source_fields(section: dict, origin: str = "config.toml") -> SourceFie
             "props exist; see future-work/multi-city/02-city-config-contract.md "
             "and config.example.toml for Toronto's worked example."
         )
-    known = {"street_from", "full_from", *_SOURCE_FIELD_OPTIONAL}
+    known = {"street_from", "full_from", "number_from", *_SOURCE_FIELD_OPTIONAL}
     unknown = sorted(set(section) - known)
     if unknown:
         raise ValueError(
@@ -129,12 +134,38 @@ def parse_source_fields(section: dict, origin: str = "config.toml") -> SourceFie
             f"{origin} [source_fields] full_from = {full_from!r} is invalid; "
             "expected 'full' or 'number+street'."
         )
+    number_from = section.get("number_from", "number")
+    if number_from not in ("number", "full"):
+        raise ValueError(
+            f"{origin} [source_fields] number_from = {number_from!r} is invalid; "
+            "expected 'number' (canonical column) or 'full' (leading token of "
+            "the combined column)."
+        )
+    if number_from == "full" and full_from == "number+street":
+        raise ValueError(
+            f"{origin} [source_fields] number_from = 'full' with full_from = "
+            "'number+street' is circular — the combined column would be "
+            "synthesized from the number it is supposed to provide."
+        )
     optional = {
-        name: _spec(name, section[name], ("unit",) if name == "unit" else ())
+        name: _spec(
+            name,
+            section[name],
+            ("unit", "full-after-street") if name == "unit" else (),
+        )
         if name in section else None
         for name in _SOURCE_FIELD_OPTIONAL
     }
-    return SourceFields(street_from=street_from, full_from=full_from, **optional)
+    if optional["unit"] == "full-after-street" and full_from != "full":
+        raise ValueError(
+            f"{origin} [source_fields] unit = 'full-after-street' requires "
+            "full_from = 'full' — a synthesized combined column cannot carry "
+            "a unit tail."
+        )
+    return SourceFields(
+        street_from=street_from, full_from=full_from,
+        number_from=number_from, **optional,
+    )
 
 
 UNIT_POLICIES = ("collapse-to-civic",)
