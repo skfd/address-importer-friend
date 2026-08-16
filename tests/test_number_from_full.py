@@ -70,6 +70,28 @@ def test_collapse_elects_no_tail_row():
     assert got == ["29 BARREL YARDS BLVD"]
 
 
+def test_number_from_props_projects_the_declared_key():
+    sf = _config.parse_source_fields(
+        {"street_from": "street", "full_from": "full",
+         "number_from": "props:ADDRESS"},
+    )
+    q = source_db.build_active_bbox_query(sf, False)
+    assert "json_extract(a.props,'$.ADDRESS') AS address_number" in q
+
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    conn.execute(
+        "CREATE TABLE addresses (min_snapshot_id, max_snapshot_id, identity_key, "
+        "number, street, unit, full, longitude, latitude, props, payload_hash)"
+    )
+    conn.execute(
+        "INSERT INTO addresses VALUES (1, 5, 'k', '963', 'HOLT PL', NULL, "
+        "'963 1/2 HOLT PL', -89.2, 48.4, '{\"ADDRESS\": \"963 1/2\"}', NULL)"
+    )
+    row = conn.execute(q, (5, 48.0, 49.0, -90.0, -89.0)).fetchone()
+    assert row["address_number"] == "963 1/2"
+
+
 def test_circular_number_from_full_is_rejected():
     with pytest.raises(ValueError, match="circular"):
         _config.parse_source_fields(

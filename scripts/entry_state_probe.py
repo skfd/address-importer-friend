@@ -67,6 +67,18 @@ CITIES = {
         },
         "wiki": ["Guelph/Address_Import", "Canada:Ontario:Guelph"],
     },
+    # Amalgamated 1970 (Port Arthur + Fort William), so one box per former
+    # city plus Westfort. Densities checked against snapshot 17 on 2026-08-16:
+    # 1,267 / 1,394 / 1,220 rows.
+    "thunder-bay": {
+        "bbox": (48.28951, -89.42693, 48.51491, -89.15168),
+        "samples": {
+            "port-arthur": (48.432, -89.244, 48.444, -89.232),
+            "fort-william": (48.384, -89.256, 48.396, -89.244),
+            "westfort": (48.384, -89.292, 48.396, -89.280),
+        },
+        "wiki": ["Canada:Ontario:Thunder Bay", "Thunder Bay"],
+    },
     # Amalgamated 1998 (Kingston + Kingston Twp + Pittsburgh Twp), so one box
     # per former component. Densities checked against snapshot 47 on
     # 2026-08-16: 4,626 / 2,086 / 1,027 rows.

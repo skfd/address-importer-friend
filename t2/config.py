@@ -135,11 +135,14 @@ def parse_source_fields(section: dict, origin: str = "config.toml") -> SourceFie
             "expected 'full' or 'number+street'."
         )
     number_from = section.get("number_from", "number")
-    if number_from not in ("number", "full"):
+    if number_from not in ("number", "full") and not _PROPS_KEY_RE.match(
+        str(number_from)
+    ):
         raise ValueError(
             f"{origin} [source_fields] number_from = {number_from!r} is invalid; "
-            "expected 'number' (canonical column) or 'full' (leading token of "
-            "the combined column)."
+            "expected 'number' (canonical column), 'full' (leading token of "
+            "the combined column), or 'props:<KEY>' (Thunder Bay's ADDRESS "
+            "carries the qualifier the integer column drops)."
         )
     if number_from == "full" and full_from == "number+street":
         raise ValueError(

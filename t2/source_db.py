@@ -134,6 +134,11 @@ def field_sql(sf: _config.SourceFields, name: str, alias: str = "a") -> str:
     ``sf``. Undeclared optional fields project literal NULL — visible in the
     generated SQL rather than an absent key at runtime."""
     if name == "number":
+        if sf.number_from.startswith("props:"):
+            # e.g. Thunder Bay's ADDRESS ("963 1/2", "688B") — the combined
+            # civic number with its qualifier, which the tracker's integer
+            # column drops (the hastings shape, 2026-08-16).
+            return _spec_sql(sf.number_from, alias)
         if sf.number_from == "full":
             # Leading whitespace token of the combined column (Waterloo's
             # CIVIC_ADDR — the tracker number column is 100% NULL there).
