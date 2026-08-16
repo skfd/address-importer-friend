@@ -67,6 +67,19 @@ CITIES = {
         },
         "wiki": ["Guelph/Address_Import", "Canada:Ontario:Guelph"],
     },
+    # Not amalgamated (city proper only; CITY is the constant 'CORNWALL'), so
+    # map-fabric variety like Guelph: downtown core, the francophone east end,
+    # the west end. Densities checked against snapshot 25 on 2026-08-15:
+    # 1,791 / 1,468 / 1,413 rows.
+    "cornwall": {
+        "bbox": (45.00815, -74.84304, 45.08509, -74.66798),
+        "samples": {
+            "downtown": (45.012, -74.736, 45.024, -74.724),
+            "east-end": (45.024, -74.700, 45.036, -74.688),
+            "west-end": (45.024, -74.748, 45.036, -74.736),
+        },
+        "wiki": ["Canada:Ontario:Cornwall", "Cornwall, Ontario"],
+    },
     # Amalgamated (1998: Trenton + Frankford + Sidney + Murray), so the boxes
     # follow the Hamilton rationale — one per former municipality. Densities
     # checked against snapshot 25 on 2026-08-15: 1,199 / 521 / 419 rows.

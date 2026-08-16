@@ -17,6 +17,22 @@ def test_leading_st_for_saint_is_preserved_verbatim():
     assert expand_street_name("St Clair Ave E") == "St Clair Avenue East"
 
 
+def test_cornwall_variant_shorts_expand_and_normalize():
+    # Cornwall emits AV/CR/BV/WY (32% of its rows, added 2026-08-15).
+    # Guardrail: no toronto/hamilton/guelph/quinte-west street ends in these
+    # tokens, measured against all four tracker DBs the same day.
+    assert expand_street_name("Larin Av") == "Larin Avenue"
+    assert expand_street_name("Grant Cr") == "Grant Crescent"
+    assert expand_street_name("Sunset Bv") == "Sunset Boulevard"
+    assert expand_street_name("Primrose Wy") == "Primrose Way"
+    assert expand_street_name("Second St W") == "Second Street West"
+    # Both spellings must land on one normalized key so source matches OSM.
+    assert normalize_street("Larin Av") == normalize_street("Larin Avenue")
+    assert normalize_street("Grant Cr") == normalize_street("Grant Crescent")
+    assert normalize_street("Sunset Bv") == normalize_street("Sunset Boulevard")
+    assert normalize_street("Primrose Wy") == normalize_street("Primrose Way")
+
+
 def test_glues_mc_surname_prefix():
     assert expand_street_name("Mc Caul St") == "McCaul Street"
     assert expand_street_name("Mc Gee St") == "McGee Street"

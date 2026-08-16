@@ -18,6 +18,11 @@ STREET_SUFFIXES = {
     "CIRCLE": "CIR", "WAY": "WAY", "TRAIL": "TRL", "PARKWAY": "PKWY",
     "HIGHWAY": "HWY", "EXPRESSWAY": "EXPY",
     "CRT": "CT", "CRCL": "CIR", "GT": "GTE",
+    # Cornwall's variant shorts (2026-08-15, TODO "cheap suffix-table wins"):
+    # its source emits AV/CR/BV/WY, covering 32% of its rows. Guardrail-checked
+    # against toronto/hamilton/guelph/quinte-west the same day: zero streets in
+    # any of them end in these tokens, so no existing normalization moves.
+    "AV": "AVE", "CR": "CRES", "BV": "BLVD", "WY": "WAY",
     "GARDENS": "GDNS", "GROVE": "GRV", "HEIGHTS": "HTS",
     "PATHWAY": "PTWY", "CIRCUIT": "CRCT", "BRIDGE": "BDGE", "LAWN": "LWN",
     "PARK": "PK", "ROADWAY": "RDWY", "CLOSE": "CS", "WOODS": "WDS",
@@ -37,6 +42,7 @@ STREET_SUFFIX_EXPAND: dict[str, str] = {
     "PL": "Place", "TER": "Terrace", "CRES": "Crescent", "SQ": "Square",
     "GTE": "Gate", "GT": "Gate", "CIR": "Circle", "CRCL": "Circle",
     "TRL": "Trail", "PKWY": "Parkway", "HWY": "Highway", "EXPY": "Expressway",
+    "AV": "Avenue", "CR": "Crescent", "BV": "Boulevard", "WY": "Way",
     "GDNS": "Gardens", "GRV": "Grove", "HTS": "Heights",
     "PTWY": "Pathway", "CRCT": "Circuit", "BDGE": "Bridge", "LWN": "Lawn",
     "PK": "Park", "RDWY": "Roadway", "CS": "Close", "WDS": "Woods",
