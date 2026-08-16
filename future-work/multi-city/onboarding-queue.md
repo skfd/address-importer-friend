@@ -31,16 +31,16 @@ and nothing visible happens in any city without its own etiquette pass
 | toronto | 2026-05 | imported | the original; ~449k uploaded |
 | hamilton | 2026-08-13 | greenfield | baseline 2: 173,156 civic, 2.9% MATCH; upload gated on TODO §2 |
 | guelph | 2026-08-15 | brownfield-complete | QA target; contact ARandomThumbtack_Import before anything visible |
-| quinte-west | 2026-08-15 | greenfield (CanVec seed) | import target; contacts Matthew Darwin + CanadianRob; local repo only (gh blocked) |
-| cornwall | 2026-08-15 | **PARKED: brownfield-active-informal** | TheRandomGamrTRG adds addresses from the city portal (cs 182902244, 2026-05); contact before anything visible. Scaffold done; local repo only |
-| barrie | 2026-08-15 | greenfield (CanVec seed) | import target; contacts Matthew Darwin, Exasecond, useless2764 (active 2026-08); forced the [status] capability + the street-from-full fix; local repo only |
-| cambridge | 2026-08-15 | greenfield (StatCan seed) | import target; the Mojgan Jadidi 2016 GTHA campaign (TODO §3 covers it, now 3 cities); 38 Planning Neighbourhoods fabric; local repo only |
-| waterloo | 2026-08-16 | greenfield (StatCan seed), active locals | coordinate with jtracey + active locals first; forced number_from="full" + unit="full-after-street"; tracker pulls stopped 2026-06-27 (freshness caveat); addr:province convention is ON here; local repo only |
-| kingston | 2026-08-16 | greenfield (CanVec seed) | import target; contacts trigonometric (StreetComplete, active), zzptichka, Matthew Darwin; 40% units (portfolio high); 42-hood fabric; local repo only |
-| thunder-bay | 2026-08-16 | greenfield (purest CanVec) | cleanest import target; FWFN jurisdiction question gates upload; forced number_from="props:<KEY>"; contacts Matthew Darwin, eireidium; local repo only |
-| greater-sudbury | 2026-08-16 | greenfield, hand-mapped core | TristanA (2013-14 downtown, Kevo-style courtesy owed); status filter load-bearing (896 Retired live); addr:city splits 3 ways (TODO §2 re-generalized); local repo only |
-| lambton | 2026-08-16 | greenfield county (pure CanVec) | first county checkout; upload gated on Sarnia ownership (TODO §5) + 853 First Nations rows; no boundary polygons published (quadtree); tracker stalled 2026-06-28; addr:city = local municipality; local repo only |
-| ottawa | 2026-08-16 | **brownfield-active-community** | observer/QA confirmed — the community maps from city data via tasks.osmcanada.ca; contacts DannyMcD (active), Undearius, zzptichka, Matthew Darwin; 116 ONS hoods at 100%; 18k qualifier-letter rows gate any import; local repo only |
+| quinte-west | 2026-08-15 | greenfield (CanVec seed) | import target; contacts Matthew Darwin + CanadianRob |
+| cornwall | 2026-08-15 | **PARKED: brownfield-active-informal** | TheRandomGamrTRG adds addresses from the city portal (cs 182902244, 2026-05); contact before anything visible. Scaffold done |
+| barrie | 2026-08-15 | greenfield (CanVec seed) | import target; contacts Matthew Darwin, Exasecond, useless2764 (active 2026-08); forced the [status] capability + the street-from-full fix |
+| cambridge | 2026-08-15 | greenfield (StatCan seed) | import target; the Mojgan Jadidi 2016 GTHA campaign (TODO §3 covers it, now 3 cities); 38 Planning Neighbourhoods fabric |
+| waterloo | 2026-08-16 | greenfield (StatCan seed), active locals | coordinate with jtracey + active locals first; forced number_from="full" + unit="full-after-street"; tracker pulls stopped 2026-06-27 (freshness caveat); addr:province convention is ON here |
+| kingston | 2026-08-16 | greenfield (CanVec seed) | import target; contacts trigonometric (StreetComplete, active), zzptichka, Matthew Darwin; 40% units (portfolio high); 42-hood fabric |
+| thunder-bay | 2026-08-16 | greenfield (purest CanVec) | cleanest import target; FWFN jurisdiction question gates upload; forced number_from="props:<KEY>"; contacts Matthew Darwin, eireidium |
+| greater-sudbury | 2026-08-16 | greenfield, hand-mapped core | TristanA (2013-14 downtown, Kevo-style courtesy owed); status filter load-bearing (896 Retired live); addr:city splits 3 ways (TODO §2 re-generalized) |
+| lambton | 2026-08-16 | greenfield county (pure CanVec) | first county checkout; upload gated on Sarnia ownership (TODO §5) + 853 First Nations rows; no boundary polygons published (quadtree); tracker stalled 2026-06-28; addr:city = local municipality |
+| ottawa | 2026-08-16 | **brownfield-active-community** | observer/QA confirmed — the community maps from city data via tasks.osmcanada.ca; contacts DannyMcD (active), Undearius, zzptichka, Matthew Darwin; 116 ONS hoods at 100%; 18k qualifier-letter rows gate any import |
 
 ## Queue (green-tier, in order)
 
@@ -89,9 +89,9 @@ regardless of license.
 3. **Scaffold** `<slug>-address-import` from the Guelph template: config.toml
    with dated probe evidence in comments, README with entry state + contacts,
    `[prior_import]` block when one exists, `import_plan = ""` always.
-   Smoke-test `t2.config.load()` via `T2_CITY_DIR`. git init + commit.
-   (GitHub repo creation is currently permission-blocked for the agent — leave
-   local, note it in the Done row, and ask the user to run `gh repo create`.)
+   Smoke-test `t2.config.load()` via `T2_CITY_DIR`. git init + commit, then
+   `gh repo create <slug>-address-import --public --source=. --remote=origin`
+   and push (permission granted 2026-08-16; all 11 checkouts published then).
 4. **Feed lessons back** — the point of the exercise:
    - engine/docs: update `04`/`05`/TODO/DONE and this file with any new
      nuance; small engine fixes done in place, larger ones as TODO items.
