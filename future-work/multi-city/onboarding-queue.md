@@ -42,22 +42,31 @@ regional-dataset city" decision: regionals need the per-municipality
 ownership map (TODO §5) and should not go first. York's OSM-side numbers are
 contaminated by our own Toronto upload — re-measure before trusting any gap.
 
-1. **niagara-falls**
-4. **barrie** — separated city inside Simcoe (same shape as Guelph/Wellington).
-5. **cambridge**
-6. **waterloo**
-7. **kingston** — separated city / Frontenac.
-8. **thunder-bay** — street is name-component only (0% typed): first city to
+1. **barrie** — separated city inside Simcoe (same shape as Guelph/Wellington).
+2. **cambridge**
+3. **waterloo**
+4. **kingston** — separated city / Frontenac.
+5. **thunder-bay** — street is name-component only (0% typed): first city to
    exercise `street_from = "props:<KEY>"` resolution end to end.
-9. **greater-sudbury** — 53.8% missing; amalgamated.
-10. **lambton** — county containing Sarnia: first genuine source-overlap pair
-    (lambton ⊃ sarnia); exercises the dedup-on-municipality policy.
-11. **ottawa** — largest remaining; 15.3% missing, community-mapped
-    (NOT an import target until the etiquette pass says so — the survey's
-    "by hand, no import" mapper is owed a conversation; Matthew Darwin is
-    the second contact).
-12. **durham** — regional dataset; street name-component only.
-13. **york** — regional; OSM baseline contaminated by our Toronto upload.
+6. **greater-sudbury** — 53.8% missing; amalgamated.
+7. **lambton** — county containing Sarnia: first genuine source-overlap pair
+   (lambton ⊃ sarnia); exercises the dedup-on-municipality policy.
+8. **ottawa** — largest remaining; 15.3% missing, community-mapped
+   (NOT an import target until the etiquette pass says so — the survey's
+   "by hand, no import" mapper is owed a conversation; Matthew Darwin is
+   the second contact).
+9. **niagara-falls** — **reclassified 2026-08-15: a REGIONAL dataset in
+   disguise.** The slug names the portal host, but snapshot 21 holds 208,004
+   rows across all 12 Niagara municipalities (St. Catharines 54,508; the
+   city of Niagara Falls only 39,529, 19%). Deferred with the other
+   regionals; needs the per-municipality ownership map (TODO §5) and an
+   entry state *per municipality*, not per dataset. Also the family's first
+   non-Active rows: 260 `LifeCycleStatus='Proposed'` — the status-filter
+   capability (TODO §11) gates any consumer of this dataset.
+   **Queue-lesson: read Municipality cardinality from the DB before
+   ordering the queue — a slug is not a scope.**
+10. **durham** — regional dataset; street name-component only.
+11. **york** — regional; OSM baseline contaminated by our Toronto upload.
 
 ## Parked pending license review (human decision, not a probe)
 

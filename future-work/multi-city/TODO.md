@@ -195,6 +195,18 @@ parcel-stack nor Guelph's apartment shape.
       unit-as-civic-number complexes explicitly rather than trusting
       unit_type labels.
 
+## 11. Lifecycle-status filtering (Niagara Region, 2026-08-15)
+
+The "niagara-falls" dataset (really the 12-municipality Niagara Region — see
+onboarding-queue.md) carries the family's first non-Active rows: 260
+`LifeCycleStatus='Proposed'` of 208,004. A Proposed address must not be
+imported, and today the projection has no status concept at all — every
+prior source was 100% Active, so the absence was invisible.
+
+- [ ] `[source_fields] status = "props:<KEY>"` + a declared active-value
+      policy, same lie-together pattern as unit/[units]. Gate: blocks any
+      consumer of the Niagara dataset; harmless everywhere else.
+
 ## Not blocking, worth doing when touching the normalizer
 
 Split `suffix_range` if a rangeless city ever wants the I/O/Q
