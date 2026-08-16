@@ -80,6 +80,11 @@ them onto the critical path, because both precede a visible changeset.
       Mississauga's rename finished (893 `Mississauga`, 1 `Port Credit`), so
       this is not a general amalgamated-city policy question. `addr:province`
       is unconventioned in both and stays general.
+      **Re-generalized 2026-08-16 by Greater Sudbury:** its `addr:city`
+      splits three ways ('Greater Sudbury' 612 / 'Sudbury' 565 /
+      'Chelmsford' 99 in the probe sample) — Mississauga was the special
+      case, not Hamilton. An amalgamated-city addr:city policy is needed
+      per city, informed by each probe's convention tally.
 
 ## 3. Adjudication policy for municipal-vs-CanVec disagreement (`06`)
 

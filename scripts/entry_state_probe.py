@@ -67,6 +67,18 @@ CITIES = {
         },
         "wiki": ["Guelph/Address_Import", "Canada:Ontario:Guelph"],
     },
+    # Amalgamated 2001 (seven municipalities); one box per major community —
+    # the city core, the Valley (Hanmer), and Chelmsford. Densities checked
+    # against snapshot 63 on 2026-08-16: 1,292 / 632 / 957 rows.
+    "greater-sudbury": {
+        "bbox": (46.20034, -81.59833, 46.88171, -80.55685),
+        "samples": {
+            "sudbury-core": (46.476, -81.012, 46.488, -81.000),
+            "hanmer": (46.644, -80.952, 46.656, -80.940),
+            "chelmsford": (46.572, -81.204, 46.584, -81.192),
+        },
+        "wiki": ["Canada:Ontario:Greater Sudbury", "Greater Sudbury"],
+    },
     # Amalgamated 1970 (Port Arthur + Fort William), so one box per former
     # city plus Westfort. Densities checked against snapshot 17 on 2026-08-16:
     # 1,267 / 1,394 / 1,220 rows.
