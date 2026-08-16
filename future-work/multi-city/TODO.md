@@ -230,3 +230,8 @@ Guardrail: Toronto's match rates must not move (`tool.db` is living).
 - [ ] Maintenance run is due ~2026-08-22 (last: `maint-snap90`, 2026-07-23,
       watermark snapshot 90 / 2026-07-22). Unrelated to the above — it conflates
       against live Overpass and needs none of this.
+      **Finish the month with `/publish-db ../toronto-2-address-import`.** The
+      snapshot is half the month's work and the half that gets skipped: the
+      `maint-snap90` month was finalized on 2026-07-23 but never published until
+      2026-08-16, leaving `tool-db-20260605` as the newest public record of a DB
+      six weeks ahead of it.

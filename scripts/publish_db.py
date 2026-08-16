@@ -8,10 +8,15 @@ credential rows in `kv`: it compacts the DB into a throwaway copy, deletes any
 such rows (keeping the maintenance watermark), self-verifies none remain, then
 xz-compresses it.
 
-It does NOT upload — the `publish-db` skill runs `gh release create` on the
+Any city: the `[city]` selected by T2_CITY_DIR / run.py --city-dir decides which
+living DB is snapshotted and which checkout the artifact lands in. The release
+itself belongs to the *city* repo, so the `gh` line printed at the end targets
+that checkout's `origin` (and says so when there is no remote yet).
+
+It does NOT upload — the `/publish-db` command runs `gh release create` on the
 artifact this prints. Run with the web app stopped (VACUUM takes a read lock).
 
-    python -m scripts.publish_db            # date = the watermark snapshot's feed date
+    T2_CITY_DIR=../<city>-address-import python -m scripts.publish_db
     python -m scripts.publish_db --date 20260605
 """
 from __future__ import annotations
@@ -20,14 +25,16 @@ import argparse
 import lzma
 import shutil
 import sqlite3
+import subprocess
 import sys
 from datetime import date, datetime
 
 from t2 import config as _config
 
 _CFG = _config.load()
+CITY_DIR = _config.CITY_DIR         # the city checkout the release belongs to
 LIVE = _CFG.tool_db_path            # data/<slug>/tool.db — the configured city's DB
-OUT_DIR = _CFG.data_root / "release"  # shared: releases are dated, not slugged (yet)
+OUT_DIR = _CFG.data_root / "release"  # per-checkout, so cities can share a date
 WATERMARK_KEY = "maintenance.watermark_snapshot"
 CRED_PREDICATE = "key LIKE 'osm_oauth%' OR key LIKE 'pkce:%'"
 
@@ -55,6 +62,28 @@ def _watermark_date() -> str:
     return date.today().strftime("%Y%m%d")
 
 
+def _city_repo() -> str | None:
+    """`owner/repo` of the city checkout's `origin`, or None when it has no
+    remote. Most onboarded cities are local-only (gh repo create is blocked for
+    the agent), and a release cannot be created for those — say so rather than
+    printing a command that will fail."""
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(CITY_DIR), "remote", "get-url", "origin"],
+            capture_output=True, text=True, timeout=15,
+        )
+    except Exception:
+        return None
+    if out.returncode != 0:
+        return None
+    url = out.stdout.strip()
+    if not url:
+        return None
+    # git@github.com:owner/repo.git | https://github.com/owner/repo(.git)
+    tail = url.split("github.com", 1)[-1].lstrip(":/")
+    return tail[:-4] if tail.endswith(".git") else tail
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--date", default=None,
@@ -66,6 +95,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if not LIVE.exists():
         sys.exit(f"living DB not found: {LIVE}")
+    print(f"city: {_CFG.city_slug} ({CITY_DIR})")
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
     plain = OUT_DIR / f"tool-db-{args.date}.db"
@@ -109,10 +139,17 @@ def main(argv: list[str] | None = None) -> int:
 
     size_mb = packed.stat().st_size / 1e6
     print(f"\nartifact ready: {packed} ({size_mb:.0f} MB)")
-    print("publish with:")
+    repo = _city_repo()
+    if repo is None:
+        print(f"\n{CITY_DIR.name} has no `origin` remote — the artifact is built, but "
+              "there is nowhere to publish it yet.\nCreate the city repo "
+              "(`gh repo create`), then run the `gh release create` below with "
+              "--repo <owner/repo>.")
+    print("\npublish with:")
     print(f"  gh release create tool-db-{args.date} \"{packed}\" "
-          f"--title \"tool.db snapshot {args.date}\" "
-          f"--notes \"Credential-scrubbed living DB snapshot.\"")
+          f"--title \"{_CFG.city_name} tool.db snapshot {args.date}\" "
+          f"--notes \"Credential-scrubbed living DB snapshot.\""
+          + (f" --repo {repo}" if repo else ""))
     return 0
 
 

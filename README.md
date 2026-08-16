@@ -372,7 +372,7 @@ at snapshot #52 (citywide-complete). Provenance and history reads always hit
 **production** OSM (`api.openstreetmap.org`), independent of the upload `--env`.
 
 After finalizing a month, publish a fresh credential-scrubbed snapshot of the
-living DB with the `publish-db` skill — see *Database snapshots & releases*.
+living DB with `/publish-db <city-dir>` — see *Database snapshots & releases*.
 
 ## Database snapshots & releases
 
@@ -380,9 +380,19 @@ Each city has one living canonical SQLite `tool.db` — the single source of
 truth for what that city's import has pushed to OSM. It lives in the city
 checkout as `data/<slug>/tool.db` (gitignored) and is published periodically
 as a dated, credential-scrubbed GitHub release asset
-(`tool-db-<YYYYMMDD>.db.xz`) **on the city repo**, via that repo's
-`/publish-db` command. Toronto's DB history and current release live at
+(`tool-db-<YYYYMMDD>.db.xz`) **on the city repo**, via the engine's
+`/publish-db <city-dir>` command (one definition, any city; `scripts/publish_db.py`
+builds the artifact and resolves the target repo from the city checkout's
+`origin`). Toronto's DB history and current release live at
 [`toronto-2-address-import`](https://github.com/skfd/toronto-2-address-import).
+
+**There is no "final" snapshot.** A city's DB does not freeze when its import
+reaches citywide-complete — it keeps growing through monthly maintenance, so the
+policy is a dated snapshot per milestone rather than one terminal release. The
+two triggers are: after a city's **first production upload** (the first durable
+record of what the import pushed), and after **each finalized maintenance
+month**. The date stamp is the City-feed publication date of the maintenance
+watermark snapshot, not the day you happen to publish.
 
 A published snapshot is credential-free by construction: OAuth tokens and PKCE
 verifiers live outside the DB in `data/osm_auth.json`, not in `tool.db`; the

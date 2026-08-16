@@ -106,3 +106,22 @@ regardless of license.
 
 Overpass etiquette: one city's entry-state probe per iteration, iterations
 spaced ≥20 minutes apart, never full-city queries (`08`'s rule).
+
+## After the first upload: publish a snapshot
+
+Not part of an onboarding iteration — a scaffolded city has no `tool.db` worth
+publishing yet — but the step that closes the loop once a city actually starts
+importing, and the one that was missing until 2026-08-16.
+
+The moment a city's first production upload lands, run
+`/publish-db <city-dir>` (engine-level command; `scripts/publish_db.py`) to put
+a dated, credential-scrubbed snapshot on the city repo. That artifact is the
+first durable record of what the import pushed — `runs` + `changesets` are the
+source of truth for which addresses are live in OSM, and until it is published
+that record exists only on one laptop. Repeat after each finalized maintenance
+month. There is no terminal "import done" release: the DB stays living.
+
+Two blockers to expect: the web app must be stopped for **that** city (it locks
+only its own `--city-dir`), and most onboarded cities are **local-only** — the
+script builds and verifies the artifact but cannot publish until someone runs
+`gh repo create`.
