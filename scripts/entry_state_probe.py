@@ -192,6 +192,19 @@ CITIES = {
         },
         "wiki": ["Canada:Ontario:Quinte West", "Quinte West"],
     },
+    # A single-tier COUNTY (former townships, no lower-tier municipalities):
+    # one box per major settlement — Paris (the seat), St. George, Burford.
+    # Densities checked against snapshot 61 on 2026-08-16: 759 / 743 / 373
+    # numbered source rows.
+    "brant": {
+        "bbox": (42.98, -80.61, 43.31, -79.98),
+        "samples": {
+            "paris": (43.186, -80.396, 43.198, -80.384),
+            "st-george": (43.238, -80.259, 43.250, -80.247),
+            "burford": (43.098, -80.433, 43.110, -80.421),
+        },
+        "wiki": ["Canada:Ontario:Brant", "Brant County"],
+    },
     # Wellington boxes are untested approximations for the 2025-spike question
     # (TODO #3) -- sanity-check the element counts before trusting a run.
     "wellington": {

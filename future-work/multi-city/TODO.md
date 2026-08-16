@@ -175,6 +175,14 @@ OSM addresses as-is, and today the engine ingests them as candidates whose
 identity key starts `None|`, which conflates nonsensically and pollutes the
 MISSING count. Expect the same in other rural datasets.
 
+Second consumer, worse (Brant, 2026-08-16): 1,236 of 19,333 rows (6.4%) —
+331 street-only stubs, which under `number_from = "full"` project the
+street's first WORD as the housenumber ("PARKSIDE" | "DRIVE"), plus 905
+pure coordinate points with no address fields at all (the family's first).
+The projected-garbage variant is new evidence: the skip policy has to run
+on the *source* row (empty STREET_NUMBER), not on the projected number,
+which for these rows looks populated.
+
 - [ ] Decide the policy: skip-with-visible-count at ingest (the Land Entrance
       shape), or a distinct terminal status. Silent ingestion is the one wrong
       answer. Gate: needed before Quinte West's first baseline is read.
@@ -183,7 +191,8 @@ MISSING count. Expect the same in other rural datasets.
 
 Quinte West's street names are ALL-CAPS ("ANNA COURT") — the first such
 source in the family. Conflation is case-insensitive so baselines are fine,
-but an upload would write shouting `addr:street` values.
+but an upload would write shouting `addr:street` values. (Second consumer:
+Brant, 2026-08-16 — same shape, "GRAND RIVER STREET NORTH".)
 
 - [ ] Title-case step on the export path, driven by a per-city flag (Toronto/
       Hamilton/Guelph must stay byte-identical: their sources are already

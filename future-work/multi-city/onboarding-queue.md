@@ -50,6 +50,7 @@ and nothing visible happens in any city without its own etiquette pass
 | greater-sudbury | 2026-08-16 | greenfield, hand-mapped core | TristanA (2013-14 downtown, Kevo-style courtesy owed); status filter load-bearing (896 Retired live); addr:city splits 3 ways (TODO §2 re-generalized) |
 | lambton | 2026-08-16 | greenfield county (pure CanVec) | first county checkout; upload gated on Sarnia ownership (TODO §5) + 853 First Nations rows; no boundary polygons published (quadtree); tracker stalled 2026-06-28; addr:city = local municipality |
 | ottawa | 2026-08-16 | **brownfield-active-community** | observer/QA confirmed — the community maps from city data via tasks.osmcanada.ca; contacts DannyMcD (active), Undearius, zzptichka, Matthew Darwin; 116 ONS hoods at 100%; 18k qualifier-letter rows gate any import |
+| brant | 2026-08-16 | greenfield (CanVec seed) | first licence-review admit (CC0); ward tiles 99.98% (settlement fabric repeated the Quinte West 72% trap); number_from="full" keeps 219 alpha qualifiers; 1,236 number-less rows = TODO §8's second consumer (331 project garbage numbers — skip policy must read the source row); contact riuri (active 2026-08); CanVec wrote addr:city="County of Brant"; **repo local-only: gh repo create classifier-blocked this session** |
 
 ## Queue (green-tier, in order)
 
@@ -65,28 +66,26 @@ cardinality read from the tracker DBs 2026-08-16 per the niagara lesson).
 Import for the five OGL clones stays gated on the LWG reply
 (`future-work/multi-city/license-contacts-todo.md`).
 
-1. **brant** — 19,333 rows; CC0 (green-cc0). Single-tier county;
-   `PLACE_NAME` is former-township trivia, not a jurisdiction split.
-2. **sarnia** — 26,896 rows; city-published layer inside Lambton County.
+1. **sarnia** — 26,896 rows; city-published layer inside Lambton County.
    The lambton/sarnia pair is a true source overlap — apply the
    municipality-attribute dedup policy and let this checkout settle the
    Sarnia-ownership question gating Lambton's upload (TODO §5 note).
    No unit field; 11 hyphenated STNUM values are ranges, nothing to parse.
-3. **dufferin** — 27,075 rows; county of 8 lower-tier municipalities with
+2. **dufferin** — 27,075 rows; county of 8 lower-tier municipalities with
    NO municipality field in props (thinnest schema yet: FULLADDY, ID,
    STREETNAME, STREETNUM). addr:city needs boundary polygons or a spatial
    join. Single snapshot 2026-06-11 — stalled-tracker freshness caveat.
-4. **huron** — 38,312 rows; county, 9 municipalities via clean `Mun` field;
+3. **huron** — 38,312 rows; county, 9 municipalities via clean `Mun` field;
    rich NENA-style schema (Unit, St_PosTyp, FullAddress_Mun).
-5. **brantford** — 38,984 rows; city. STNUM has embedded parseables (the
+4. **brantford** — 38,984 rows; city. STNUM has embedded parseables (the
    contrast case named in sarnia.toml); STREETNUMIN numeric companion.
-6. **kitchener** — 132,060 rows; city. 4,380 `STATUS='PENDING'` rows — the
+5. **kitchener** — 132,060 rows; city. 4,380 `STATUS='PENDING'` rows — the
    status-filter capability (TODO §11) is load-bearing here.
 
 Regionals remain deferred on the per-municipality ownership map (TODO §5) —
 a design decision, not an onboarding probe:
 
-7. **niagara-falls** — **reclassified 2026-08-15: a REGIONAL dataset in
+6. **niagara-falls** — **reclassified 2026-08-15: a REGIONAL dataset in
    disguise.** The slug names the portal host, but snapshot 21 holds 208,004
    rows across all 12 Niagara municipalities (St. Catharines 54,508; the
    city of Niagara Falls only 39,529, 19%). Deferred with the other
@@ -96,8 +95,8 @@ a design decision, not an onboarding probe:
    capability (TODO §11) gates any consumer of this dataset.
    **Queue-lesson: read Municipality cardinality from the DB before
    ordering the queue — a slug is not a scope.**
-8. **durham** — regional dataset; street name-component only.
-9. **york** — regional; OSM baseline contaminated by our Toronto upload.
+7. **durham** — regional dataset; street name-component only.
+8. **york** — regional; OSM baseline contaminated by our Toronto upload.
 
 ## Parked pending license review (human decision, not a probe)
 
