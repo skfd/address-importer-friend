@@ -37,6 +37,7 @@ and nothing visible happens in any city without its own etiquette pass
 | cambridge | 2026-08-15 | greenfield (StatCan seed) | import target; the Mojgan Jadidi 2016 GTHA campaign (TODO §3 covers it, now 3 cities); 38 Planning Neighbourhoods fabric; local repo only |
 | waterloo | 2026-08-16 | greenfield (StatCan seed), active locals | coordinate with jtracey + active locals first; forced number_from="full" + unit="full-after-street"; tracker pulls stopped 2026-06-27 (freshness caveat); addr:province convention is ON here; local repo only |
 | kingston | 2026-08-16 | greenfield (CanVec seed) | import target; contacts trigonometric (StreetComplete, active), zzptichka, Matthew Darwin; 40% units (portfolio high); 42-hood fabric; local repo only |
+| thunder-bay | 2026-08-16 | greenfield (purest CanVec) | cleanest import target; FWFN jurisdiction question gates upload; forced number_from="props:<KEY>"; contacts Matthew Darwin, eireidium; local repo only |
 
 ## Queue (green-tier, in order)
 
@@ -46,9 +47,7 @@ regional-dataset city" decision: regionals need the per-municipality
 ownership map (TODO §5) and should not go first. York's OSM-side numbers are
 contaminated by our own Toronto upload — re-measure before trusting any gap.
 
-1. **thunder-bay** — street is name-component only (0% typed): first city to
-   exercise `street_from = "props:<KEY>"` resolution end to end.
-6. **greater-sudbury** — 53.8% missing; amalgamated.
+1. **greater-sudbury** — 53.8% missing; amalgamated.
 7. **lambton** — county containing Sarnia: first genuine source-overlap pair
    (lambton ⊃ sarnia); exercises the dedup-on-municipality policy.
 8. **ottawa** — largest remaining; 15.3% missing, community-mapped
