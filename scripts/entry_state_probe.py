@@ -53,6 +53,20 @@ CITIES = {
         },
         "wiki": ["Canada:Ontario:Mississauga", "Mississauga"],
     },
+    # Guelph is not amalgamated, so the boxes sample map-fabric variety
+    # instead of former municipalities: the pre-war downtown, a 2000s
+    # subdivision belt (Pine Ridge / Westminster Woods), and the west-end
+    # (Parkwood Gardens). Densities checked against snapshot 39 on
+    # 2026-08-15: 2,053 / 2,094 / 1,220 source rows.
+    "guelph": {
+        "bbox": (43.4748, -80.32545, 43.58629, -80.15481),
+        "samples": {
+            "downtown": (43.538, -80.254, 43.550, -80.242),
+            "south-end": (43.500, -80.196, 43.512, -80.184),
+            "west-end": (43.524, -80.296, 43.536, -80.284),
+        },
+        "wiki": ["Guelph/Address_Import", "Canada:Ontario:Guelph"],
+    },
     # Wellington boxes are untested approximations for the 2025-spike question
     # (TODO #3) -- sanity-check the element counts before trusting a run.
     "wellington": {
