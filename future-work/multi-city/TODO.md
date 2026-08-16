@@ -87,7 +87,8 @@ Covers both candidates: the same Mojgan Jadidi StatCan GTHA campaign seeded
 Hamilton (cs 37445896) and Mississauga (cs 37570399) five days apart in 2016,
 so one policy settles both. **Cambridge too** (2026-08-15 probe: cs 37554310
 et al., 796 of 1,361 sampled elements, mostly bare housenumber+street nodes)
-— one policy now settles three cities.
+— one policy now settles three cities. **Waterloo makes four** (2026-08-16:
+440 of 1,122 sampled, the same 2016-03-01 batch).
 
 ## 4. Oakville is brownfield-active — do not touch
 

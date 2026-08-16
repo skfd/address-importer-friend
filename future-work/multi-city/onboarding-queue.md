@@ -35,6 +35,7 @@ and nothing visible happens in any city without its own etiquette pass
 | cornwall | 2026-08-15 | **PARKED: brownfield-active-informal** | TheRandomGamrTRG adds addresses from the city portal (cs 182902244, 2026-05); contact before anything visible. Scaffold done; local repo only |
 | barrie | 2026-08-15 | greenfield (CanVec seed) | import target; contacts Matthew Darwin, Exasecond, useless2764 (active 2026-08); forced the [status] capability + the street-from-full fix; local repo only |
 | cambridge | 2026-08-15 | greenfield (StatCan seed) | import target; the Mojgan Jadidi 2016 GTHA campaign (TODO §3 covers it, now 3 cities); 38 Planning Neighbourhoods fabric; local repo only |
+| waterloo | 2026-08-16 | greenfield (StatCan seed), active locals | coordinate with jtracey + active locals first; forced number_from="full" + unit="full-after-street"; tracker pulls stopped 2026-06-27 (freshness caveat); addr:province convention is ON here; local repo only |
 
 ## Queue (green-tier, in order)
 
@@ -44,8 +45,7 @@ regional-dataset city" decision: regionals need the per-municipality
 ownership map (TODO §5) and should not go first. York's OSM-side numbers are
 contaminated by our own Toronto upload — re-measure before trusting any gap.
 
-1. **waterloo**
-4. **kingston** — separated city / Frontenac.
+1. **kingston** — separated city / Frontenac.
 5. **thunder-bay** — street is name-component only (0% typed): first city to
    exercise `street_from = "props:<KEY>"` resolution end to end.
 6. **greater-sudbury** — 53.8% missing; amalgamated.
