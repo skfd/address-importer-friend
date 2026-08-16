@@ -67,6 +67,18 @@ CITIES = {
         },
         "wiki": ["Guelph/Address_Import", "Canada:Ontario:Guelph"],
     },
+    # Amalgamated 1998 (Kingston + Kingston Twp + Pittsburgh Twp), so one box
+    # per former component. Densities checked against snapshot 47 on
+    # 2026-08-16: 4,626 / 2,086 / 1,027 rows.
+    "kingston": {
+        "bbox": (44.20843, -76.70689, 44.47077, -76.23501),
+        "samples": {
+            "downtown": (44.232, -76.500, 44.244, -76.488),
+            "west-end": (44.232, -76.548, 44.244, -76.536),
+            "pittsburgh": (44.256, -76.464, 44.268, -76.452),
+        },
+        "wiki": ["Canada:Ontario:Kingston", "Kingston, Ontario"],
+    },
     # Not amalgamated; map-fabric variety across the central/west/northeast
     # districts. Densities checked against snapshot 1 (the only one — the
     # tracker's Waterloo pulls stopped 2026-06-27) on 2026-08-16:
