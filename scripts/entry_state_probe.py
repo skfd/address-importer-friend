@@ -67,6 +67,18 @@ CITIES = {
         },
         "wiki": ["Guelph/Address_Import", "Canada:Ontario:Guelph"],
     },
+    # Amalgamated (1973: Galt + Preston + Hespeler), so one box per former
+    # municipality, the Hamilton rationale. Densities checked against
+    # snapshot 26 on 2026-08-15: 1,904 / 1,806 / 1,293 rows.
+    "cambridge": {
+        "bbox": (43.33257, -80.40854, 43.47116, -80.25149),
+        "samples": {
+            "galt": (43.344, -80.304, 43.356, -80.292),
+            "preston": (43.392, -80.364, 43.404, -80.352),
+            "hespeler": (43.428, -80.304, 43.440, -80.292),
+        },
+        "wiki": ["Canada:Ontario:Cambridge", "Cambridge, Ontario"],
+    },
     # Not amalgamated (separated city inside Simcoe County), so map-fabric
     # variety: downtown/north, the south-end subdivision belt, the east
     # shore. Densities checked against snapshot 24 on 2026-08-15:
