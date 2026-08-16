@@ -19,6 +19,15 @@ iteration is in the "Iteration recipe" section below; this file is the state.
   license review (a judgment call, not a probe). Listed at the bottom.
 - **red-* / unknown-review** → out.
 
+**Amendment 2026-08-16 (user decision):** datasets whose licence the 2026-08-16
+human review verified as ODbL-compatible enter the queue even though the LWG
+email is still unsent — scaffolding is invisible and import stays gated on the
+LWG reply for the OGL clones. This admits brant (CC0, re-tiered green-cc0, no
+LWG needed at all) and the five verified OGL clones: sarnia, dufferin, huron,
+brantford, kitchener. Oakville is also a verified clone but stays untouched
+(brownfield-active). Their tomls keep yellow-ogl until LWG replies; the queue
+entry below records the exception.
+
 Scaffolding ≠ importing. Every city enters as **onboarding** with
 `import_plan = ""`; entry state decides the consumer (import vs observer),
 and nothing visible happens in any city without its own etiquette pass
@@ -50,12 +59,34 @@ regional-dataset city" decision: regionals need the per-municipality
 ownership map (TODO §5) and should not go first. York's OSM-side numbers are
 contaminated by our own Toronto upload — re-measure before trusting any gap.
 
-**The single-tier queue is EXHAUSTED as of 2026-08-16.** Everything below
-is a regional dataset deferred on the per-municipality ownership map
-(TODO §5) — a design decision, not an onboarding probe. The loop stopped
-here; restart it after §5 lands, or hand-pick a regional deliberately.
+**Reopened 2026-08-16** by the licence-review amendment above: six
+review-verified datasets, small to large (row counts + municipality
+cardinality read from the tracker DBs 2026-08-16 per the niagara lesson).
+Import for the five OGL clones stays gated on the LWG reply
+(`future-work/multi-city/license-contacts-todo.md`).
 
-1. **niagara-falls** — **reclassified 2026-08-15: a REGIONAL dataset in
+1. **brant** — 19,333 rows; CC0 (green-cc0). Single-tier county;
+   `PLACE_NAME` is former-township trivia, not a jurisdiction split.
+2. **sarnia** — 26,896 rows; city-published layer inside Lambton County.
+   The lambton/sarnia pair is a true source overlap — apply the
+   municipality-attribute dedup policy and let this checkout settle the
+   Sarnia-ownership question gating Lambton's upload (TODO §5 note).
+   No unit field; 11 hyphenated STNUM values are ranges, nothing to parse.
+3. **dufferin** — 27,075 rows; county of 8 lower-tier municipalities with
+   NO municipality field in props (thinnest schema yet: FULLADDY, ID,
+   STREETNAME, STREETNUM). addr:city needs boundary polygons or a spatial
+   join. Single snapshot 2026-06-11 — stalled-tracker freshness caveat.
+4. **huron** — 38,312 rows; county, 9 municipalities via clean `Mun` field;
+   rich NENA-style schema (Unit, St_PosTyp, FullAddress_Mun).
+5. **brantford** — 38,984 rows; city. STNUM has embedded parseables (the
+   contrast case named in sarnia.toml); STREETNUMIN numeric companion.
+6. **kitchener** — 132,060 rows; city. 4,380 `STATUS='PENDING'` rows — the
+   status-filter capability (TODO §11) is load-bearing here.
+
+Regionals remain deferred on the per-municipality ownership map (TODO §5) —
+a design decision, not an onboarding probe:
+
+7. **niagara-falls** — **reclassified 2026-08-15: a REGIONAL dataset in
    disguise.** The slug names the portal host, but snapshot 21 holds 208,004
    rows across all 12 Niagara municipalities (St. Catharines 54,508; the
    city of Niagara Falls only 39,529, 19%). Deferred with the other
@@ -65,15 +96,21 @@ here; restart it after §5 lands, or hand-pick a regional deliberately.
    capability (TODO §11) gates any consumer of this dataset.
    **Queue-lesson: read Municipality cardinality from the DB before
    ordering the queue — a slug is not a scope.**
-10. **durham** — regional dataset; street name-component only.
-11. **york** — regional; OSM baseline contaminated by our Toronto upload.
+8. **durham** — regional dataset; street name-component only.
+9. **york** — regional; OSM baseline contaminated by our Toronto upload.
 
 ## Parked pending license review (human decision, not a probe)
 
-yellow-ogl: brantford, dufferin, hastings, huron, kitchener, oakville†
+Updated 2026-08-16 after the licence review: brantford, dufferin, huron,
+kitchener moved to the queue (verified OGL clones); **hastings moved OUT of
+the OGL bucket** — its "Open Government Licence" is aspirational, no licence
+document exists; it now sits in the no-published-licence contact bucket
+(`license-contacts-todo.md` §C) and its toml is re-tiered unknown-review.
+
+yellow-ogl: oakville†
 orange-ccby-waiver: brampton
-† oakville is also brownfield-active (TronnaLegacy, 2026-08) — do not touch
-regardless of license.
+† oakville is a verified OGL clone but also brownfield-active (TronnaLegacy,
+2026-08) — do not touch regardless of license.
 
 ## Iteration recipe (one city per loop iteration)
 

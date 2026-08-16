@@ -215,6 +215,19 @@ prior source was 100% Active, so the absence was invisible.
       policy, same lie-together pattern as unit/[units]. Gate: blocks any
       consumer of the Niagara dataset; harmless everywhere else.
 
+## 12. Licence review + government contacts (2026-08-16)
+
+The 2026-08-16 licence pass reviewed every non-green dataset. Six OGL clones
+(oakville, brantford, dufferin, huron, kitchener, sarnia) are covered by a
+drafted-but-unsent LWG email; brant turned out to be CC0; peel is UK-OGL-based
+and one browser-grab away from joining the email; thirteen sources publish no
+licence at all and four publish restrictive terms. Every remaining step is an
+operator action — sending the email, and writing to municipal GIS offices for
+licences, waivers (brampton, CC BY), or permissions.
+
+- [ ] Work through [license-contacts-todo.md](license-contacts-todo.md) —
+      per-city evidence, contacts where known, and ask templates live there.
+
 ## Not blocking, worth doing when touching the normalizer
 
 Split `suffix_range` if a rangeless city ever wants the I/O/Q
