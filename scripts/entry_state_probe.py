@@ -67,6 +67,19 @@ CITIES = {
         },
         "wiki": ["Guelph/Address_Import", "Canada:Ontario:Guelph"],
     },
+    # Not amalgamated (separated city inside Simcoe County), so map-fabric
+    # variety: downtown/north, the south-end subdivision belt, the east
+    # shore. Densities checked against snapshot 24 on 2026-08-15:
+    # 1,904 / 2,228 / 2,109 rows.
+    "barrie": {
+        "bbox": (44.29599, -79.75085, 44.44753, -79.58783),
+        "samples": {
+            "downtown": (44.388, -79.692, 44.400, -79.680),
+            "south-end": (44.340, -79.644, 44.352, -79.632),
+            "east-shore": (44.352, -79.608, 44.364, -79.596),
+        },
+        "wiki": ["Canada:Ontario:Barrie", "Barrie"],
+    },
     # Not amalgamated (city proper only; CITY is the constant 'CORNWALL'), so
     # map-fabric variety like Guelph: downtown core, the francophone east end,
     # the west end. Densities checked against snapshot 25 on 2026-08-15:

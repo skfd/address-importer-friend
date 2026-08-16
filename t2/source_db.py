@@ -134,6 +134,18 @@ def field_sql(sf: _config.SourceFields, name: str, alias: str = "a") -> str:
     ``sf``. Undeclared optional fields project literal NULL — visible in the
     generated SQL rather than an absent key at runtime."""
     if name == "street":
+        if sf.street_from == "full":
+            # Derive the street by stripping the housenumber prefix from the
+            # combined column. Length-based, not prefix-match: Barrie's 18
+            # dirty rows (2026-08-15: "32PENNELL DR" missing its space,
+            # KIRKWOOD WAY rows whose number disagrees with full) all strip
+            # correctly by length where token-splitting would not. First
+            # exercised by Barrie — the branch was a naive column projection
+            # (including the number!) until then; declaring it obliges the
+            # onboarding probe to verify number-length ≈ leading-token-length
+            # on the city's rows.
+            p = f"{alias}." if alias else ""
+            return f"NULLIF(TRIM(SUBSTR({p}full, LENGTH(COALESCE({p}number,'')) + 1)),'')"
         return _spec_sql(sf.street_from, alias)
     if name == "full":
         if sf.full_from == "full":
@@ -149,7 +161,7 @@ def field_sql(sf: _config.SourceFields, name: str, alias: str = "a") -> str:
     if name in ("lo_num_suf", "hi_num_suf"):
         spec = getattr(sf, name)
         return f"NULLIF({_spec_sql(spec, alias)},'None')" if spec else "NULL"
-    if name in ("municipality", "ward"):
+    if name in ("municipality", "ward", "status"):
         spec = getattr(sf, name)
         return _spec_sql(spec, alias) if spec else "NULL"
     if name == "unit":
@@ -198,6 +210,22 @@ _ADDRESS_COLS = build_address_cols(_CONFIG.source_fields)
 # guardrail extends to query shape, not just the projection.
 
 
+def _status_filter(
+    sf: _config.SourceFields,
+    active_status: tuple[str, ...] | None,
+    alias: str,
+) -> str:
+    """WHERE fragment excluding rows whose lifecycle status is not importable
+    (TODO §11: Barrie's Pending, Niagara's Proposed). Empty when no policy is
+    declared, so every query stays byte-identical for status-less cities —
+    the Toronto guardrail again. NULL status fails the IN and is excluded:
+    a declared status field missing on a row is not evidence of reality."""
+    if not active_status:
+        return ""
+    quoted = ", ".join("'" + v.replace("'", "''") + "'" for v in active_status)
+    return f"\n              AND {field_sql(sf, 'status', alias)} IN ({quoted})"
+
+
 def _unit_rank(sf: _config.SourceFields, alias: str) -> str:
     p = f"{alias}." if alias else ""
     return (
@@ -208,7 +236,11 @@ def _unit_rank(sf: _config.SourceFields, alias: str) -> str:
     )
 
 
-def build_active_bbox_query(sf: _config.SourceFields, collapse: bool) -> str:
+def build_active_bbox_query(
+    sf: _config.SourceFields,
+    collapse: bool,
+    active_status: tuple[str, ...] | None = None,
+) -> str:
     """Active-rows-in-bbox query. Params: (snapshot, min_lat, max_lat,
     min_lon, max_lon) in both variants."""
     cols = build_address_cols(sf)
@@ -216,6 +248,7 @@ def build_active_bbox_query(sf: _config.SourceFields, collapse: bool) -> str:
         "max_snapshot_id = ?\n"
         "              AND latitude BETWEEN ? AND ?\n"
         "              AND longitude BETWEEN ? AND ?"
+        + _status_filter(sf, active_status, "")
     )
     if not collapse:
         return f"""
@@ -234,7 +267,11 @@ def build_active_bbox_query(sf: _config.SourceFields, collapse: bool) -> str:
         """
 
 
-def build_new_since_query(sf: _config.SourceFields, collapse: bool) -> str:
+def build_new_since_query(
+    sf: _config.SourceFields,
+    collapse: bool,
+    active_status: tuple[str, ...] | None = None,
+) -> str:
     """New-points-since-watermark query. Named params :wm and :snap.
 
     The collapsed form ranks over the FULL active set, then filters to new
@@ -257,14 +294,14 @@ def build_new_since_query(sf: _config.SourceFields, collapse: bool) -> str:
             JOIN (
                 {first_appeared}
             ) n ON n.identity_key = a.identity_key
-            WHERE a.max_snapshot_id = :snap
+            WHERE a.max_snapshot_id = :snap{_status_filter(sf, active_status, "a")}
         """
     return f"""
             SELECT {cols}
             FROM (
                 SELECT *, {_unit_rank(sf, '')}
                 FROM addresses
-                WHERE max_snapshot_id = :snap
+                WHERE max_snapshot_id = :snap{_status_filter(sf, active_status, "")}
             ) a
             JOIN (
                 {first_appeared}
@@ -273,7 +310,11 @@ def build_new_since_query(sf: _config.SourceFields, collapse: bool) -> str:
         """
 
 
-def build_retired_since_query(sf: _config.SourceFields, collapse: bool) -> str:
+def build_retired_since_query(
+    sf: _config.SourceFields,
+    collapse: bool,
+    active_status: tuple[str, ...] | None = None,
+) -> str:
     """Retired-points query. Named params :wm and :snap.
 
     The collapsed form ranks over the surviving retired rows, so a civic
@@ -299,12 +340,17 @@ def build_retired_since_query(sf: _config.SourceFields, collapse: bool) -> str:
         "                  AND b.max_snapshot_id   = :snap\n"
         "            )"
     )
+    # The status filter applies to the retired row itself: a Pending row that
+    # vanishes was never importable, so its retirement is not OSM-actionable.
+    # The not_reissued EXISTS deliberately stays unfiltered — any surviving
+    # same-street row suppresses the flag, importable or not, erring toward
+    # silence over a false retirement.
     if not collapse:
         return f"""
             SELECT {cols}, r.last_snap AS last_snapshot_id
             FROM addresses a
             {retired_join}
-            WHERE {not_reissued}
+            WHERE {not_reissued}{_status_filter(sf, active_status, "a")}
         """
     return f"""
             SELECT {cols}, a.last_snap AS last_snapshot_id
@@ -312,7 +358,7 @@ def build_retired_since_query(sf: _config.SourceFields, collapse: bool) -> str:
                 SELECT a.*, r.last_snap, {_unit_rank(sf, 'a')}
                 FROM addresses a
                 {retired_join}
-                WHERE {not_reissued}
+                WHERE {not_reissued}{_status_filter(sf, active_status, "a")}
             ) a
             WHERE a._unit_rn = 1
         """
@@ -326,7 +372,9 @@ def iter_active_addresses_in_bbox(bbox: tuple[float, float, float, float], snaps
     min_lat, min_lon, max_lat, max_lon = bbox
     conn = connect_readonly()
     try:
-        q = build_active_bbox_query(_CONFIG.source_fields, _COLLAPSE)
+        q = build_active_bbox_query(
+            _CONFIG.source_fields, _COLLAPSE, _CONFIG.status_active_values
+        )
         for row in conn.execute(q, (snapshot_id, min_lat, max_lat, min_lon, max_lon)):
             yield dict(row)
     finally:
@@ -346,7 +394,9 @@ def iter_new_since(watermark_snapshot_id: int, snapshot_id: int | None = None):
         snapshot_id = latest_snapshot_id()
     conn = connect_readonly()
     try:
-        q = build_new_since_query(_CONFIG.source_fields, _COLLAPSE)
+        q = build_new_since_query(
+            _CONFIG.source_fields, _COLLAPSE, _CONFIG.status_active_values
+        )
         for row in conn.execute(q, {"wm": watermark_snapshot_id, "snap": snapshot_id}):
             yield dict(row)
     finally:
@@ -373,7 +423,9 @@ def iter_retired_since(watermark_snapshot_id: int, snapshot_id: int | None = Non
         snapshot_id = latest_snapshot_id()
     conn = connect_readonly()
     try:
-        q = build_retired_since_query(_CONFIG.source_fields, _COLLAPSE)
+        q = build_retired_since_query(
+            _CONFIG.source_fields, _COLLAPSE, _CONFIG.status_active_values
+        )
         for row in conn.execute(q, {"wm": watermark_snapshot_id, "snap": snapshot_id}):
             yield dict(row)
     finally:

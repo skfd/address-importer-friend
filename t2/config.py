@@ -54,6 +54,12 @@ class SourceFields:
     # obliges the config to also pick a [units] policy — a declared unit with
     # no policy is the silent-drop failure mode 09-units.md exists to prevent.
     unit: str | None = None
+    # "props:<KEY>" | None. A lifecycle-status field (Barrie's STATUS, the
+    # Niagara Region's LifeCycleStatus — TODO §11). Declaring it obliges a
+    # [status] active_values policy, same lie-together pattern as unit:
+    # a source that publishes Pending/Proposed rows forces an explicit
+    # decision about which values are importable reality.
+    status: str | None = None
 
     def declares(self, name: str) -> bool:
         """True when the optional field ``name`` is mapped for this city."""
@@ -73,7 +79,7 @@ class SourceFields:
 
 _SOURCE_FIELD_OPTIONAL = (
     "municipality", "ward", "lo_num", "lo_num_suf", "hi_num", "hi_num_suf",
-    "address_class", "unit",
+    "address_class", "unit", "status",
 )
 
 
@@ -172,6 +178,52 @@ def parse_units_policy(
     return policy
 
 
+def parse_status_policy(
+    section: dict, sf: SourceFields, origin: str = "config.toml"
+) -> tuple[str, ...] | None:
+    """Validate the [status] section against the [source_fields] declaration.
+
+    Same lie-together contract as units (TODO §11, opened by the Niagara
+    Region's 260 Proposed rows and made blocking by Barrie's 3,369 Pending):
+    a source that declares a lifecycle-status field forces an explicit list of
+    the values that count as importable reality, and an active_values list
+    without a declared field is a recipe copied from the wrong city. Rows
+    whose status is not in the list (including NULL) are excluded from every
+    source query."""
+    unknown = sorted(set(section) - {"active_values"})
+    if unknown:
+        raise ValueError(
+            f"{origin} [status] has unknown key(s) {unknown}; the only key is "
+            "'active_values'."
+        )
+    values = section.get("active_values")
+    if values is None:
+        if sf.declares("status"):
+            raise ValueError(
+                f"{origin} [source_fields] declares status = {sf.status!r} but "
+                "has no [status] active_values. A source with lifecycle states "
+                "must say which values are importable (e.g. ['Current']) — "
+                "ingesting Pending/Proposed rows silently is not an option."
+            )
+        return None
+    if not sf.declares("status"):
+        raise ValueError(
+            f"{origin} [status] active_values = {values!r} but [source_fields] "
+            "declares no status field — nothing to filter. Declare "
+            "status = 'props:<KEY>', or remove the section."
+        )
+    if (
+        not isinstance(values, list)
+        or not values
+        or not all(isinstance(v, str) and v.strip() for v in values)
+    ):
+        raise ValueError(
+            f"{origin} [status] active_values = {values!r} is invalid; expected "
+            "a non-empty list of non-empty strings."
+        )
+    return tuple(values)
+
+
 @dataclass
 class Config:
     city_slug: str
@@ -190,6 +242,9 @@ class Config:
     # None (no unit field) or "collapse-to-civic": one candidate per
     # (number, street, municipality), unit-less row elected representative.
     units_policy: str | None
+    # None (no status field) or the tuple of status values whose rows are
+    # importable reality; everything else is filtered from every source query.
+    status_active_values: tuple[str, ...] | None
     default_bbox: tuple[float, float, float, float]
     overpass_url: str
     match_radius_m: float
@@ -343,6 +398,9 @@ def load() -> Config:
         source_sqlite_path=cfg["source"]["sqlite_path"],
         source_fields=source_fields,
         units_policy=parse_units_policy(cfg.get("units", {}), source_fields, str(toml_path)),
+        status_active_values=parse_status_policy(
+            cfg.get("status", {}), source_fields, str(toml_path)
+        ),
         default_bbox=bbox,  # type: ignore
         overpass_url=cfg["run_defaults"]["overpass_url"],
         match_radius_m=float(cfg["conflation"]["match_radius_m"]),
