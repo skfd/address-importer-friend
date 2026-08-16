@@ -32,6 +32,7 @@ import os
 import re
 import sys
 import time
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator
@@ -47,8 +48,14 @@ SPLIT_THRESHOLD = 500
 # ~330 m at southern-Ontario latitude. Below this, stop subdividing even if count > threshold —
 # prevents runaway recursion on high-rise clusters where all addresses share a point.
 MIN_SPAN_DEG = 0.003
-# Orphan ratio at or above this triggers an "Unassigned" catch-all bucket.
-ORPHAN_BUCKET_PCT = 0.01
+# Orphan pieces from a layer-backed build are force-split below this span
+# (~1 km) regardless of count, so sparse orphans become small local tiles the
+# merge step can absorb into bordering real tiles. Without it, a handful of
+# stragglers makes one catch-all tile whose ring polygon — and therefore whose
+# bbox, and therefore whose runs — spans the entire city. The no-layer path
+# does not use it: there the "orphans" are the whole city and big rural tiles
+# are the point.
+ORPHAN_MAX_SPAN_DEG = 0.01
 # After splitting, merge under-filled tiles into border-sharing neighbours so the
 # operator never reviews a near-empty tile. Merges prefer same-parent partners and
 # results staying ≤ soft ceiling; hard ceiling caps how big a merged tile may grow.
@@ -290,6 +297,7 @@ def _split_tile(
     depth: int,
     threshold: int,
     min_span: float,
+    max_span: float = 0.0,
     is_multipolygon: bool,
     is_orphan: bool,
     used_ids: set[str],
@@ -299,7 +307,8 @@ def _split_tile(
         return
     minx, miny, maxx, maxy = polygon.bounds
     at_floor = (maxx - minx) < min_span and (maxy - miny) < min_span
-    if count <= threshold or at_floor:
+    over_span = max_span > 0 and ((maxx - minx) > max_span or (maxy - miny) > max_span)
+    if at_floor or (count <= threshold and not over_span):
         yield (
             _make_tile(
                 name=name,
@@ -337,6 +346,7 @@ def _split_tile(
                 depth=depth + 1,
                 threshold=threshold,
                 min_span=min_span,
+                max_span=max_span,
                 is_multipolygon=is_multipolygon,
                 is_orphan=is_orphan,
                 used_ids=used_ids,
@@ -352,6 +362,7 @@ def _split_tile(
                     depth=depth + 1,
                     threshold=threshold,
                     min_span=min_span,
+                    max_span=max_span,
                     is_multipolygon=is_multipolygon,
                     is_orphan=is_orphan,
                     used_ids=used_ids,
@@ -466,12 +477,22 @@ def _merge_underfilled(
 
 
 def _feature_name(props: dict) -> str:
-    for key in ("AREA_NAME", "area_name", "NEIGHBOURHOOD_NAME", "Neighbourhood", "name"):
+    for key in ("AREA_NAME", "area_name", "NEIGHBOURHOOD_NAME", "NEIGHBOURHOOD", "Neighbourhood", "name"):
         v = props.get(key)
         if v:
             return str(v).strip()
     aid = props.get("AREA_ID") or props.get("_id") or "?"
     return f"neighbourhood-{aid}"
+
+
+def _feature_community(props: dict) -> str:
+    """The layer's parent-area field, if it has one (Hamilton's COMMUNITY holds
+    the former municipality). Used only to disambiguate duplicate names."""
+    for key in ("COMMUNITY", "Community", "community"):
+        v = props.get(key)
+        if v:
+            return str(v).strip()
+    return ""
 
 
 def load_addresses(snap_id: int) -> list[tuple[float, float]]:
@@ -509,9 +530,20 @@ def build_tiles(
     skipped_empty: list[str] = []
     hood_geoms: list = []
 
-    for feat in features:
+    # Neighbourhood names can repeat across a layer (Hamilton has ten distinct
+    # "Industrial" units). Prefix ambiguous names with the parent community so
+    # the tile reads "Stoney Creek Industrial", not "Industrial-2"; same-name-
+    # same-community leftovers still get the -N id dedup in _make_tile.
+    base_names = [_feature_name(feat.get("properties") or {}) for feat in features]
+    name_counts = Counter(base_names)
+
+    for feat, base_name in zip(features, base_names):
         props = feat.get("properties") or {}
-        name = _feature_name(props)
+        name = base_name
+        if name_counts[base_name] > 1:
+            community = _feature_community(props)
+            if community and community.lower() != base_name.lower():
+                name = f"{community} {base_name}"
         geom = shape(feat["geometry"])
         hood_geoms.append(geom)
         pieces = list(_iter_polygons(geom))
@@ -563,10 +595,13 @@ def build_tiles(
     orphan_count = total - assigned
     orphan_pct = (orphan_count / total) if total else 0.0
 
-    if orphan_count > 0 and orphan_pct >= ORPHAN_BUCKET_PCT:
+    # Every orphan gets bucketed, no matter how few — an address in no tile is
+    # unreachable from the picker and from Run-for-All (decision 2026-08-15;
+    # Hamilton's layer strands 27). Small orphan tiles are then absorbed into
+    # bordering real tiles by the merge pass below.
+    if orphan_count > 0:
         _log(
-            f"orphan_pct {orphan_pct:.2%} >= {ORPHAN_BUCKET_PCT:.0%}, "
-            f"bucketing {orphan_count} orphans into {orphan_name!r}"
+            f"bucketing {orphan_count} orphans ({orphan_pct:.2%}) into {orphan_name!r}"
         )
         # With no neighbourhood layer, hood_geoms is empty, the union is empty,
         # and leftover is the whole city rectangle — so this is also the
@@ -576,6 +611,9 @@ def build_tiles(
         city_rect = box(min_lon, min_lat, max_lon, max_lat)
         leftover = city_rect.difference(union)
         pieces = list(_iter_polygons(leftover))
+        # Layer-backed leftovers get the span cap (see ORPHAN_MAX_SPAN_DEG);
+        # the no-layer path (no features) keeps unbounded rural tiles.
+        orphan_max_span = ORPHAN_MAX_SPAN_DEG if features else 0.0
         for k, piece in enumerate(pieces, start=1):
             piece_name = f"{orphan_name}-{k}" if len(pieces) > 1 else orphan_name
             for t, poly in _split_tile(
@@ -586,6 +624,7 @@ def build_tiles(
                 tree=tree,
                 depth=0,
                 threshold=threshold,
+                max_span=orphan_max_span,
                 min_span=min_span,
                 is_multipolygon=len(pieces) > 1,
                 is_orphan=True,
