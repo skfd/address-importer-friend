@@ -159,6 +159,42 @@ blocking the moment a city has runs we must keep:
       vs the state's timestamp is a one-line comparison that should surface a
       visible warning on `/map`.
 
+## 8. Number-less source rows (Quinte West, 2026-08-15)
+
+Quinte West publishes 342 rows (1.7%) with no housenumber — named features
+("Dam 7", "Dam at Sonoco") and unnumbered road frontages. They cannot become
+OSM addresses as-is, and today the engine ingests them as candidates whose
+identity key starts `None|`, which conflates nonsensically and pollutes the
+MISSING count. Expect the same in other rural datasets.
+
+- [ ] Decide the policy: skip-with-visible-count at ingest (the Land Entrance
+      shape), or a distinct terminal status. Silent ingestion is the one wrong
+      answer. Gate: needed before Quinte West's first baseline is read.
+
+## 9. Case normalization for upload (Quinte West, 2026-08-15)
+
+Quinte West's street names are ALL-CAPS ("ANNA COURT") — the first such
+source in the family. Conflation is case-insensitive so baselines are fine,
+but an upload would write shouting `addr:street` values.
+
+- [ ] Title-case step on the export path, driven by a per-city flag (Toronto/
+      Hamilton/Guelph must stay byte-identical: their sources are already
+      mixed-case). Mind the hard cases: "O'NEIL CRESCENT", "MCGILL",
+      hyphenated roads, "COUNTY ROAD 40". Gate: blocks any Quinte West upload,
+      not conflation.
+
+## 10. Units that are civic numbers in disguise (Quinte West, 2026-08-15)
+
+23 GOULD STREET records 40 "units" whose values are street-facing civic
+numbers (unit='58', full='58 GOULD STREET', unit_type=TOWNHOUSE).
+collapse-to-civic folds them into one candidate; OSM likely wants each as
+its own address. A second unit semantics for `09` — neither Hamilton's
+parcel-stack nor Guelph's apartment shape.
+
+- [ ] When designing unit-level import (09's deferred half), classify
+      unit-as-civic-number complexes explicitly rather than trusting
+      unit_type labels.
+
 ## Not blocking, worth doing when touching the normalizer
 
 Split `suffix_range` if a rangeless city ever wants the I/O/Q

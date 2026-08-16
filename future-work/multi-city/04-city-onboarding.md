@@ -42,6 +42,17 @@ Each of these is a pure function of inputs that can be re-run and diffed:
   polygons. Hamilton's probe would have printed "Neighbourhoods: 234 polygons,
   99.99% coverage" and made the tiling decision trivial; instead the city ran
   for a day on bbox squares because of an assumed absence.
+  Two refinements from Quinte West (2026-08-15): probe **every** polygon
+  candidate, because the best-*looking* layer can fail — its Planning
+  Districts (81 polygons, "planning" in the name, exactly the Hamilton shape)
+  point-tested at 63%: a settlement fabric that excludes rural wards, while
+  the unglamorous 4-polygon ward layer scored 99.87%. And when the Hub search
+  API returns nothing useful, list the org's services directory directly
+  (`https://<org>.arcgis.com/ArcGIS/rest/services?f=json`) — Quinte West's
+  hub search missed layers its own directory listed. Report the name field
+  per candidate: the winner kept its name in `mapguide`, findable only by
+  reading attribute values, which is why the tile builder's name field is now
+  declared config (`02`, settled).
 
 Use the **Geofabrik PBF, not Overpass**, for the OSM side wherever possible.
 `t2/osm_refresh.py` already downloads `ontario-latest.osm.pbf`, and one pass

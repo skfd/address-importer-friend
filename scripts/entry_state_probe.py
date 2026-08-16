@@ -67,6 +67,18 @@ CITIES = {
         },
         "wiki": ["Guelph/Address_Import", "Canada:Ontario:Guelph"],
     },
+    # Amalgamated (1998: Trenton + Frankford + Sidney + Murray), so the boxes
+    # follow the Hamilton rationale — one per former municipality. Densities
+    # checked against snapshot 25 on 2026-08-15: 1,199 / 521 / 419 rows.
+    "quinte-west": {
+        "bbox": (44.02011, -77.75601, 44.31391, -77.41485),
+        "samples": {
+            "trenton": (44.112, -77.580, 44.124, -77.568),
+            "frankford": (44.196, -77.604, 44.208, -77.592),
+            "sidney": (44.124, -77.508, 44.136, -77.496),
+        },
+        "wiki": ["Canada:Ontario:Quinte West", "Quinte West"],
+    },
     # Wellington boxes are untested approximations for the 2025-spike question
     # (TODO #3) -- sanity-check the element counts before trusting a run.
     "wellington": {

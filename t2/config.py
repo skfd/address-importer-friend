@@ -177,6 +177,14 @@ class Config:
     city_slug: str
     city_name: str
     city_neighbourhoods_url: str
+    # Declared layer fields (multi-city Tier 4, decided 2026-08-15 when city #4
+    # would have grown the sniff list a third time). Empty = legacy sniffing.
+    # A declared parent field always prefixes the tile name (a deliberate
+    # "district within community" layer, e.g. Quinte West's name+district_n);
+    # the sniffed COMMUNITY fallback still prefixes only ambiguous names, so
+    # Toronto's and Hamilton's tile names cannot move.
+    city_neighbourhood_name_field: str
+    city_neighbourhood_parent_field: str
     source_sqlite_path: str
     source_fields: SourceFields
     # None (no unit field) or "collapse-to-civic": one candidate per
@@ -299,6 +307,17 @@ def load() -> Config:
     export_section = cfg.get("export", {})
     source_fields = parse_source_fields(cfg.get("source_fields", {}), str(toml_path))
 
+    hood_name_field = str(city_section.get("neighbourhood_name_field", "")).strip()
+    hood_parent_field = str(city_section.get("neighbourhood_parent_field", "")).strip()
+    if (hood_name_field or hood_parent_field) and not str(
+        city_section.get("neighbourhoods_url", "")
+    ).strip():
+        raise ValueError(
+            f"{toml_path} declares [city] neighbourhood_name_field/parent_field "
+            "but no neighbourhoods_url — the fields describe that layer; declaring "
+            "them without one is a recipe copied from the wrong city."
+        )
+
     city_slug = str(city_section["slug"])
     data_dir = CITY_DIR / "data" / city_slug
 
@@ -319,6 +338,8 @@ def load() -> Config:
         city_slug=city_slug,
         city_name=str(city_section["name"]),
         city_neighbourhoods_url=str(city_section.get("neighbourhoods_url", "")).strip(),
+        city_neighbourhood_name_field=hood_name_field,
+        city_neighbourhood_parent_field=hood_parent_field,
         source_sqlite_path=cfg["source"]["sqlite_path"],
         source_fields=source_fields,
         units_policy=parse_units_policy(cfg.get("units", {}), source_fields, str(toml_path)),

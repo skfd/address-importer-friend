@@ -476,7 +476,17 @@ def _merge_underfilled(
     }
 
 
-def _feature_name(props: dict) -> str:
+def _feature_name(props: dict, name_field: str = "") -> str:
+    if name_field:
+        v = props.get(name_field)
+        if v is None or not str(v).strip():
+            raise ValueError(
+                f"[city] neighbourhood_name_field = {name_field!r} is declared but "
+                f"empty on a feature (props keys: {sorted(props)}). A declared "
+                "field is a promise about the layer — fix the declaration or the "
+                "layer, don't fall back to sniffing."
+            )
+        return str(v).strip()
     for key in ("AREA_NAME", "area_name", "NEIGHBOURHOOD_NAME", "NEIGHBOURHOOD", "Neighbourhood", "name"):
         v = props.get(key)
         if v:
@@ -485,9 +495,16 @@ def _feature_name(props: dict) -> str:
     return f"neighbourhood-{aid}"
 
 
-def _feature_community(props: dict) -> str:
+def _feature_community(props: dict, parent_field: str = "") -> str:
     """The layer's parent-area field, if it has one (Hamilton's COMMUNITY holds
-    the former municipality). Used only to disambiguate duplicate names."""
+    the former municipality). Sniffed, it disambiguates duplicate names only;
+    declared via [city] neighbourhood_parent_field, it prefixes every tile name
+    (a declared parent means the name field is a unit *within* it, e.g. Quinte
+    West's planning district "3B" inside "TRENTON"). Lenient about empties —
+    a parentless feature simply gets no prefix."""
+    if parent_field:
+        v = props.get(parent_field)
+        return str(v).strip() if v else ""
     for key in ("COMMUNITY", "Community", "community"):
         v = props.get(key)
         if v:
@@ -520,6 +537,8 @@ def build_tiles(
     merge_floor: int = MERGE_FLOOR,
     merge_soft_ceiling: int = MERGE_SOFT_CEILING,
     merge_hard_ceiling: int = MERGE_HARD_CEILING,
+    name_field: str = "",
+    parent_field: str = "",
 ) -> tuple[list[dict], dict]:
     points = [Point(x, y) for x, y in points_xy]
     tree = STRtree(points)
@@ -534,14 +553,17 @@ def build_tiles(
     # "Industrial" units). Prefix ambiguous names with the parent community so
     # the tile reads "Stoney Creek Industrial", not "Industrial-2"; same-name-
     # same-community leftovers still get the -N id dedup in _make_tile.
-    base_names = [_feature_name(feat.get("properties") or {}) for feat in features]
+    base_names = [_feature_name(feat.get("properties") or {}, name_field) for feat in features]
     name_counts = Counter(base_names)
 
     for feat, base_name in zip(features, base_names):
         props = feat.get("properties") or {}
         name = base_name
-        if name_counts[base_name] > 1:
-            community = _feature_community(props)
+        # A declared parent field prefixes unconditionally; the sniffed
+        # COMMUNITY fallback only disambiguates duplicates (Hamilton's tile
+        # names must not move — TODO §7 makes ids/names load-bearing).
+        if parent_field or name_counts[base_name] > 1:
+            community = _feature_community(props, parent_field)
             if community and community.lower() != base_name.lower():
                 name = f"{community} {base_name}"
         geom = shape(feat["geometry"])
@@ -828,7 +850,16 @@ def run(force: bool = False, dry_run: bool = False) -> dict:
         _log(f"loaded {len(features)} neighbourhood features")
 
         t_build = time.monotonic()
-        tiles, stats = build_tiles(features, points_xy, cfg.osm_city_bbox)
+        if cfg.city_neighbourhood_name_field or cfg.city_neighbourhood_parent_field:
+            _log(
+                f"declared layer fields: name={cfg.city_neighbourhood_name_field!r} "
+                f"parent={cfg.city_neighbourhood_parent_field!r}"
+            )
+        tiles, stats = build_tiles(
+            features, points_xy, cfg.osm_city_bbox,
+            name_field=cfg.city_neighbourhood_name_field,
+            parent_field=cfg.city_neighbourhood_parent_field,
+        )
         build_s = time.monotonic() - t_build
         _log(
             f"built {stats['tile_count']} tiles in {build_s:.1f}s; "
