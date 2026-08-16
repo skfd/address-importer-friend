@@ -40,6 +40,7 @@ and nothing visible happens in any city without its own etiquette pass
 | thunder-bay | 2026-08-16 | greenfield (purest CanVec) | cleanest import target; FWFN jurisdiction question gates upload; forced number_from="props:<KEY>"; contacts Matthew Darwin, eireidium; local repo only |
 | greater-sudbury | 2026-08-16 | greenfield, hand-mapped core | TristanA (2013-14 downtown, Kevo-style courtesy owed); status filter load-bearing (896 Retired live); addr:city splits 3 ways (TODO §2 re-generalized); local repo only |
 | lambton | 2026-08-16 | greenfield county (pure CanVec) | first county checkout; upload gated on Sarnia ownership (TODO §5) + 853 First Nations rows; no boundary polygons published (quadtree); tracker stalled 2026-06-28; addr:city = local municipality; local repo only |
+| ottawa | 2026-08-16 | **brownfield-active-community** | observer/QA confirmed — the community maps from city data via tasks.osmcanada.ca; contacts DannyMcD (active), Undearius, zzptichka, Matthew Darwin; 116 ONS hoods at 100%; 18k qualifier-letter rows gate any import; local repo only |
 
 ## Queue (green-tier, in order)
 
@@ -49,11 +50,12 @@ regional-dataset city" decision: regionals need the per-municipality
 ownership map (TODO §5) and should not go first. York's OSM-side numbers are
 contaminated by our own Toronto upload — re-measure before trusting any gap.
 
-1. **ottawa** — largest remaining; 15.3% missing, community-mapped
-   (NOT an import target until the etiquette pass says so — the survey's
-   "by hand, no import" mapper is owed a conversation; Matthew Darwin is
-   the second contact).
-9. **niagara-falls** — **reclassified 2026-08-15: a REGIONAL dataset in
+**The single-tier queue is EXHAUSTED as of 2026-08-16.** Everything below
+is a regional dataset deferred on the per-municipality ownership map
+(TODO §5) — a design decision, not an onboarding probe. The loop stopped
+here; restart it after §5 lands, or hand-pick a regional deliberately.
+
+1. **niagara-falls** — **reclassified 2026-08-15: a REGIONAL dataset in
    disguise.** The slug names the portal host, but snapshot 21 holds 208,004
    rows across all 12 Niagara municipalities (St. Catharines 54,508; the
    city of Niagara Falls only 39,529, 19%). Deferred with the other

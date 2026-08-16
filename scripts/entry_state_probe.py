@@ -67,6 +67,19 @@ CITIES = {
         },
         "wiki": ["Guelph/Address_Import", "Canada:Ontario:Guelph"],
     },
+    # Amalgamated 2001 (11 municipalities); one box per major former
+    # component — Centretown (old Ottawa), Kanata, Orléans (Cumberland).
+    # Densities checked against snapshot 43 on 2026-08-16:
+    # 5,045 / 1,513 / 2,173 rows.
+    "ottawa": {
+        "bbox": (44.97161, -76.34140, 45.52724, -75.25014),
+        "samples": {
+            "centretown": (45.408, -75.708, 45.420, -75.696),
+            "kanata": (45.300, -75.900, 45.312, -75.888),
+            "orleans": (45.444, -75.492, 45.456, -75.480),
+        },
+        "wiki": ["Canada:Ontario:Ottawa", "Ottawa"],
+    },
     # A COUNTY dataset (14 municipalities + 3 First Nations), not a city:
     # one box per tier — Sarnia (the separated-ish city, 47% of rows),
     # Petrolia (a town), Lambton Shores (rural/lakeshore). Densities checked
