@@ -1628,6 +1628,7 @@ def create_app() -> Flask:
             stage_counts=stage_counts,
             baseline=_maintenance.import_baseline(),
             history=history,
+            snapshot=_maintenance.snapshot_status(),
             watermark_behind=bool(run and run["upload_status"] == "uploaded"
                                   and delta["watermark"] < delta["latest_snapshot"]),
         )
@@ -1665,8 +1666,17 @@ def create_app() -> Flask:
 
     @app.post("/maintenance/advance")
     def maintenance_advance():
-        new_wm = _maintenance.advance_watermark()
-        flash(f"Watermark advanced to snapshot #{new_wm}.")
+        # Advancing declares the month finished, so it is gated on that month's
+        # DB snapshot being published (t2.maintenance.snapshot_status). The
+        # override is an explicit second button, not a silent fallback.
+        force = request.form.get("force") == "1"
+        try:
+            new_wm = _maintenance.advance_watermark(force=force)
+        except _maintenance.SnapshotUnpublished as exc:
+            flash(f"Watermark not advanced. {exc}")
+            return redirect(url_for("maintenance_view"))
+        flash(f"Watermark advanced to snapshot #{new_wm}."
+              + (" Publish gate overridden." if force else ""))
         return redirect(url_for("maintenance_view"))
 
     @app.get("/osm/multi")

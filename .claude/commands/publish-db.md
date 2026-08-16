@@ -50,7 +50,13 @@ or `../hamilton-address-import`). `$2` optionally overrides the date stamp.
    carries `--repo <owner/repo>` resolved from the city checkout's `origin`, so
    the release lands on the city repo, never on the engine. Tags are
    `tool-db-<date>`, unambiguous because they are per-repo.
-5. Report the release URL.
+5. **Record the publish** — this is what un-gates the maintenance watermark:
+   `T2_CITY_DIR=<city-dir> python -m scripts.publish_db --record-published <YYYYMMDD>`.
+   It verifies with `gh release view` that the release really exists before
+   stamping the living DB (`snapshot.published_*` in `kv`), so the record can
+   never mean "I built a file". Skipping this step leaves `/maintenance`
+   refusing to advance the watermark.
+6. Report the release URL.
 
 ## Notes
 

@@ -125,3 +125,7 @@ Two blockers to expect: the web app must be stopped for **that** city (it locks
 only its own `--city-dir`), and most onboarded cities are **local-only** — the
 script builds and verifies the artifact but cannot publish until someone runs
 `gh repo create`.
+
+Finish with `--record-published <YYYYMMDD>`: the maintenance page will not let a
+city close its next month until that record exists (the gate added 2026-08-16;
+"Advance anyway" is there for the local-only cities, which cannot satisfy it).

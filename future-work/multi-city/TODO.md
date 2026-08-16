@@ -240,3 +240,11 @@ Guardrail: Toronto's match rates must not move (`tool.db` is living).
       `maint-snap90` month was finalized on 2026-07-23 but never published until
       2026-08-16, leaving `tool-db-20260605` as the newest public record of a DB
       six weeks ahead of it.
+      **Enforced 2026-08-16** — it is no longer a convention: `/maintenance`
+      refuses to advance the watermark while the month being closed has no
+      published snapshot (`t2.maintenance.snapshot_status`,
+      `tests/test_snapshot_gate.py`), with an explicit "Advance anyway"
+      override for cities that have nowhere to publish. `snapshot.published_*`
+      in `kv` is written only by
+      `scripts.publish_db --record-published <date>`, which checks the release
+      exists first. Toronto is recorded at `tool-db-20260722` and un-gated.

@@ -107,6 +107,89 @@ def set_watermark(snapshot_id: int) -> None:
         conn.close()
 
 
+# ---- published-snapshot gate ----------------------------------------------
+
+# Stamped by `scripts.publish_db --record-published` once a release actually
+# exists on the city repo (it verifies with `gh release view` before writing),
+# so these keys mean "published", never "built a file locally".
+PUBLISHED_DATE_KEY = "snapshot.published_date"   # feed date the release covers
+PUBLISHED_TAG_KEY = "snapshot.published_tag"
+PUBLISHED_URL_KEY = "snapshot.published_url"
+
+
+class SnapshotUnpublished(RuntimeError):
+    """Advancing the watermark would close a month whose DB snapshot was never
+    published. Raised by :func:`advance_watermark` unless ``force``."""
+
+
+def get_published_snapshot() -> dict:
+    """The newest published DB snapshot this city knows about."""
+    conn = _db.connect()
+    try:
+        rows = conn.execute(
+            "SELECT key, value FROM kv WHERE key IN (?, ?, ?)",
+            (PUBLISHED_DATE_KEY, PUBLISHED_TAG_KEY, PUBLISHED_URL_KEY),
+        ).fetchall()
+    finally:
+        conn.close()
+    kv = {r["key"]: r["value"] for r in rows}
+    return {
+        "date": kv.get(PUBLISHED_DATE_KEY),
+        "tag": kv.get(PUBLISHED_TAG_KEY),
+        "url": kv.get(PUBLISHED_URL_KEY),
+    }
+
+
+def set_published_snapshot(feed_date: str, tag: str, url: str | None = None) -> None:
+    """Record that `tag` is published and covers the feed date `feed_date`
+    (ISO). Called after the release exists, not after the artifact is built."""
+    pairs = [(PUBLISHED_DATE_KEY, feed_date[:10]), (PUBLISHED_TAG_KEY, tag)]
+    if url:
+        pairs.append((PUBLISHED_URL_KEY, url))
+    with _db.tx() as conn:
+        conn.executemany(
+            "INSERT INTO kv (key, value) VALUES (?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            pairs,
+        )
+
+
+def snapshot_status() -> dict:
+    """Is the published DB snapshot current with the maintenance watermark?
+
+    The living `tool.db` is the only record of what the import pushed to OSM,
+    and publishing it is the half of a maintenance month that gets silently
+    skipped — Toronto finalized `maint-snap90` on 2026-07-23 and did not
+    publish until 2026-08-16, leaving a public snapshot six weeks stale. So the
+    page treats a month as unfinished while its snapshot is unpublished.
+
+    `lagging` compares the published snapshot's feed date against the *current*
+    watermark: the month you are about to close is the one that must already be
+    on the city repo. Unknown watermark date (pre-`watermark_date` DBs) is not
+    treated as lagging — never block on a comparison that can't be made."""
+    wm = get_watermark()
+    wm_date = source_db.snapshot_date(wm)
+    pub = get_published_snapshot()
+    pub_date = pub["date"]
+    if wm_date is None:
+        lagging, reason = False, "watermark has no feed date — cannot judge"
+    elif pub_date is None:
+        lagging, reason = True, "no DB snapshot has ever been published"
+    elif pub_date[:10] < wm_date[:10]:
+        lagging, reason = True, f"newest published snapshot covers {pub_date[:10]}"
+    else:
+        lagging, reason = False, "published snapshot is current"
+    return {
+        "watermark": wm,
+        "watermark_date": wm_date[:10] if wm_date else None,
+        "published_date": pub_date[:10] if pub_date else None,
+        "published_tag": pub["tag"],
+        "published_url": pub["url"],
+        "lagging": lagging,
+        "reason": reason,
+    }
+
+
 def _around_radius() -> float:
     """Overpass `around` radius for the delta query. Must cover the conflation
     match radius so additions can still match an OSM neighbour just outside the
@@ -486,9 +569,25 @@ def retirements(run_id: int) -> dict:
     return result
 
 
-def advance_watermark(latest_snapshot: int | None = None) -> int:
+def advance_watermark(latest_snapshot: int | None = None, force: bool = False) -> int:
     """Move the watermark forward to the processed snapshot. Call after the
-    month's additions are uploaded. Returns the new watermark."""
+    month's additions are uploaded. Returns the new watermark.
+
+    Refuses while the month being closed has no published DB snapshot (see
+    :func:`snapshot_status`) — advancing is what declares a month finished, so
+    it is the honest place to require the record of it to exist. `force`
+    overrides: a city with no GitHub repo yet cannot publish at all, and the
+    operator, not the tool, decides that trade-off."""
+    if not force:
+        status = snapshot_status()
+        if status["lagging"]:
+            raise SnapshotUnpublished(
+                f"Watermark #{status['watermark']} "
+                f"({status['watermark_date']}) has no published DB snapshot "
+                f"({status['reason']}). Publish it first: "
+                f"/publish-db <city-dir>. Advance anyway with force=True if "
+                f"this city has nowhere to publish."
+            )
     if latest_snapshot is None:
         latest_snapshot = source_db.latest_snapshot_id()
     set_watermark(latest_snapshot)

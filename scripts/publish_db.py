@@ -84,12 +84,54 @@ def _city_repo() -> str | None:
     return tail[:-4] if tail.endswith(".git") else tail
 
 
+def _record_published(stamp: str) -> int:
+    """Stamp the living DB with the release that now exists, after verifying it
+    really does. The maintenance page gates the watermark on this record
+    (t2.maintenance.snapshot_status), so it must mean "published", not "an
+    artifact was built" — hence the `gh release view` check rather than trusting
+    the caller."""
+    tag = f"tool-db-{stamp}"
+    repo = _city_repo()
+    if repo is None:
+        sys.exit(f"{CITY_DIR.name} has no `origin` remote, so {tag} cannot exist. "
+                 "Create the city repo and publish before recording.")
+    try:
+        out = subprocess.run(
+            ["gh", "release", "view", tag, "--repo", repo, "--json", "tagName,url"],
+            capture_output=True, text=True, timeout=60,
+        )
+    except FileNotFoundError:
+        sys.exit("gh CLI not found — cannot verify the release exists.")
+    if out.returncode != 0:
+        sys.exit(f"ABORT: release {tag} not found on {repo}. "
+                 f"Publish it first.\n{out.stderr.strip()}")
+    import json as _json
+    url = (_json.loads(out.stdout) or {}).get("url")
+
+    from t2 import maintenance as _maintenance
+    feed_date = f"{stamp[:4]}-{stamp[4:6]}-{stamp[6:8]}"
+    _maintenance.set_published_snapshot(feed_date, tag, url)
+    print(f"recorded: {tag} covers feed date {feed_date}")
+    if url:
+        print(f"  {url}")
+    status = _maintenance.snapshot_status()
+    print(f"watermark #{status['watermark']} ({status['watermark_date']}): "
+          + ("current" if not status["lagging"] else f"STILL BEHIND — {status['reason']}"))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--date", default=None,
                     help="Override the date stamp (YYYYMMDD). Default: the feed "
                          "publication date of the maintenance watermark snapshot.")
+    ap.add_argument("--record-published", metavar="YYYYMMDD", default=None,
+                    help="Don't build anything: verify release tool-db-<date> "
+                         "exists on the city repo and record it in the living DB, "
+                         "which is what un-gates the maintenance watermark.")
     args = ap.parse_args(argv)
+    if args.record_published:
+        return _record_published(args.record_published)
     if args.date is None:
         args.date = _watermark_date()
 
@@ -150,6 +192,8 @@ def main(argv: list[str] | None = None) -> int:
           f"--title \"{_CFG.city_name} tool.db snapshot {args.date}\" "
           f"--notes \"Credential-scrubbed living DB snapshot.\""
           + (f" --repo {repo}" if repo else ""))
+    print("then record it (this is what un-gates the maintenance watermark):")
+    print(f"  python -m scripts.publish_db --record-published {args.date}")
     return 0
 
 

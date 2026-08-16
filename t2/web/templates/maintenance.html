@@ -2,6 +2,11 @@
 {% block title %}Maintenance{% endblock %}
 {% block content %}
 
+<style>
+  .callout { background: #fffbeb; border-left: 3px solid #f59e0b; padding: .5rem .75rem;
+             margin-top: .6rem; }
+</style>
+
 <div class="card">
   <h2>Monthly maintenance</h2>
   <p class="muted">
@@ -52,6 +57,22 @@
       <td>snapshot #{{ baseline.watermark }}
         {%- if baseline.watermark_date %} <span class="muted">({{ baseline.watermark_date[:10] }})</span>{% endif %}
         <span class="muted">— where delta tracking starts</span></td></tr>
+    <tr><th>Published DB snapshot</th>
+      <td>
+        {% if snapshot.published_tag %}
+          {% if snapshot.published_url %}
+            <a href="{{ snapshot.published_url }}" target="_blank" rel="noopener"><code>{{ snapshot.published_tag }}</code></a>
+          {% else %}<code>{{ snapshot.published_tag }}</code>{% endif %}
+          <span class="muted">({{ snapshot.published_date }})</span>
+        {% else %}
+          <span class="muted">none recorded</span>
+        {% endif %}
+        {% if snapshot.lagging %}
+          <span class="pill warn" data-tip="The living tool.db is the only record of what this import pushed to OSM. Publish it before closing another month.">behind watermark</span>
+        {% else %}
+          <span class="pill ok">current</span>
+        {% endif %}
+      </td></tr>
   </table>
 
   {% if history %}
@@ -122,10 +143,29 @@
     {% endif %}
   </p>
   {% if watermark_behind %}
-    <form method="post" action="/maintenance/advance" style="margin-top:.6rem">
-      <button type="submit" class="secondary">Advance watermark to #{{ delta.latest_snapshot }}</button>
-      <span class="muted">— do this once the month's additions are uploaded.</span>
-    </form>
+    {% if snapshot.lagging %}
+      <div class="callout">
+        <strong>Publish the DB snapshot before closing another month.</strong>
+        Watermark #{{ snapshot.watermark }}{% if snapshot.watermark_date %} ({{ snapshot.watermark_date }}){% endif %}
+        has no published snapshot — {{ snapshot.reason }}. The living
+        <code>tool.db</code> is the only record of what this import pushed to
+        OSM; until it is on the city repo that record exists on one machine.
+        <p style="margin:.5rem 0 0">
+          <code>/publish-db &lt;city-dir&gt;</code>, then
+          <code>python -m scripts.publish_db --record-published &lt;YYYYMMDD&gt;</code>
+        </p>
+        <form method="post" action="/maintenance/advance" style="margin-top:.6rem">
+          <input type="hidden" name="force" value="1">
+          <button type="submit" class="secondary">Advance anyway to #{{ delta.latest_snapshot }}</button>
+          <span class="muted">— for a city with nowhere to publish yet (no repo).</span>
+        </form>
+      </div>
+    {% else %}
+      <form method="post" action="/maintenance/advance" style="margin-top:.6rem">
+        <button type="submit" class="secondary">Advance watermark to #{{ delta.latest_snapshot }}</button>
+        <span class="muted">— do this once the month's additions are uploaded.</span>
+      </form>
+    {% endif %}
   {% endif %}
 </div>
 

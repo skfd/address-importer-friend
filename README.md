@@ -394,6 +394,17 @@ record of what the import pushed), and after **each finalized maintenance
 month**. The date stamp is the City-feed publication date of the maintenance
 watermark snapshot, not the day you happen to publish.
 
+**The month cannot be closed until its snapshot is published.** Advancing the
+watermark is what declares a maintenance month finished, so `/maintenance`
+refuses to advance it while the month being closed has no published snapshot —
+the rule was documented and skipped anyway (the `maint-snap90` month sat
+unpublished for six weeks), so it is a check now. What un-gates it is
+`python -m scripts.publish_db --record-published <YYYYMMDD>`, which verifies the
+release exists with `gh release view` before recording it in `kv`
+(`snapshot.published_*`) — the record means *published*, never *built*. A city
+with no GitHub repo yet cannot publish at all, so the page also offers an
+explicit "Advance anyway" override; that call belongs to the operator.
+
 A published snapshot is credential-free by construction: OAuth tokens and PKCE
 verifiers live outside the DB in `data/osm_auth.json`, not in `tool.db`; the
 publish script still runs a belt-and-suspenders `kv` scrub while keeping the
