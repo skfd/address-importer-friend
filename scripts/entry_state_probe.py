@@ -67,6 +67,19 @@ CITIES = {
         },
         "wiki": ["Guelph/Address_Import", "Canada:Ontario:Guelph"],
     },
+    # A COUNTY dataset (14 municipalities + 3 First Nations), not a city:
+    # one box per tier — Sarnia (the separated-ish city, 47% of rows),
+    # Petrolia (a town), Lambton Shores (rural/lakeshore). Densities checked
+    # against snapshot 16 on 2026-08-16: 1,649 / 700 / 797 rows.
+    "lambton": {
+        "bbox": (42.56002, -82.54413, 43.31768, -81.74364),
+        "samples": {
+            "sarnia": (42.960, -82.404, 42.972, -82.392),
+            "petrolia": (42.876, -82.164, 42.888, -82.152),
+            "grand-bend": (43.092, -82.008, 43.104, -81.996),
+        },
+        "wiki": ["Canada:Ontario:Lambton", "Sarnia"],
+    },
     # Amalgamated 2001 (seven municipalities); one box per major community —
     # the city core, the Valley (Hanmer), and Chelmsford. Densities checked
     # against snapshot 63 on 2026-08-16: 1,292 / 632 / 957 rows.

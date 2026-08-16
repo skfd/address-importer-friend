@@ -39,6 +39,7 @@ and nothing visible happens in any city without its own etiquette pass
 | kingston | 2026-08-16 | greenfield (CanVec seed) | import target; contacts trigonometric (StreetComplete, active), zzptichka, Matthew Darwin; 40% units (portfolio high); 42-hood fabric; local repo only |
 | thunder-bay | 2026-08-16 | greenfield (purest CanVec) | cleanest import target; FWFN jurisdiction question gates upload; forced number_from="props:<KEY>"; contacts Matthew Darwin, eireidium; local repo only |
 | greater-sudbury | 2026-08-16 | greenfield, hand-mapped core | TristanA (2013-14 downtown, Kevo-style courtesy owed); status filter load-bearing (896 Retired live); addr:city splits 3 ways (TODO §2 re-generalized); local repo only |
+| lambton | 2026-08-16 | greenfield county (pure CanVec) | first county checkout; upload gated on Sarnia ownership (TODO §5) + 853 First Nations rows; no boundary polygons published (quadtree); tracker stalled 2026-06-28; addr:city = local municipality; local repo only |
 
 ## Queue (green-tier, in order)
 
@@ -48,9 +49,7 @@ regional-dataset city" decision: regionals need the per-municipality
 ownership map (TODO §5) and should not go first. York's OSM-side numbers are
 contaminated by our own Toronto upload — re-measure before trusting any gap.
 
-1. **lambton** — county containing Sarnia: first genuine source-overlap pair
-   (lambton ⊃ sarnia); exercises the dedup-on-municipality policy.
-8. **ottawa** — largest remaining; 15.3% missing, community-mapped
+1. **ottawa** — largest remaining; 15.3% missing, community-mapped
    (NOT an import target until the etiquette pass says so — the survey's
    "by hand, no import" mapper is owed a conversation; Matthew Darwin is
    the second contact).
