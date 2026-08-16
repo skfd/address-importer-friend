@@ -33,6 +33,7 @@ and nothing visible happens in any city without its own etiquette pass
 | guelph | 2026-08-15 | brownfield-complete | QA target; contact ARandomThumbtack_Import before anything visible |
 | quinte-west | 2026-08-15 | greenfield (CanVec seed) | import target; contacts Matthew Darwin + CanadianRob; local repo only (gh blocked) |
 | cornwall | 2026-08-15 | **PARKED: brownfield-active-informal** | TheRandomGamrTRG adds addresses from the city portal (cs 182902244, 2026-05); contact before anything visible. Scaffold done; local repo only |
+| barrie | 2026-08-15 | greenfield (CanVec seed) | import target; contacts Matthew Darwin, Exasecond, useless2764 (active 2026-08); forced the [status] capability + the street-from-full fix; local repo only |
 
 ## Queue (green-tier, in order)
 
@@ -42,8 +43,7 @@ regional-dataset city" decision: regionals need the per-municipality
 ownership map (TODO §5) and should not go first. York's OSM-side numbers are
 contaminated by our own Toronto upload — re-measure before trusting any gap.
 
-1. **barrie** — separated city inside Simcoe (same shape as Guelph/Wellington).
-2. **cambridge**
+1. **cambridge**
 3. **waterloo**
 4. **kingston** — separated city / Frontenac.
 5. **thunder-bay** — street is name-component only (0% typed): first city to
