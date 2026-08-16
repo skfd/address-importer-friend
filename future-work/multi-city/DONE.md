@@ -6,6 +6,49 @@ decided here, and the reasoning is not recoverable from the code.
 
 Full context lives in [08-survey-results-2026-08-12.md](08-survey-results-2026-08-12.md).
 
+## Hamilton neighbourhoods layer + orphan policy — DONE 2026-08-15
+
+The 2026-08-13 config comment "Hamilton has no neighbourhood polygon layer"
+was an unverified absence claim, and it was wrong. Open Hamilton publishes
+**"Neighbourhoods"** — 234 planning-unit polygons, the direct analogue of
+Toronto's 158 — found via the Hub search API (portal pages are JS shells;
+see the cheat sheet in `05`). Point-tested before adopting: 99.99% of the
+273,374 snapshot-36 addresses fall inside; 27 orphans citywide.
+`neighbourhoods_url` set; 657 natural tiles replaced the 680 bbox squares
+(prior runs dropped deliberately — pre-announcement Hamilton is the lab
+mouse). This is the **second** wrong absence claim in two days (units were
+"unmapped" while props carried them at 36.8%) — the rule that absence claims
+need dated probe evidence is now in `04`.
+
+Two engine changes fell out, both generic:
+
+- **Duplicate feature names get a community prefix.** Hamilton repeats
+  neighbourhood names across and within its former municipalities (ten
+  distinct "Industrial" units). `build_tiles` now pre-counts base names and
+  prefixes only ambiguous ones with the layer's COMMUNITY-style field
+  ("Stoney Creek Industrial"); a name equal to its community is never
+  doubled; same-name-same-community leftovers keep the `-N` id dedup.
+  Toronto unaffected (unique `AREA_NAME`s, no community field).
+  `tests/test_tiles_duplicate_names.py`.
+
+- **Every orphan gets bucketed — the >=1% gate is gone.** The old
+  `ORPHAN_BUCKET_PCT` silently stranded sub-1% orphans in no tile:
+  unreachable from the picker and from Run-for-All (Hamilton: 27 addresses,
+  38 of the published-geometry stragglers outside every tile *bbox* too).
+  Latent until now — Toronto's layer covers wall-to-wall (0 orphans) and the
+  no-layer path can't orphan by construction. The naive fix has a trap: 27
+  points ≤ threshold means the catch-all ring never splits, one tile whose
+  bbox — and therefore whose runs — spans the whole city. So layer-backed
+  orphan pieces are force-split below `ORPHAN_MAX_SPAN_DEG` (~1 km) and the
+  merge pass absorbs them into bordering real tiles. Measured on Hamilton:
+  26 of 27 absorbed into 7 real tiles, 1 genuinely isolated address kept as
+  its own visible tile, 0 orphans, no megatile (max span ~9 km, a rural
+  tile). The no-layer path deliberately skips the cap — big rural tiles are
+  the point there. `tests/test_tiles_orphans.py`.
+
+Also: `NEIGHBOURHOOD` (bare, all-caps) added to `_feature_name`'s key list —
+which is itself now a recorded tension, see the Tier 4 note in `02`.
+
 ## Units decision + baseline 2 — DONE 2026-08-14
 
 `09` option 2 taken for Hamilton: **collapse to civic now, design unit-level

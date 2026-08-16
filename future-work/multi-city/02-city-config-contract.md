@@ -57,6 +57,20 @@ an empty polygon union leaves the whole city rectangle. See DONE.md. Boundary
 clipping (`10`) is still open and is a separate concern: a rectangle is not a
 boundary.
 
+Unsettled inside Tier 4 (surfaced 2026-08-15 when Hamilton's layer landed):
+**the layer's name field is still sniffed, not declared.** `_feature_name`
+guesses from a hardcoded list (`AREA_NAME`, `NEIGHBOURHOOD_NAME`,
+`NEIGHBOURHOOD`, …) that grew by one entry the day Hamilton arrived, and city
+#3's `NBHD_NAME` will silently produce `neighbourhood-?` tiles. That
+contradicts this document's own Tier 2 philosophy — source fields moved from
+sniffing to explicit `[source_fields]` declarations for exactly this reason.
+Either the contract grows e.g. `[city] neighbourhood_name_field` (and a
+parent-area field — the community prefix for duplicate names, DONE.md
+2026-08-15, sniffs COMMUNITY the same way), or the sniff stays but `04`'s
+layer probe must report which key matched so a human confirms it at
+onboarding. Undecided; do not let the list grow a third time without
+deciding.
+
 ## Sketch of the config
 
 Not settled. The shape below is a discussion object, not a spec.

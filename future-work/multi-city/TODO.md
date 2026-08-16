@@ -141,6 +141,24 @@ The correction itself is in DONE.md; these two consequences are not done.
       rather than "our reading is broken", and those are indistinguishable from
       the metric alone.
 
+## 7. Tile-layer lifecycle, from the Hamilton rebuild (DONE.md 2026-08-15)
+
+Rebuilding Hamilton's tiles (squares → neighbourhood fabric) was free only
+because pre-announcement Hamilton can drop its runs at will. Two gaps become
+blocking the moment a city has runs we must keep:
+
+- [ ] **Tile ids are unstable across rebuilds.** `_merge_underfilled` protects
+      id continuity *within* a build; nothing does across builds (layer update,
+      new snapshot). A rebuild orphans every prior run's tile association.
+      Runs already store `polygon_json` (016), so spatial re-association —
+      match a run to the new tile that best overlaps its stored polygon — is
+      the obvious mechanism. Decide and build it before announcing any import.
+- [ ] **The UI has no staleness detection.** After the rebuild, the old
+      run-for-all state (680/680 done) kept describing tiles that no longer
+      existed; the operator had to know to reset it. `tiles.json generated_at`
+      vs the state's timestamp is a one-line comparison that should surface a
+      visible warning on `/map`.
+
 ## Not blocking, worth doing when touching the normalizer
 
 Split `suffix_range` if a rangeless city ever wants the I/O/Q

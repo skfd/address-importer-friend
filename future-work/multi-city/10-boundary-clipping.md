@@ -177,6 +177,14 @@ polygon** (migration `016_run_polygon.sql`), so polygon clipping at ingest is a
 solved problem in this codebase. City boundary is the same operation one level
 up.
 
+Partial delivery via the neighbourhood layer (2026-08-15, DONE.md): once a
+city's tiles come from a real polygon fabric instead of bbox squares, tile
+shapes stop at the municipal boundary — Hamilton's edge tiles no longer reach
+into Burlington the way its bbox squares did. That shrinks the day-to-day
+exposure but is **not** this document's fix: run bboxes still rectangle past
+the polygon on the OSM side, and the source side of a *county* dataset still
+needs the ownership map below. Both open items stand.
+
 ## Sketch
 
 - `[geo] boundary = "..."` in the per-city TOML (`02`), optional, falling back

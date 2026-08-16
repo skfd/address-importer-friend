@@ -32,6 +32,16 @@ Each of these is a pure function of inputs that can be re-run and diffed:
 - **Provenance.** Tally last-touch editors and years; fetch changeset tags for
   the top-N changesets; extract `import=yes`, `import:page`, `source`,
   `source:license`. See `05`.
+- **Neighbourhood-layer probe** (added 2026-08-15, from the Hamilton lesson —
+  see DONE.md). Search the city's ArcGIS Hub for polygon datasets matching
+  neighbourhood/community/planning/ward (the search API, not the portal pages —
+  `05` has the cheat sheet). For each candidate: feature count vs the service's
+  `maxRecordCount` (paging risk), `contentStatus` (Hub returns deprecated
+  datasets), the name and parent-area fields, and — the go/no-go number —
+  **point-test coverage**: what fraction of source addresses falls inside the
+  polygons. Hamilton's probe would have printed "Neighbourhoods: 234 polygons,
+  99.99% coverage" and made the tiling decision trivial; instead the city ran
+  for a day on bbox squares because of an assumed absence.
 
 Use the **Geofabrik PBF, not Overpass**, for the OSM side wherever possible.
 `t2/osm_refresh.py` already downloads `ontario-latest.osm.pbf`, and one pass
@@ -55,6 +65,19 @@ None of these have a deterministic answer:
   ArcGIS Hub API before concluding anything.
 - Which street-name disagreements are genuine overrides vs normalizer gaps?
 - Is this a city we should show up in at all? (`05`, etiquette section.)
+- Which candidate polygon layer is the right planning fabric, and which field
+  is the name? (The probe reports the candidates; picking is judgment.)
+
+**Rule, from being burned twice in two days: an absence claim may only enter a
+city config with the dated probe evidence that failed to find the thing.**
+Hamilton's config said "no neighbourhood polygon layer" (2026-08-13, assumed,
+wrong — 234 planning units existed); the tracker said no canonical unit field
+(the props carried `UNIT_NUMBER_COMPLETE` on 36.8% of rows, found only by the
+first baseline). Same failure shape both times: an authoritative-*looking*
+source says X doesn't exist, nobody probes the actual data or portal, and the
+absence gets encoded in config where `03`'s gating faithfully enforces it.
+Declared absences are load-bearing — they disable engine features — so they
+need the same evidence standard as declared presences.
 
 ## Output
 

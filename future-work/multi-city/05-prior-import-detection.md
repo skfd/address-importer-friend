@@ -162,6 +162,29 @@ tracker, vault, and layerist already share one `data_url` per dataset.
 Consumers should read snapshots *through the vault* rather than pulling the
 city directly — which is what the vault exists for.
 
+## ArcGIS Hub API cheat sheet
+
+Collected 2026-08-10 (Guelph, above) and 2026-08-15 (Hamilton neighbourhoods,
+DONE.md). Most of the 42 tracked datasets sit on ArcGIS Hub, so this is the
+standard door into all of them:
+
+- **Portal pages are JS shells.** `open.hamilton.ca/datasets/<id>` returns
+  nothing useful to curl/WebFetch. Never scrape the page; use the APIs.
+- **Discover** datasets on a city's own Hub:
+  `GET https://<hub-host>/api/search/v1/collections/dataset/items?q=<terms>&limit=20`
+  — GeoJSON features whose properties carry `title`, `url` (the FeatureServer),
+  `contentStatus` (**filter deprecated!**), `modified`, `tags`.
+- **Resolve** a known portal slug to its service:
+  `GET https://hub.arcgis.com/api/v3/datasets?filter[slug]=<org>::<slug>`
+  (the Guelph case above).
+- **Inspect** a service: `<FeatureServer>?f=json` lists layers and
+  `maxRecordCount`; `<layer>?f=json` lists fields; append
+  `/query?where=1%3D1&returnCountOnly=true&f=json` for the feature count.
+  Count ≤ `maxRecordCount` means one GeoJSON query URL fetches the whole
+  layer: `/query?where=1%3D1&outFields=<fields>&outSR=4326&f=geojson`.
+- Layer indexes are not always 0 — Hamilton's Neighborhoods service has its
+  only layer at index 8. Read the service JSON, don't guess.
+
 ## Their conflation rule
 
 Also worth recording: their conflation rule, quoted from the wiki —
