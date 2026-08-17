@@ -16,6 +16,12 @@ at the date they were written.
   prior-import detection, the collective adjudication layer, and a 42-dataset
   portfolio survey. Spans five sibling repos, not just this one. Start at
   [multi-city/README.md](multi-city/README.md).
+- [hosted-instance.md](hosted-instance.md) — **designed 2026-08-16.** Host the
+  review UI on a rented VPS for `TronnaLegacy`, Oakville's active local
+  mapper: OSM OAuth sign-in, a flat username allowlist, and he runs the whole
+  pipeline under his own account. Needs a real auth gate (there is none
+  today), per-(user, env) token storage, and two processes for the dev/prod
+  switch. Gated on the LWG licence reply and an import proposal.
 - [postcode-enrichment.md](postcode-enrichment.md) — fill `addr:postcode` on
   matched OSM nodes that lack one, sourced from same-address POI nodes.
   First mutation flow in an otherwise create-only pipeline.
