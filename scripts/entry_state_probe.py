@@ -192,6 +192,20 @@ CITIES = {
         },
         "wiki": ["Canada:Ontario:Quinte West", "Quinte West"],
     },
+    # The CITY dataset inside Lambton County (the lambton probe already
+    # sampled one Sarnia box; these three are city-specific): downtown core,
+    # the post-war south end by the college, Bright's Grove on the lakeshore.
+    # Densities checked against snapshot 1 on 2026-08-16: 1,267 / 414 / 195
+    # source rows.
+    "sarnia": {
+        "bbox": (42.91, -82.46, 43.04, -82.23),
+        "samples": {
+            "downtown": (42.964, -82.410, 42.976, -82.398),
+            "college-south": (42.950, -82.396, 42.962, -82.384),
+            "brights-grove": (43.010, -82.344, 43.022, -82.332),
+        },
+        "wiki": ["Canada:Ontario:Sarnia", "Sarnia"],
+    },
     # A single-tier COUNTY (former townships, no lower-tier municipalities):
     # one box per major settlement — Paris (the seat), St. George, Burford.
     # Densities checked against snapshot 61 on 2026-08-16: 759 / 743 / 373

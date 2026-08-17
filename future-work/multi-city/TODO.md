@@ -212,6 +212,15 @@ parcel-stack nor Guelph's apartment shape.
       unit-as-civic-number complexes explicitly rather than trusting
       unit_type labels.
 
+A THIRD unit semantics (Sarnia, 2026-08-16): no unit column at all, but 443
+rows embed the unit in the combined column ("5700 Blackwell Sideroad Unit
+138") while STNUM holds the UNIT number, not the civic one. `unit =
+"full-after-street"` cannot extract these — it anchors on a typed street
+column and Sarnia's STNAME is bare — so under number_from/street_from =
+"full" the unit tail stays welded to the derived street and the rows
+surface as mismatch clusters at a handful of complexes. A tail-pattern
+extractor (" Unit <n>$") would cover it; decide with 09's deferred half.
+
 ## 11. Lifecycle-status filtering (Niagara Region, 2026-08-15)
 
 The "niagara-falls" dataset (really the 12-municipality Niagara Region — see

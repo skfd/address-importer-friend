@@ -49,8 +49,10 @@ and nothing visible happens in any city without its own etiquette pass
 | thunder-bay | 2026-08-16 | greenfield (purest CanVec) | cleanest import target; FWFN jurisdiction question gates upload; forced number_from="props:<KEY>"; contacts Matthew Darwin, eireidium |
 | greater-sudbury | 2026-08-16 | greenfield, hand-mapped core | TristanA (2013-14 downtown, Kevo-style courtesy owed); status filter load-bearing (896 Retired live); addr:city splits 3 ways (TODO §2 re-generalized) |
 | lambton | 2026-08-16 | greenfield county (pure CanVec) | first county checkout; upload gated on Sarnia ownership (TODO §5) + 853 First Nations rows; no boundary polygons published (quadtree); tracker stalled 2026-06-28; addr:city = local municipality |
+| oakville | 2026-08-16 | **brownfield-active, handed to the incumbent** | scaffolded for `TronnaLegacy` (the user's friend) to run himself — checkout carries `IMPORT_CHECKLIST.md` + `CLAUDE.md`. First city whose source is UPPERCASE: `expand_street_name()` emits `MCCRANEY Street`, a title-caser is owed to the engine and blocks upload. Forced `number_from="full"` (tracker drops the `335A` suffix on 24 rows) which cascades to `full_from="full"`. Wards point-test 100.00%, best in the portfolio. Prod gated on LWG + his import proposal |
 | ottawa | 2026-08-16 | **brownfield-active-community** | observer/QA confirmed — the community maps from city data via tasks.osmcanada.ca; contacts DannyMcD (active), Undearius, zzptichka, Matthew Darwin; 116 ONS hoods at 100%; 18k qualifier-letter rows gate any import |
-| brant | 2026-08-16 | greenfield (CanVec seed) | first licence-review admit (CC0); ward tiles 99.98% (settlement fabric repeated the Quinte West 72% trap); number_from="full" keeps 219 alpha qualifiers; 1,236 number-less rows = TODO §8's second consumer (331 project garbage numbers — skip policy must read the source row); contact riuri (active 2026-08); CanVec wrote addr:city="County of Brant"; **repo local-only: gh repo create classifier-blocked this session** |
+| brant | 2026-08-16 | greenfield (CanVec seed) | first licence-review admit (CC0); ward tiles 99.98% (settlement fabric repeated the Quinte West 72% trap); number_from="full" keeps 219 alpha qualifiers; 1,236 number-less rows = TODO §8's second consumer (331 project garbage numbers — skip policy must read the source row); contact riuri (active 2026-08); CanVec wrote addr:city="County of Brant"; repo published later same day |
+| sarnia | 2026-08-16 | greenfield (NRCan/CanVec seed) | licence-review admit (OGL clone in LWG email); **STNUM holds the UNIT on 443 rows** — number_from="full" (third consumer), unit tail welded to derived street (TODO §10's third unit semantics); county ESZ tile fabric 100% (at-large council, no wards); upload double-gated: LWG reply + TODO §5 ownership vs lambton; contacts Matthew Darwin, NuSarnia-LC |
 
 ## Queue (green-tier, in order)
 
@@ -66,26 +68,21 @@ cardinality read from the tracker DBs 2026-08-16 per the niagara lesson).
 Import for the five OGL clones stays gated on the LWG reply
 (`future-work/multi-city/license-contacts-todo.md`).
 
-1. **sarnia** — 26,896 rows; city-published layer inside Lambton County.
-   The lambton/sarnia pair is a true source overlap — apply the
-   municipality-attribute dedup policy and let this checkout settle the
-   Sarnia-ownership question gating Lambton's upload (TODO §5 note).
-   No unit field; 11 hyphenated STNUM values are ranges, nothing to parse.
-2. **dufferin** — 27,075 rows; county of 8 lower-tier municipalities with
+1. **dufferin** — 27,075 rows; county of 8 lower-tier municipalities with
    NO municipality field in props (thinnest schema yet: FULLADDY, ID,
    STREETNAME, STREETNUM). addr:city needs boundary polygons or a spatial
    join. Single snapshot 2026-06-11 — stalled-tracker freshness caveat.
-3. **huron** — 38,312 rows; county, 9 municipalities via clean `Mun` field;
+2. **huron** — 38,312 rows; county, 9 municipalities via clean `Mun` field;
    rich NENA-style schema (Unit, St_PosTyp, FullAddress_Mun).
-4. **brantford** — 38,984 rows; city. STNUM has embedded parseables (the
+3. **brantford** — 38,984 rows; city. STNUM has embedded parseables (the
    contrast case named in sarnia.toml); STREETNUMIN numeric companion.
-5. **kitchener** — 132,060 rows; city. 4,380 `STATUS='PENDING'` rows — the
+4. **kitchener** — 132,060 rows; city. 4,380 `STATUS='PENDING'` rows — the
    status-filter capability (TODO §11) is load-bearing here.
 
 Regionals remain deferred on the per-municipality ownership map (TODO §5) —
 a design decision, not an onboarding probe:
 
-6. **niagara-falls** — **reclassified 2026-08-15: a REGIONAL dataset in
+5. **niagara-falls** — **reclassified 2026-08-15: a REGIONAL dataset in
    disguise.** The slug names the portal host, but snapshot 21 holds 208,004
    rows across all 12 Niagara municipalities (St. Catharines 54,508; the
    city of Niagara Falls only 39,529, 19%). Deferred with the other
@@ -106,10 +103,14 @@ the OGL bucket** — its "Open Government Licence" is aspirational, no licence
 document exists; it now sits in the no-published-licence contact bucket
 (`license-contacts-todo.md` §C) and its toml is re-tiered unknown-review.
 
-yellow-ogl: oakville†
 orange-ccby-waiver: brampton
-† oakville is a verified OGL clone but also brownfield-active (TronnaLegacy,
-2026-08) — do not touch regardless of license.
+
+**oakville left this bucket 2026-08-16** — see Done. The "do not touch,
+brownfield-active" rule was written when `TronnaLegacy` was an unknown active
+mapper; he turns out to be a friend of the user, so the etiquette blocker
+became a collaboration instead. The licence half of the gate still stands: the
+toml keeps yellow-ogl and production upload waits on the LWG reply, which the
+user owns.
 
 ## Iteration recipe (one city per loop iteration)
 
