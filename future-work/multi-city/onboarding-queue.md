@@ -52,6 +52,8 @@ and nothing visible happens in any city without its own etiquette pass
 | oakville | 2026-08-16 | **brownfield-active, handed to the incumbent** | scaffolded for `TronnaLegacy` (the user's friend) to run himself — checkout carries `IMPORT_CHECKLIST.md` + `CLAUDE.md`. First city whose source is UPPERCASE: `expand_street_name()` emits `MCCRANEY Street`, a title-caser is owed to the engine and blocks upload. Forced `number_from="full"` (tracker drops the `335A` suffix on 24 rows) which cascades to `full_from="full"`. Wards point-test 100.00%, best in the portfolio. Prod gated on LWG + his import proposal |
 | ottawa | 2026-08-16 | **brownfield-active-community** | observer/QA confirmed — the community maps from city data via tasks.osmcanada.ca; contacts DannyMcD (active), Undearius, zzptichka, Matthew Darwin; 116 ONS hoods at 100%; 18k qualifier-letter rows gate any import |
 | brant | 2026-08-16 | greenfield (CanVec seed) | first licence-review admit (CC0); ward tiles 99.98% (settlement fabric repeated the Quinte West 72% trap); number_from="full" keeps 219 alpha qualifiers; 1,236 number-less rows = TODO §8's second consumer (331 project garbage numbers — skip policy must read the source row); contact riuri (active 2026-08); CanVec wrote addr:city="County of Brant"; repo published later same day |
+| huron | 2026-08-16 | greenfield (NRCan 2018, LogicalViolinist) | licence-review admit (verbatim OGL clone); cleanest schema yet — typed mixed-case StreetName (tracker street conflation-ready), suffix-fused StreetNumber; full SYNTHESIZED (FullAddress is ALL-CAPS + embeds units reordered — Guelph trap + §9 dodged in one move); fire-zone fabric 17 @ 99.99% (Urban_Area = settlement trap #3, 62%); Hamilton-style stacks (654, deepest 174); source ALIVE (rows grow weekly); addr:city = municipality (matches Mun); contacts LogicalViolinist, Matthew Darwin |
+| dufferin | 2026-08-16 | **PARKED: tracker ingests the wrong layer** | the `dufferin` dataset tracks the county's ENTRANCES layer (12% number-less driveway stubs, corrupt FULLADDY, no municipality field) while `Address_Points_DufferinCounty_Open_Data` (28,297 pts; TOWN, UNIT, typed streets) sits on the same org — re-point is a tracker decision (note in dufferin.toml); no scaffold, no Overpass spent. **Queue-lesson: probe the org's services directory for a better layer BEFORE reading the tracked one's quirks as the city's quirks** |
 | sarnia | 2026-08-16 | greenfield (NRCan/CanVec seed) | licence-review admit (OGL clone in LWG email); **STNUM holds the UNIT on 443 rows** — number_from="full" (third consumer), unit tail welded to derived street (TODO §10's third unit semantics); county ESZ tile fabric 100% (at-large council, no wards); upload double-gated: LWG reply + TODO §5 ownership vs lambton; contacts Matthew Darwin, NuSarnia-LC |
 
 ## Queue (green-tier, in order)
@@ -68,21 +70,15 @@ cardinality read from the tracker DBs 2026-08-16 per the niagara lesson).
 Import for the five OGL clones stays gated on the LWG reply
 (`future-work/multi-city/license-contacts-todo.md`).
 
-1. **dufferin** — 27,075 rows; county of 8 lower-tier municipalities with
-   NO municipality field in props (thinnest schema yet: FULLADDY, ID,
-   STREETNAME, STREETNUM). addr:city needs boundary polygons or a spatial
-   join. Single snapshot 2026-06-11 — stalled-tracker freshness caveat.
-2. **huron** — 38,312 rows; county, 9 municipalities via clean `Mun` field;
-   rich NENA-style schema (Unit, St_PosTyp, FullAddress_Mun).
-3. **brantford** — 38,984 rows; city. STNUM has embedded parseables (the
+1. **brantford** — 38,984 rows; city. STNUM has embedded parseables (the
    contrast case named in sarnia.toml); STREETNUMIN numeric companion.
-4. **kitchener** — 132,060 rows; city. 4,380 `STATUS='PENDING'` rows — the
+2. **kitchener** — 132,060 rows; city. 4,380 `STATUS='PENDING'` rows — the
    status-filter capability (TODO §11) is load-bearing here.
 
 Regionals remain deferred on the per-municipality ownership map (TODO §5) —
 a design decision, not an onboarding probe:
 
-5. **niagara-falls** — **reclassified 2026-08-15: a REGIONAL dataset in
+3. **niagara-falls** — **reclassified 2026-08-15: a REGIONAL dataset in
    disguise.** The slug names the portal host, but snapshot 21 holds 208,004
    rows across all 12 Niagara municipalities (St. Catharines 54,508; the
    city of Niagara Falls only 39,529, 19%). Deferred with the other
@@ -92,8 +88,8 @@ a design decision, not an onboarding probe:
    capability (TODO §11) gates any consumer of this dataset.
    **Queue-lesson: read Municipality cardinality from the DB before
    ordering the queue — a slug is not a scope.**
-7. **durham** — regional dataset; street name-component only.
-8. **york** — regional; OSM baseline contaminated by our Toronto upload.
+4. **durham** — regional dataset; street name-component only.
+5. **york** — regional; OSM baseline contaminated by our Toronto upload.
 
 ## Parked pending license review (human decision, not a probe)
 

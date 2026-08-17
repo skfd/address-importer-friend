@@ -206,6 +206,19 @@ CITIES = {
         },
         "wiki": ["Canada:Ontario:Sarnia", "Sarnia"],
     },
+    # A COUNTY of 9 lower-tier municipalities: one box per market town tier —
+    # Goderich (the seat), Exeter (south, South Huron), Wingham (north,
+    # North Huron). Densities checked against snapshot 26 on 2026-08-16:
+    # 1,549 / 1,167 / 1,102 source rows.
+    "huron": {
+        "bbox": (43.22, -81.79, 44.07, -80.94),
+        "samples": {
+            "goderich": (43.736, -81.716, 43.748, -81.704),
+            "exeter": (43.343, -81.482, 43.355, -81.470),
+            "wingham": (43.880, -81.317, 43.892, -81.305),
+        },
+        "wiki": ["Canada:Ontario:Huron", "Huron County"],
+    },
     # A single-tier COUNTY (former townships, no lower-tier municipalities):
     # one box per major settlement — Paris (the seat), St. George, Burford.
     # Densities checked against snapshot 61 on 2026-08-16: 759 / 743 / 373
