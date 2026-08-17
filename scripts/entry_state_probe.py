@@ -192,6 +192,19 @@ CITIES = {
         },
         "wiki": ["Canada:Ontario:Quinte West", "Quinte West"],
     },
+    # Not meaningfully amalgamated; map-fabric variety like Guelph — the
+    # downtown core (dense: unit rows stack here), the 1970s-80s west-end
+    # (Forest Heights), the 2000s+ south (Doon South). Densities checked
+    # against snapshot 20 on 2026-08-17: 7,642 / 1,464 / 1,011 source rows.
+    "kitchener": {
+        "bbox": (43.35, -80.57, 43.51, -80.37),
+        "samples": {
+            "downtown": (43.445, -80.498, 43.457, -80.486),
+            "forest-heights": (43.424, -80.546, 43.436, -80.534),
+            "doon-south": (43.384, -80.456, 43.396, -80.444),
+        },
+        "wiki": ["Waterloo_region/Kitchener_authorization", "Canada:Ontario:Kitchener"],
+    },
     # The CITY dataset inside Lambton County (the lambton probe already
     # sampled one Sarnia box; these three are city-specific): downtown core,
     # the post-war south end by the college, Bright's Grove on the lakeshore.

@@ -54,6 +54,8 @@ and nothing visible happens in any city without its own etiquette pass
 | brant | 2026-08-16 | greenfield (CanVec seed) | first licence-review admit (CC0); ward tiles 99.98% (settlement fabric repeated the Quinte West 72% trap); number_from="full" keeps 219 alpha qualifiers; 1,236 number-less rows = TODO §8's second consumer (331 project garbage numbers — skip policy must read the source row); contact riuri (active 2026-08); CanVec wrote addr:city="County of Brant"; repo published later same day |
 | huron | 2026-08-16 | greenfield (NRCan 2018, LogicalViolinist) | licence-review admit (verbatim OGL clone); cleanest schema yet — typed mixed-case StreetName (tracker street conflation-ready), suffix-fused StreetNumber; full SYNTHESIZED (FullAddress is ALL-CAPS + embeds units reordered — Guelph trap + §9 dodged in one move); fire-zone fabric 17 @ 99.99% (Urban_Area = settlement trap #3, 62%); Hamilton-style stacks (654, deepest 174); source ALIVE (rows grow weekly); addr:city = municipality (matches Mun); contacts LogicalViolinist, Matthew Darwin |
 | dufferin | 2026-08-16 | **PARKED: tracker ingests the wrong layer** | the `dufferin` dataset tracks the county's ENTRANCES layer (12% number-less driveway stubs, corrupt FULLADDY, no municipality field) while `Address_Points_DufferinCounty_Open_Data` (28,297 pts; TOWN, UNIT, typed streets) sits on the same org — re-point is a tracker decision (note in dufferin.toml); no scaffold, no Overpass spent. **Queue-lesson: probe the org's services directory for a better layer BEFORE reading the tracked one's quirks as the city's quirks** |
+| kitchener | 2026-08-17 | **brownfield-active (organic)** | last licence-review admit, strongest-licensed (voluntary attribution + explicit OSM permission on the wiki); jtracey improves addresses since 2021 CITING CITY DATA, i_e_leibowitz active the probe week — coordinate first, consumer is QA/gap-fill not bulk import; portfolio-high 45% units (deepest 552) collapse clean; status filter load-bearing (4,380 PENDING excluded in-query); Planning Communities 55 @ 99.98%; Jadidi GTHA seed city #5 (TODO §3) |
+| brantford | 2026-08-17 | **PARKED: better sibling layer** | tracked `OP_Site_Addresses2` has synthetic identity + "<unit>-<number>" fusion (the toml's deferred parse question); the org's `SiteAddress_pub` (38,603 pts) has stable ADDPTKEYNUM + STNUMPRE/STREETNUMINT decomposing exactly those rows + MUNINAME/STDIRSUFF — re-point is a tracker decision (note in brantford.toml); no scaffold, no Overpass spent. Second wrong/inferior-layer park in one day — the dufferin lesson generalizes |
 | sarnia | 2026-08-16 | greenfield (NRCan/CanVec seed) | licence-review admit (OGL clone in LWG email); **STNUM holds the UNIT on 443 rows** — number_from="full" (third consumer), unit tail welded to derived street (TODO §10's third unit semantics); county ESZ tile fabric 100% (at-large council, no wards); upload double-gated: LWG reply + TODO §5 ownership vs lambton; contacts Matthew Darwin, NuSarnia-LC |
 
 ## Queue (green-tier, in order)
@@ -64,19 +66,17 @@ regional-dataset city" decision: regionals need the per-municipality
 ownership map (TODO §5) and should not go first. York's OSM-side numbers are
 contaminated by our own Toronto upload — re-measure before trusting any gap.
 
-**Reopened 2026-08-16** by the licence-review amendment above: six
-review-verified datasets, small to large (row counts + municipality
-cardinality read from the tracker DBs 2026-08-16 per the niagara lesson).
-Import for the five OGL clones stays gated on the LWG reply
-(`future-work/multi-city/license-contacts-todo.md`).
+**The licence-review batch is CLOSED as of 2026-08-17**: brant, sarnia,
+huron, kitchener scaffolded and published; dufferin and brantford parked on
+wrong/inferior-layer findings (fix is upstream in the tracker — re-point
+the datasets, then they re-enter here). Import for the OGL clones stays
+gated on the LWG reply (`future-work/multi-city/license-contacts-todo.md`).
 
-1. **brantford** — 38,984 rows; city. STNUM has embedded parseables (the
-   contrast case named in sarnia.toml); STREETNUMIN numeric companion.
-2. **kitchener** — 132,060 rows; city. 4,380 `STATUS='PENDING'` rows — the
-   status-filter capability (TODO §11) is load-bearing here.
-
-Regionals remain deferred on the per-municipality ownership map (TODO §5) —
-a design decision, not an onboarding probe:
+Everything below is a regional dataset deferred on the per-municipality
+ownership map (TODO §5) — a design decision, not an onboarding probe. The
+loop stopped here again; restart it after §5 lands, after the tracker
+re-points dufferin/brantford, or when LWG/contacts turn more datasets
+green.
 
 3. **niagara-falls** — **reclassified 2026-08-15: a REGIONAL dataset in
    disguise.** The slug names the portal host, but snapshot 21 holds 208,004
