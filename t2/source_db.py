@@ -207,7 +207,8 @@ def field_sql(sf: _config.SourceFields, name: str, alias: str = "a") -> str:
 
 def expr(name: str, alias: str = "a") -> str:
     """field_sql bound to this process's city config — for callers (ranges,
-    source_multi) that build their own source-DB queries."""
+    source_multi, and the external against-interpolation repo — see README
+    "Downstream consumers") that build their own source-DB queries."""
     return field_sql(_CONFIG.source_fields, name, alias)
 
 

@@ -303,6 +303,13 @@ point; a proposed delete-way-plus-preserve-endpoints changeset for human
 review; and care around tags (`addr:street`, `addr:postcode`) that the
 interpolation way carries on behalf of its endpoints.
 
+That phase now exists — as its own pipeline, exactly per the reasoning below:
+[`against-interpolation`](https://github.com/skfd/against-interpolation)
+enumerates the ways, cross-checks coverage against the Toronto address DB,
+and drives removal through human-reviewed MapRoulette tasks rather than
+automated edits. It consumes this engine read-only (see
+[Downstream consumers](#downstream-consumers)).
+
 ### Why defer both
 
 The shipping scope — "get Toronto's missing civic addresses into OSM without
@@ -311,6 +318,20 @@ pipeline expands blast radius and review burden without proportional benefit,
 and the two reverse flows have different enough semantics (different data
 sources, different review criteria, different failure modes) that they
 deserve their own pipelines when we get to them.
+
+## Downstream consumers
+
+External repos import the `t2` package read-only. Their surfaces aren't
+covered by this repo's tests, so changes here can break them silently:
+
+- [`against-interpolation`](https://github.com/skfd/against-interpolation) —
+  MapRoulette tasks to retire redundant Toronto `addr:interpolation` lines
+  (the deferred cleanup phase above). Runs with `T2_CITY_DIR` pointed at the
+  `toronto-2-address-import` checkout and uses `source_db.connect_readonly` /
+  `latest_snapshot_id` / `expr` (to project its own single-point query
+  through Toronto's `[source_fields]` recipe) and `conflate.normalize_street`.
+  A weekly scheduled task refreshes it, so a breaking change here surfaces
+  there within a week.
 
 ## Writing a new check
 
