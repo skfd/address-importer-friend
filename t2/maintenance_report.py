@@ -233,8 +233,8 @@ def render_markdown(rep: dict) -> str:
         f"({window})**",
         "",
         f"Source snapshots #{rep['from_snapshot']} → #{rep['to_snapshot']}. The "
-        f"City feed's additions over that window came to {rep['candidates']} "
-        f"candidate(s), each reviewed by hand:",
+        f"run took {rep['candidates']} candidate(s) from the City feed's "
+        f"additions over that window, each reviewed by hand:",
         "",
         f"- **Uploaded:** {rep['uploaded']} — {cs}",
         f"- **Rejected in review:** {rep['rejected']}",
