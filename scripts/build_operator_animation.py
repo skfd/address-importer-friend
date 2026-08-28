@@ -24,10 +24,17 @@ from t2 import config as _config
 _CFG = _config.load()
 DB_PATH = _CFG.tool_db_path
 TILES_PATH = _CFG.data_dir / "tiles.json"
-OUT_PATH = ROOT / "docs" / "operator-animation.html"
+# The city checkout, not the engine: every city that runs this gets its own
+# page, and the engine repo stays free of one city's artifacts.
+OUT_PATH = _config.CITY_DIR / "docs" / "operator-animation.html"
 
-REVIEW_KINDS = ("REVIEW_APPROVED", "REVIEW_REJECTED", "REVIEW_OVERRIDE", "REVIEW_CLEARED")
+# One definition of "the operator did something", shared with the wrap-up page
+# so the animation's action count and the one-pager's hands-on clock can never
+# drift apart.
+from t2.campaign_stats import OPERATOR_EVENTS
+
 UPLOAD_KIND = "CHANGESET_UPLOADED"
+REVIEW_KINDS = tuple(k for k in OPERATOR_EVENTS if k != UPLOAD_KIND)
 IDLE_GAP_SECONDS = 15 * 60
 
 
@@ -122,7 +129,7 @@ HTML_TEMPLATE = r"""<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Toronto Address Import — Operator Activity</title>
+<title>__CITY__ Address Import — Operator Activity</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
@@ -154,7 +161,7 @@ HTML_TEMPLATE = r"""<!doctype html>
 <body>
 <div id="map"></div>
 <div class="panel">
-  <h1>Operator activity — Toronto address import</h1>
+  <h1>Operator activity — __CITY__ address import</h1>
   <div class="stat"><span>Time</span><b class="ts" id="time">—</b></div>
   <div class="stat"><span>Session</span><b id="session">—</b></div>
   <div class="stat"><span>Actions taken</span><b id="actions">0</b></div>
@@ -395,6 +402,8 @@ setVirt(0);
 def main() -> int:
     payload = build_payload()
     html = HTML_TEMPLATE.replace("__DATA__", json.dumps(payload, separators=(",", ":")))
+    html = html.replace("__CITY__", _CFG.city_name)
+    OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     OUT_PATH.write_text(html, encoding="utf-8")
     size_kb = OUT_PATH.stat().st_size / 1024
     print(f"wrote {OUT_PATH} ({size_kb:.0f} KB)")
