@@ -7,7 +7,7 @@ from pathlib import Path
 
 from flask import Flask, abort, flash, g, jsonify, redirect, render_template, request, send_file, send_from_directory, url_for
 
-from .. import audit, candidates, config as _config, db as _db, maintenance as _maintenance, maintenance_report as _maintenance_report, multi_addresses as _multi_addresses, multi_fixes as _multi_fixes, osm_client, osm_export, osm_refresh, pipeline, ranges as _ranges, reverse_sweep as _reverse_sweep, review, run_for_all, source_db, source_multi as _source_multi, streets as _streets, tag_diff, tiles_build
+from .. import audit, campaign_stats as _campaign_stats, candidates, config as _config, db as _db, maintenance as _maintenance, maintenance_report as _maintenance_report, multi_addresses as _multi_addresses, multi_fixes as _multi_fixes, osm_client, osm_export, osm_refresh, pipeline, ranges as _ranges, reverse_sweep as _reverse_sweep, review, run_for_all, source_db, source_multi as _source_multi, streets as _streets, tag_diff, tiles_build
 from ..conflate import _proposed_tags, _is_poi_node, POI_TAG_KEYS, normalize_street
 from ..checks import REGISTRY
 from .glossary import GLOSSARY
@@ -101,6 +101,82 @@ def _osm_element_latlon(el: dict) -> tuple[float | None, float | None]:
 
 
 
+
+# ---- wrap-up page presentation filters -------------------------------------
+# Formatting only; every number they receive is already final. They live here
+# rather than in campaign_stats so that module stays a pure read of the DB.
+
+def _f_number(v) -> str:
+    """12345 -> '12,345'."""
+    return f"{int(v or 0):,}"
+
+
+def _f_compact(v) -> str:
+    """Bar labels: 76531 -> '76.5k'. Below 1,000 the exact number fits."""
+    n = int(v or 0)
+    if n < 1000:
+        return str(n)
+    thousands = n / 1000
+    return f"{thousands:.0f}k" if thousands >= 100 else f"{thousands:.1f}k"
+
+
+def _f_bar_pct(v, peak) -> float:
+    """Bar height as a percentage of the tallest bar. A real but tiny value
+    keeps a visible sliver (2%) so a working day never looks like an idle one;
+    a genuine zero stays flat."""
+    v, peak = float(v or 0), float(peak or 0)
+    if v <= 0 or peak <= 0:
+        return 0
+    return max(2, round(100 * v / peak))
+
+
+def _f_pretty_day(iso: str) -> str:
+    from datetime import date
+    d = date.fromisoformat(iso)
+    return f"{d.strftime('%b')} {d.day}"
+
+
+def _f_pretty_range(first: str, last: str) -> str:
+    """'May 13 - 28, 2026', collapsing whatever the two ends share."""
+    from datetime import date
+    if not first:
+        return ""
+    a = date.fromisoformat(first)
+    b = date.fromisoformat(last) if last else a
+    if a == b:
+        return f"{a.strftime('%b')} {a.day}, {a.year}"
+    if (a.year, a.month) == (b.year, b.month):
+        return f"{a.strftime('%b')} {a.day} – {b.day}, {a.year}"
+    if a.year == b.year:
+        return f"{a.strftime('%b')} {a.day} – {b.strftime('%b')} {b.day}, {a.year}"
+    return (f"{a.strftime('%b')} {a.day}, {a.year} – "
+            f"{b.strftime('%b')} {b.day}, {b.year}")
+
+
+def _f_pct(v) -> str:
+    """'100.0%' reads like false precision on a number that is exactly all of
+    them; 99.4% earns its decimal. Drop the tenth only when it is zero."""
+    v = float(v or 0)
+    return f"{v:.0f}" if v == int(v) else f"{v:.1f}"
+
+
+STATS_FILTERS = {
+    "pct": _f_pct,
+    "number": _f_number,
+    "compact": _f_compact,
+    "bar_pct": _f_bar_pct,
+    "pretty_day": _f_pretty_day,
+    "pretty_range": _f_pretty_range,
+}
+
+
+def _area_label(cfg) -> str:
+    """What this city's tiles roll up into. A city with no polygon layer has
+    its tiles split straight off the bbox, so 'neighbourhoods' would be a
+    promise the data does not keep."""
+    return "neighbourhoods" if cfg.city_neighbourhoods_url else "tiles"
+
+
 def create_app() -> Flask:
     cfg = _config.load()
     _db.migrate()
@@ -108,6 +184,7 @@ def create_app() -> Flask:
     app = Flask(__name__, template_folder="templates", static_folder="static")
     app.secret_key = cfg.flask_secret_key
     app.jinja_env.globals["tip"] = lambda key: GLOSSARY.get(key, "")
+    app.jinja_env.filters.update(STATS_FILTERS)
     _static_run_id_env = os.environ.get("T2_STATIC_EXPORT_RUN_ID", "")
     _static_run_ids_env = os.environ.get("T2_STATIC_EXPORT_RUN_IDS", "")
     _static_run_id = int(_static_run_id_env) if _static_run_id_env.isdigit() else None
@@ -1508,6 +1585,25 @@ def create_app() -> Flask:
             except Exception:
                 e["payload"] = {}
         return render_template("audit.html", run_id=run_id, events=events, event_type=event_type)
+
+    # ---- Wrap-up stats ----
+
+    @app.get("/stats")
+    def stats_view():
+        """The campaign one-pager. Read-only and cheap enough to re-render on
+        every hit — the heaviest query is a grouped count over candidates."""
+        tiles, _by_id, _meta = _load_tiles(cfg.data_dir / "tiles.json")
+        conn = _db.connect()
+        try:
+            s = _campaign_stats.collect(
+                conn, tiles, session_gap_minutes=cfg.stats.session_gap_minutes
+            )
+        finally:
+            conn.close()
+        return render_template(
+            "stats.html", s=s, theme=cfg.stats, city=cfg.city_name,
+            area_label=_area_label(cfg),
+        )
 
     # ---- Data stats ----
 

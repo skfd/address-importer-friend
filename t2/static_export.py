@@ -9,6 +9,7 @@ from GitHub Pages.
 Usage:
 
     python -m t2.static_export --run 15 --out docs/pilot
+    python -m t2.static_export --stats          # the campaign wrap-up one-pager
 
 Requires env var `T2_STATIC_EXPORT=1` to be set *before* Flask boots so the
 Jinja `static_export` global picks it up — this module sets it itself.
@@ -253,12 +254,52 @@ def _trim_dashboard(run_id: int):
     return original
 
 
+def _export_stats(out: Path | None) -> int:
+    """Write /stats as one self-contained file.
+
+    The wrap-up template carries its own inline CSS and links nowhere, so
+    unlike a run export there is nothing to rewrite, no asset bundle to copy
+    and no sibling JSON to pre-fetch — render it and write it. It deliberately
+    does NOT set T2_STATIC_EXPORT: the disabled-controls banner is about a
+    frozen review UI, and this page has no controls to disable.
+    """
+    from . import config as _config
+    from .web.app import create_app
+
+    if out is None:
+        out = _config.CITY_DIR / "docs" / "stats"
+    out = out.resolve()
+
+    app = create_app()
+    r = app.test_client().get("/stats")
+    if r.status_code != 200:
+        print(f"ERROR: /stats -> {r.status_code}", file=sys.stderr)
+        return 3
+    out.mkdir(parents=True, exist_ok=True)
+    dest = out / "index.html"
+    dest.write_text(r.data.decode("utf-8"), encoding="utf-8")
+    print(f"exported wrap-up -> {dest} ({dest.stat().st_size:,} bytes)")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="t2.static_export")
-    parser.add_argument("--run", type=int, required=True)
-    parser.add_argument("--out", type=Path, default=Path("docs/pilot"))
+    parser.add_argument("--run", type=int)
+    parser.add_argument(
+        "--stats", action="store_true",
+        help="export the campaign wrap-up one-pager instead of a run; "
+             "defaults to <city-dir>/docs/stats/index.html",
+    )
+    parser.add_argument("--out", type=Path)
     parser.add_argument("--snapshot-date", type=str, default=date.today().isoformat())
     args = parser.parse_args(argv)
+
+    if args.stats:
+        return _export_stats(args.out)
+    if args.run is None:
+        parser.error("--run is required (or pass --stats for the wrap-up page)")
+    if args.out is None:
+        args.out = Path("docs/pilot")
 
     run_name = _lookup_run_name(args.run)
     if not run_name:

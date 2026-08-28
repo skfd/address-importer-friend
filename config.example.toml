@@ -128,3 +128,18 @@ import_plan = "https://wiki.openstreetmap.org/wiki/Toronto/Import/AddressPoints"
 # Changeset `source:license` tag. Declare it only where this city's published
 # changeset-tag table names a licence — Toronto's does not.
 # source_license = "OGL-Canada-2.0"
+
+# Optional. Presentation for the wrap-up one-pager at /stats, exported with
+# `python -m t2.static_export --stats`. Omit the whole section and the page
+# renders in the engine's neutral palette (the operator animation's own legend
+# colours) with a "<city> · Open Data · OSM" badge — nothing here is required.
+# [stats]
+# accent = "#DA291C"                    # headline accent
+# accent_2 = "#FFCD32"                  # peaks, hero number
+# accent_3 = "#00923F"                  # positive / complete
+# badge = "Toronto · Open Data · OSM"   # small uppercase line above the title
+# The gap after which the page decides the operator got up from the desk, and
+# a new work session began. Only affects the "hands-on time" chart. There is no
+# clock in the schema, so this threshold *is* the definition of hands-on time;
+# 30 minutes is the default and reproduces Toronto's published 25 sessions.
+# session_gap_minutes = 30

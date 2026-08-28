@@ -317,6 +317,73 @@ def parse_source_license(section: dict, origin: str = "config.toml") -> str:
     return value.strip()
 
 
+_HEX_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
+
+# The wrap-up page's three accents, in the order it uses them: the headline
+# accent, a bright highlight for peaks and hero numbers, and a positive/complete
+# tone. The defaults are the operator animation's own legend colours (in
+# progress amber, uploaded green, control blue), so a city that declares no
+# palette still gets two artifacts that look like they belong together.
+# Toronto's config overrides them with the TTC subway colours its published
+# one-pager was built in.
+STATS_DEFAULT_ACCENT = "#3057D4"
+STATS_DEFAULT_ACCENT_2 = "#F5A623"
+STATS_DEFAULT_ACCENT_3 = "#2ECC71"
+
+
+@dataclass(frozen=True)
+class StatsTheme:
+    """Presentation-only settings for the wrap-up page (`[stats]`).
+
+    Every key is optional: a city that declares no [stats] block gets the
+    neutral engine look and the documented session threshold. Nothing here
+    changes a number except session_gap_minutes, which is a measurement choice
+    rather than a style one and lives here because it is the wrap-up's alone.
+    """
+
+    accent: str = STATS_DEFAULT_ACCENT
+    accent_2: str = STATS_DEFAULT_ACCENT_2
+    accent_3: str = STATS_DEFAULT_ACCENT_3
+    # Small uppercase line above the title. Empty renders "<city> - Open Data - OSM".
+    badge: str = ""
+    session_gap_minutes: int = 30
+
+
+def parse_stats(section: dict, origin: str = "config.toml") -> StatsTheme:
+    """Validate the optional [stats] section."""
+    known = {"accent", "accent_2", "accent_3", "badge", "session_gap_minutes"}
+    unknown = sorted(set(section) - known)
+    if unknown:
+        raise ValueError(
+            f"{origin} [stats] has unknown key(s) {unknown}; valid keys are "
+            f"{sorted(known)}."
+        )
+    colours = {}
+    for key in ("accent", "accent_2", "accent_3"):
+        if key not in section:
+            continue
+        value = section[key]
+        if not isinstance(value, str) or not _HEX_RE.match(value):
+            raise ValueError(
+                f"{origin} [stats] {key} = {value!r} is invalid; expected a "
+                "six-digit hex colour such as '#DA291C'. The value is "
+                "interpolated into the page's CSS, so the charset is "
+                "restricted rather than passed through."
+            )
+        colours[key] = value
+    gap = section.get("session_gap_minutes", 30)
+    if not isinstance(gap, int) or isinstance(gap, bool) or not 1 <= gap <= 720:
+        raise ValueError(
+            f"{origin} [stats] session_gap_minutes = {gap!r} is invalid; expected "
+            "a whole number of minutes between 1 and 720. It is the gap after "
+            "which the wrap-up decides the operator got up from the desk."
+        )
+    badge = section.get("badge", "")
+    if not isinstance(badge, str):
+        raise ValueError(f"{origin} [stats] badge = {badge!r} must be a string.")
+    return StatsTheme(badge=badge.strip(), session_gap_minutes=gap, **colours)
+
+
 @dataclass
 class Config:
     city_slug: str
@@ -360,6 +427,10 @@ class Config:
     # Changeset `source:license`. Empty where the city's published changeset
     # tag table names no licence (Toronto).
     export_source_license: str
+
+    # Wrap-up page presentation + its one measurement knob. Always present;
+    # a city with no [stats] block gets StatsTheme's defaults.
+    stats: StatsTheme
 
     osm_api_base: str
     osm_client_id: str
@@ -516,6 +587,7 @@ def load() -> Config:
         export_import_plan=str(export_section.get("import_plan", "")),
         export_node_tags=parse_node_tags(export_section, str(toml_path)),
         export_source_license=parse_source_license(export_section, str(toml_path)),
+        stats=parse_stats(cfg.get("stats", {}), str(toml_path)),
         osm_api_base=env.get("OSM_API_BASE") or default_api,
         osm_client_id=env.get("OSM_CLIENT_ID", ""),
         osm_client_secret=env.get("OSM_CLIENT_SECRET", ""),
