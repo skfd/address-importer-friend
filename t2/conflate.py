@@ -8,8 +8,7 @@ import math
 from collections import defaultdict
 from datetime import datetime, timezone
 
-from . import audit, db as _db, osm_fetch
-from .osm_export import STATIC_TAGS
+from . import audit, db as _db, osm_export, osm_fetch
 
 STREET_SUFFIXES = {
     "STREET": "ST", "ROAD": "RD", "AVENUE": "AVE", "BOULEVARD": "BLVD",
@@ -353,21 +352,17 @@ def _classify(
 def _proposed_tags(cand_row: dict, poi_tags: dict | None = None) -> dict[str, str]:
     """Build the tag dict we would propose for this candidate.
 
-    Adds addr:postcode when cand_row has proposed_postcode (stored during
-    conflation) or when poi_tags carries one, so the OSM upload includes it.
-    Output matches what osm_export writes.
+    Output does not merely match what osm_export writes — it *is* what
+    osm_export writes: this delegates to `build_tags`, and adds only the one
+    thing review knows that the upload path does not, a postcode read off a
+    matched POI when the source row carries none.
     """
-    tags = {
-        "addr:housenumber": (cand_row.get("housenumber") or "").strip(),
-        "addr:street": (cand_row.get("street_raw") or "").strip(),
-        **STATIC_TAGS,
-    }
-    postcode = (cand_row.get("proposed_postcode") or "").strip()
-    if not postcode and poi_tags:
+    tags = osm_export.build_tags(cand_row)
+    if "addr:postcode" not in tags and poi_tags:
         postcode = (poi_tags.get("addr:postcode") or "").strip()
-    if postcode:
-        tags["addr:postcode"] = postcode
-    return {k: v for k, v in tags.items() if v}
+        if postcode:
+            tags["addr:postcode"] = postcode
+    return tags
 
 
 def _matched_latlon(el: dict | None) -> tuple[float | None, float | None]:

@@ -23,15 +23,6 @@ def _attribution() -> str:
     return value
 
 
-# `addr:source` rather than a bare `source`: it sources the *address*, sits in
-# the addr:* namespace with the tags it belongs to, and survives a later merge
-# into a building polygon without claiming to source the building. The
-# changeset keeps the plain `source` key — that one is about the edit.
-STATIC_TAGS = {
-    "addr:source": _CONFIG.export_attribution,
-}
-
-
 def _ensure_client_token(run_id: int) -> str:
     """Return the run's client_token, generating one if absent. Stable across
     retries so OSM-side idempotency lookup (find_changeset_by_client_token)
@@ -265,9 +256,24 @@ def _assign_local_node_ids(run_id: int, items: list[dict]) -> list[dict]:
 
 
 def build_tags(it: dict) -> dict[str, str]:
-    """Tag dict for a candidate row. Emits a pure address node regardless of
-    address_class — Structure Entrance rows are uploaded as plain addresses,
-    not as entrance=yes nodes (see IMPORT_PROPOSAL_CHANGELOG.md 2026-05-06)."""
+    """Tag dict for a candidate row — the one owner, for preview and upload
+    alike. `conflate._proposed_tags` calls this and adds only its POI-postcode
+    fallback on top, so the review UI cannot drift from the changeset again.
+
+    Emits a pure address node regardless of address_class — Structure Entrance
+    rows are uploaded as plain addresses, not as entrance=yes nodes (see
+    IMPORT_PROPOSAL_CHANGELOG.md 2026-05-06).
+
+    `addr:source` rather than a bare `source`: it sources the *address*, sits
+    in the addr:* namespace with the tags it belongs to, and survives a later
+    merge into a building polygon without claiming to source the building. The
+    changeset keeps the plain `source` key — that one is about the edit.
+
+    `[export] node_tags` appends the city's constant tags (Guelph's published
+    plan promises addr:city=Guelph; Toronto declares none and writes none).
+    Config cannot redefine a derived tag — parse_node_tags refuses that at
+    load — so the splat is safe last.
+    """
     tags = {
         "addr:housenumber": (it.get("housenumber") or "").strip(),
         "addr:street": (it.get("street_raw") or "").strip(),
@@ -276,6 +282,7 @@ def build_tags(it: dict) -> dict[str, str]:
     postcode = (it.get("proposed_postcode") or "").strip()
     if postcode:
         tags["addr:postcode"] = postcode
+    tags.update(_CONFIG.export_node_tags)
     return {k: v for k, v in tags.items() if v}
 
 

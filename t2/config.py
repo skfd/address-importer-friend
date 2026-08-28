@@ -258,6 +258,45 @@ def parse_status_policy(
     return tuple(values)
 
 
+# Tags the engine derives per candidate. A city may add constant tags of its
+# own, but never redefine one of these: a typo in config silently overriding a
+# conflated street would be indistinguishable from a conflation bug.
+DERIVED_NODE_TAGS = ("addr:housenumber", "addr:street", "addr:postcode", "addr:source")
+
+
+def parse_node_tags(section: dict, origin: str = "config.toml") -> dict[str, str]:
+    """Validate [export] node_tags — constant tags written on every node.
+
+    Absent key = absent capability (03): Toronto declares none and must keep
+    writing none, while Guelph's published tagging plan promises
+    addr:city=Guelph on every node. Values are constants, not templates —
+    anything varying per address comes from the source, not from here.
+    """
+    tags = section.get("node_tags")
+    if tags is None:
+        return {}
+    if not isinstance(tags, dict) or not tags:
+        raise ValueError(
+            f"{origin} [export] node_tags = {tags!r} is invalid; expected a "
+            'non-empty table of constant tags, e.g. { "addr:city" = "Guelph" }. '
+            "Omit the key entirely for a city that adds none."
+        )
+    bad = {k: v for k, v in tags.items() if not isinstance(v, str) or not v.strip() or not k.strip()}
+    if bad:
+        raise ValueError(
+            f"{origin} [export] node_tags has empty or non-string entries {bad!r}; "
+            "every key and value must be a non-empty string."
+        )
+    clash = sorted(set(tags) & set(DERIVED_NODE_TAGS))
+    if clash:
+        raise ValueError(
+            f"{origin} [export] node_tags redefines {clash} — the engine derives "
+            f"{list(DERIVED_NODE_TAGS)} per candidate. A constant here would "
+            "overwrite the conflated value on every node in the city."
+        )
+    return {k.strip(): v.strip() for k, v in tags.items()}
+
+
 @dataclass
 class Config:
     city_slug: str
@@ -295,6 +334,9 @@ class Config:
 
     export_attribution: str
     export_import_plan: str
+    # Constant tags on every created node. Empty for a city that adds none;
+    # {"addr:city": "Guelph"} where the published tagging plan promises one.
+    export_node_tags: dict[str, str]
 
     osm_api_base: str
     osm_client_id: str
@@ -449,6 +491,7 @@ def load() -> Config:
         osm_extract_dir=extract_dir,
         export_attribution=str(export_section.get("attribution", "")),
         export_import_plan=str(export_section.get("import_plan", "")),
+        export_node_tags=parse_node_tags(export_section, str(toml_path)),
         osm_api_base=env.get("OSM_API_BASE") or default_api,
         osm_client_id=env.get("OSM_CLIENT_ID", ""),
         osm_client_secret=env.get("OSM_CLIENT_SECRET", ""),
