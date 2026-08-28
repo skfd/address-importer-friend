@@ -1,6 +1,27 @@
 # Core library extraction
 
-Status: **proposed, not implemented.** Captured 2026-08-10.
+Status: **street normalizer EXTRACTED 2026-08-28.** The package exists —
+`C:/Users/kk/Code/accordeur` (github.com/skfd/accordeur) — and both engines
+consume it. Read the DONE.md entry first; everything below is the 2026-08-10
+design as captured, and its file:line references are stale.
+
+Still open from this document: the conflation primitives (`GridIndex`,
+`haversine`, the POI-node filter), the SCD-2 source-DB projection, and the
+deterministic onboarding probes (`04`/`05`). Each is a separate pass with its
+own verification, deliberately not bundled with the normalizer's.
+
+**The prediction below held, and it had already come true by the time the
+package was built.** The importer added Cornwall's `AV`/`CR`/`BV`/`WY` on
+2026-08-15 and the beholder's copy never got them; the two `normalize_street`
+implementations had also drifted apart on Mc-gluing. Neither divergence raised
+anything anywhere — exactly the silent rot described under "Motivation".
+
+One decision was amended in the doing: the library is a **standalone sibling
+repo**, not a package built inside this one (README decision 10). The trigger
+`01` itself named — "split out when the seam holds" — had fired: `StreetProfile`
+shipped and held in the beholder, and a second engine consumer existed. A
+package nested here would have made `address-beholder` depend on the importer
+checkout, against `07`'s first guardrail.
 
 ## Motivation
 

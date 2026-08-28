@@ -1,15 +1,14 @@
 # Multi-city generalization
 
-Status: **design discussion, nothing implemented.** Opened 2026-08-10.
+Status: **largely implemented.** Opened 2026-08-10 as a design discussion;
+much of it has since been built. [DONE.md](DONE.md) is the record of what, and
+[TODO.md](TODO.md) the list of what is left — start in one of those, not here.
 
-These documents capture a design conversation about making the address-import
-family work for cities other than Toronto. Nothing here is scheduled, and no
-code has been written. Each file is ideas-focused: enough context and enough
-of a data-model sketch that the next session can pick it up cold.
-
-Everything below is frozen at 2026-08-10. Re-verify against current code
-before implementing — in particular the file:line references, and the Guelph
-and OSM numbers, which were measured once and will drift.
+The numbered documents below are the original design conversation, kept as
+reference and each carrying its own status line. Everything in *this* file that
+is not marked otherwise is frozen at 2026-08-10: re-verify against current code
+before implementing, in particular the file:line references, and the Guelph and
+OSM numbers, which were measured once and have drifted.
 
 ## The family this spans
 
@@ -21,8 +20,9 @@ problem, and two of them have already solved parts of it:
 | `ontario-address-changes` | acquires + change-tracks municipal address feeds | **already generic** — 42 datasets, all 42 DBs on disk |
 | `address-layerist` | turns a feed into iD/JOSM tile layers | **already generic** — engine + thin per-city repos + onboarding skill |
 | `address-vault` | data acquisition | separate tool, generic by design |
+| `accordeur` | the shared conflation core — street normalization both engines agree on | **built 2026-08-28** — standalone sibling repo, both engines consume it (`01`) |
 | `address-beholder` | audits OSM address completeness **and correctness** over time | **generic since 2026-08-28** — engine + thin dataset repos (`toronto-import-beholder`, `guelph-beholder`) |
-| `toronto-2-address-import` (this repo) | conflate → review → upload | Toronto-coupled across four tiers (see `02`) |
+| `address-importer-friend` (this repo) | conflate → review → upload | **engine since 2026-08-13** — thin city checkouts (`toronto-2-address-import`, `guelph-address-import`, `hamilton-address-import`, …). Tiers 1, 2 and 4 done; the UI chrome is still Toronto-branded |
 
 `address-layerist` already established the house pattern and it works:
 **reusable engine + thin per-city repo carrying one TOML + a Claude Code skill
@@ -66,8 +66,13 @@ should align to that pattern rather than invent a second one.
    no signup flow. Closes the abuse surface by construction (`06`).
 9. **`address-layerist` stays separate.** It needs only the bottom layer (source
    reading + field mapping + vault access), never conflation (`11`).
-10. **The library is built here, in this repo**, and this repo becomes its first
-    consumer.
+10. ~~**The library is built here, in this repo**, and this repo becomes its
+    first consumer.~~ **Amended 2026-08-28:** `accordeur` is a standalone
+    sibling repo. The trigger `01` named — "split out when the seam holds" —
+    had already fired: `StreetProfile` shipped and held in the beholder, and a
+    second engine consumer existed. A package nested in this repo would make
+    `address-beholder` depend on the importer checkout, against `07`'s first
+    guardrail. Both engines install it with `pip install -e ../accordeur`.
 11. **The library is named `accordeur`** (decided 2026-08-10). French, from
     *accorder* — to bring into agreement; the everyday sense is a piano tuner.
     Chosen for what it says about the work: the job is agreement between two
@@ -115,7 +120,11 @@ items depend on what was decided there. Start in TODO.md; the numbered design
 docs below are reference.
 
 - [01-core-library.md](01-core-library.md) — extract the shared conflation +
-  street-normalization core. The normalizer is currently triplicated.
+  street-normalization core. **Normalizer extracted 2026-08-28** → see
+  [DONE.md](DONE.md); the package is `accordeur`, and the divergence this
+  document predicted had already happened in both directions. The conflation
+  primitives, the source-DB projection and the onboarding probes are still
+  open.
 - [02-city-config-contract.md](02-city-config-contract.md) — the per-city TOML,
   what it declares, and the cross-repo `keep_fields` contract with
   `ontario-address-changes`.
@@ -181,8 +190,10 @@ resume.
 
 Neither prejudges any open question:
 
-- Extracting the street normalizer into `accordeur` — pure refactor, covered by
-  `tests/test_expand_street_name.py` and `tests/test_street_override.py`.
-  Guardrail: Toronto's match rates must not move (`tool.db` is living).
+- ~~Extracting the street normalizer into `accordeur`~~ — **done 2026-08-28.**
+  Worth recording that it was *not* the "pure refactor" this line promised: the
+  two copies had diverged in tables and in Mc-gluing, so each difference needed
+  a decision and a measurement rather than a merge. The guardrail held — the
+  ingest path is byte-identical over 627,572 street strings.
 - The portfolio survey (`08`) — it is research, and it becomes the onboarding
   probe (`04`).

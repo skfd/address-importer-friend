@@ -6,6 +6,92 @@ decided here, and the reasoning is not recoverable from the code.
 
 Full context lives in [08-survey-results-2026-08-12.md](08-survey-results-2026-08-12.md).
 
+## Street normalizer extracted into `accordeur` (`01`) — DONE 2026-08-28
+
+The family has two engines and six datasets now, and one table answering "are
+these the same street" was being maintained in two of them. It is one package:
+**`accordeur`** (github.com/skfd/accordeur), a standalone sibling checkout both
+engines install with `pip install -e ../accordeur`.
+
+**The rot `01` predicted had already happened.** That document warned on
+2026-08-10 that a divergence between the copies "rots silently — a street
+override added to one copy makes the two tools disagree about whether an
+address is present, with no error anywhere." By 2026-08-28 there were two:
+
+- The importer gained Cornwall's `AV`/`CR`/`BV`/`WY` suffixes on 2026-08-15.
+  The beholder's copy never got them.
+- `normalize_street` had drifted semantically. The beholder glued a standalone
+  "Mc" onto the following word; the importer did not, because it glued earlier,
+  in `expand_street_name`, at ingest.
+
+Nothing anywhere noticed either. They were found by diffing the two modules
+while planning the extraction, which is the argument for doing it: this class
+of bug has no symptom until someone compares the two tools' answers by hand.
+
+**Two divergences had to be resolved rather than merged.**
+
+- *Tables:* took the superset. Checked first — `AV`/`CR`/`BV`/`WY` appear zero
+  times in the toronto, guelph, hamilton or quinte-west source DBs and zero
+  times in Toronto's or Guelph's OSM `addr:street` values, so adding them to
+  the shared table moves nothing in either engine.
+- *Mc-gluing:* unified on gluing, the beholder's behaviour, because the
+  symmetry invariant demands it — OSM writes "McCaul Street" joined, so a raw
+  source "Mc Caul St" must reach the same key without depending on having been
+  expanded first. The exclusion list took the importer's superset, so "Mc St"
+  is no more a surname than "Mc Street" is.
+
+**The override table went the other way — out of the engine, into the city.**
+`STREET_NAME_OVERRIDES` was a module constant in `t2/conflate.py`: thirteen
+Toronto streets where the City source and OSM disagree about the actual name.
+Guelph and Hamilton had been ingesting through it since they were scaffolded.
+It is now `[streets] overrides` in the city checkout, the same shape the
+beholder already shipped, absent section = no overrides. A no-op entry — one
+the normalizer already covers — is refused at load.
+
+It fired on nothing outside Toronto: none of the thirteen keys appears in
+`hamilton.db` or `guelph.db` (all thirteen appear in `toronto.db`), which is
+why this is a move and not a re-baseline. That it was harmless was luck, not
+design — the failure mode is a curated Toronto table silently rewriting another
+city's street names, and nothing was preventing it.
+
+**Both engines' guardrails were checked by comparison against the deleted
+code, not by argument.**
+
+- *Importer:* old and new run over every distinct street string in the toronto,
+  guelph and hamilton tracker DBs and every cached OSM extract — 627,572 of
+  them. The ingest path (`street_raw`) and the stored `street_norm` are
+  byte-identical in all of them, so Toronto's match rates cannot move.
+- *Beholder:* the deleted module and `accordeur` over Toronto's and Guelph's
+  full vocabulary — 602,960 strings — comparing `normalize_street`,
+  `collapse_conventions` and `StreetProfile.norm` under Toronto's thirteen.
+  Zero differences, so no dataset's PRESENT/MISSING counts or audit findings
+  move.
+
+**One deliberate behaviour change, outside conflation.** Because
+`normalize_street` now glues "Mc" itself, the importer's reports that normalize
+a *raw* source name — ranges coverage, `/source/multi`, the OSM-not-in-source
+sweep — stop producing "MC CAUL ST" while the candidate and OSM both say
+"MCCAUL ST". 353 Toronto source strings across nine streets stop failing to
+match themselves. Stored candidate values are unaffected, which is why this
+lands as a fix rather than a re-baseline.
+
+**Decision 10 was amended, deliberately.** The README said the library would be
+built inside this repo and split out later. The trigger `01` itself named —
+"split out when the seam holds" — had fired: `StreetProfile` shipped and held
+in the beholder, and a second engine consumer existed. A package nested here
+would have made `address-beholder` depend on the importer checkout, against
+`07`'s first guardrail ("do not couple it to `t2`"). Recorded here rather than
+done quietly, because the `guelph-beholder` fork was a lesson about exactly
+that.
+
+What did **not** move, and is still open in `01`: the conflation primitives
+(`GridIndex`, `haversine`, `_is_poi_node`), the SCD-2 source-DB projection, and
+the deterministic onboarding probes. Each wants its own pass and its own
+verification; bundling them would have made one unverifiable change out of
+four verifiable ones.
+
+State: `accordeur` 39 tests, importer 212, beholder 65.
+
 ## Beholder generalization (`07`) — DONE 2026-08-28
 
 `07`'s first-implementation-target status held, three weeks late: the engine is

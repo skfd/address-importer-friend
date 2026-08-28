@@ -249,6 +249,46 @@ licences, waivers (brampton, CC BY), or permissions.
 - [ ] Work through [license-contacts-todo.md](license-contacts-todo.md) —
       per-city evidence, contacts where known, and ask templates live there.
 
+## 13. What `accordeur` still has to absorb (2026-08-28)
+
+The street normalizer moved into the shared core on 2026-08-28 (DONE.md); the
+rest of `01`'s list did not, deliberately — bundling them would have made one
+unverifiable change out of four verifiable ones. Each is its own pass, and each
+needs its own before/after comparison against the code it replaces, because the
+first one taught that these copies diverge silently.
+
+- [ ] **Conflation primitives** — `GridIndex`, `haversine`, `_is_poi_node`, the
+      match/near radius logic. The two engines' versions differ more than the
+      tables did, so this is a reconciliation, not a move: diff them first and
+      decide each difference, the way the Mc-gluing question was decided.
+- [ ] **The SCD-2 source projection** over `ontario-address-changes`' schema.
+      Both engines independently arrived at the same `[source_fields]` contract
+      (`02`, and `07`'s DONE entry) — two implementations of one agreed design,
+      which is the cheapest kind of merge and the most valuable, since a
+      projection bug would be invisible in exactly the same way.
+- [ ] **Deterministic onboarding probes** (`04`/`05`) — currently
+      `scripts/portfolio_survey.py` here and nothing there.
+
+Not blocking anything. Worth doing when a third consumer appears, or when one
+of these three next needs a change — that is the moment the copies would
+otherwise drift.
+
+## 14. The import UI still says Toronto to every city (2026-08-28)
+
+Found while extracting the normalizer. Tier 1 de-Torontoized the engine's
+*behaviour*; its chrome was never done. A Guelph or Hamilton operator sees a
+nav link labelled "Toronto Open Data ranges", a footer crediting Toronto Open
+Data and linking Toronto's OSM discussion thread, and a static-export banner
+describing the page as evidence for the Toronto import proposal.
+
+- [ ] A per-city `[links]`/`[about]` config block feeding `base.html`,
+      `source_multi.html`, `streets.html` and `osm_orphans.html`. Toronto's
+      values move to its checkout; a city that declares none should get its own
+      `[city] name` and no links rather than another city's.
+- [ ] `t2/reverse_sweep.py:48` `_load_toronto_boundary` is generic apart from
+      its name. Rename it with the chrome; the actual polygon work is §5 and
+      stays open.
+
 ## Not blocking, worth doing when touching the normalizer
 
 Split `suffix_range` if a rangeless city ever wants the I/O/Q
