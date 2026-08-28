@@ -251,7 +251,14 @@ function realToVirt(realMs) {
 
 // Map.
 const map = L.map('map', { zoomControl: true, attributionControl: false }).setView([43.72, -79.40], 11);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png', { maxZoom: 19, subdomains: 'abcd' }).addTo(map);
+// Esri's dark Gray Canvas, not CARTO: CARTO now stamps "API KEY REQUIRED"
+// diagonally across every anonymous tile from basemaps.cartocdn.com. Esri's
+// raster service needs no key — note the {z}/{y}/{x} order, no {s} subdomains
+// and no @2x. maxNativeZoom is load-bearing: the Gray Canvas cache stops at
+// z16 and serves a blank "no data" placeholder above it, so cap the fetch
+// there and let Leaflet upscale. The attribution never renders (the map is
+// built with attributionControl: false) but Esri's terms expect the credit.
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, maxNativeZoom: 16, attribution: 'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors, and the GIS user community' }).addTo(map);
 
 // Build a layer per tile.
 const tileLayers = new Map();
