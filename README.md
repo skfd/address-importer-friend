@@ -387,6 +387,13 @@ python -m t2.maintenance --report     # the closing report for the newest run
   The verdict is strict (`pristine_ours` = created by the import and untouched
   since → safe; anything community-created or community-edited → review), with
   a per-element version timeline underneath.
+* An address **carried by a building, POI or park** (`address_on_feature`) is
+  the judgement case, not the easy one. It used to read "KEEP", which conflated
+  two different questions: the feature stays either way, but the City dropped
+  the address it carries, so its `addr:*` tags are what is in doubt. Those tags
+  are shown inline for exactly that reason — parks and buildings have turned up
+  here carrying addresses that were wrong, and settling it took research, not a
+  rule.
 
 ### Closing a month
 

@@ -2,7 +2,7 @@
   {%- if v == 'pristine_ours' -%}<span class="pill ok">safe to delete</span>
   {%- elif v == 'community_touched' -%}<span class="pill warn">community-touched</span>
   {%- elif v == 'community_node' -%}<span class="pill warn">community node</span>
-  {%- elif v == 'keep_feature' -%}<span class="pill bad">building / POI — keep</span>
+  {%- elif v == 'address_on_feature' -%}<span class="pill warn">address on a building / POI — judge it</span>
   {%- elif v == 'already_deleted' -%}<span class="pill muted">already deleted</span>
   {%- elif v == 'no_match' -%}<span class="pill muted">no OSM match</span>
   {%- else -%}<span class="pill warn">history unavailable</span>
@@ -20,7 +20,7 @@
       <span class="pill ok">{{ retire.summary.deleted }} deleted</span>
     {% endif %}
     <span class="pill warn">{{ retire.summary.caution }} community (review)</span>
-    <span class="pill bad">{{ retire.summary.feature }} building/POI (keep)</span>
+    <span class="pill warn">{{ retire.summary.feature }} on a building/POI (judge)</span>
     <span class="pill muted">{{ retire.summary.no_match }} no OSM match</span>
   </p>
   {% if retire.josm_open_all_safe %}
@@ -49,6 +49,11 @@
               <a href="{{ m.links.id }}">iD</a> ·
               <a href="{{ m.links.browse }}" target="_blank" rel="noopener">OSM</a>
               <div class="muted" style="font-size:.85rem">{{ p.recommendation }}</div>
+              {% if p.addr_tags %}
+                <div class="muted" style="font-size:.85rem">the feature's address tags:
+                  {% for k, v in p.addr_tags.items() %}<code>{{ k }}={{ v }}</code> {% endfor %}
+                </div>
+              {% endif %}
               {% if p.community_tag_changes %}
                 <div class="muted" style="font-size:.85rem">community changes:
                   {% for k, v in p.community_tag_changes.items() %}<code>{{ k }}={{ v }}</code> {% endfor %}

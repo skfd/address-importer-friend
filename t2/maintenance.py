@@ -502,7 +502,7 @@ _VERDICT_RANK = {
 _VERDICT_BUCKET = {
     "already_deleted": "deleted",
     "pristine_ours": "safe",
-    "keep_feature": "feature",
+    "address_on_feature": "feature",
     "no_match": "no_match",
 }
 
@@ -518,7 +518,12 @@ def _row_verdict(matches: list[dict], non_feature: list[dict]) -> str:
     if not matches:
         return "no_match"
     if not non_feature:
-        return "keep_feature"
+        # Every match is a building/POI/park carrying the address. That is not a
+        # verdict of "keep" — the feature stays, but the City dropped the
+        # address it carries, and whether those addr:* tags are still right is a
+        # question only a human can answer. It was worded as KEEP once and that
+        # was wrong: the cases that land here are the ones needing most research.
+        return "address_on_feature"
     return max(
         (m["provenance"]["verdict"] for m in non_feature),
         key=lambda v: _VERDICT_RANK.get(v, 4),

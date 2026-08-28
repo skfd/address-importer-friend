@@ -100,7 +100,9 @@ def analyze(osm_type: str, osm_id: int) -> dict:
 
     Verdicts (strict for action, informative underneath):
       - ``already_deleted``  — element is no longer visible in OSM; nothing to do.
-      - ``keep_feature``     — building/POI; the address rides it, never delete.
+      - ``address_on_feature`` — the address rides a building/POI/park. The
+        feature is not in question; its ``addr:*`` tags are, and only a human
+        looking at the ground can settle them. Never a blanket "keep".
       - ``pristine_ours``    — created by the import, touched by nobody since. Safe.
       - ``community_touched`` — created by us but edited by a community mapper after.
       - ``community_node``   — not created by the import. Don't delete on feed-silence.
@@ -131,15 +133,23 @@ def analyze(osm_type: str, osm_id: int) -> dict:
         verdict = "already_deleted"
         rec = "Already deleted in OSM — nothing to do."
     elif _is_feature(current_tags):
-        verdict = "keep_feature"
+        verdict = "address_on_feature"
         kind = next((k for k in _FEATURE_TAG_KEYS if k in current_tags), "feature")
-        rec = f"This is a {kind} ({kind}={current_tags.get(kind)}); the address rides it. KEEP."
+        rec = (
+            f"The address is carried by a {kind} ({kind}={current_tags.get(kind)}), "
+            "not by a node of its own. Two separate questions: the feature stays "
+            "either way — but the City dropped this address, so its addr:* tags "
+            "are what needs judging. Check them against the ground before "
+            "assuming they are right."
+        )
     elif created_by_import and ours_only:
         verdict = "pristine_ours"
         rec = "Created by the import, never edited since. Safe to delete."
     elif created_by_import:
         verdict = "community_touched"
-        rec = "Created by the import but a community mapper edited it after. Review — likely KEEP."
+        rec = ("Created by the import, then edited by a community mapper. "
+               "Feed silence is not enough on its own — look at what they "
+               "changed before deciding.")
     else:
         verdict = "community_node"
         rec = "Not created by the import. Don't delete on feed-silence alone."
@@ -166,6 +176,12 @@ def analyze(osm_type: str, osm_id: int) -> dict:
         "geometry_changed": _geometry_changed(versions, osm_type),
         "is_feature": _is_feature(current_tags),
         "current_tags": current_tags,
+        # Pulled out because they are the thing in question: a retired address
+        # riding a building or a park usually means those tags are wrong, not
+        # that the feature is. Showing them saves a round trip to the editor
+        # just to find out what the feature currently claims.
+        "addr_tags": {k: v for k, v in (current_tags or {}).items()
+                      if k.startswith("addr:")},
         "last_edit_user": current.get("user"),
         "last_edit_days_ago": _days_since(current.get("timestamp")),
         "timeline": timeline,

@@ -338,7 +338,8 @@ def render_markdown(rep: dict) -> str:
             f"{ret.get('deleted', 0)} deleted by hand after review, "
             f"{ret.get('safe', 0)} left in place though untouched since import, "
             f"{ret.get('caution', 0)} community-touched, "
-            f"{ret.get('feature', 0)} on a building or POI, "
+            f"{ret.get('feature', 0)} carried by a building or POI and judged "
+            f"one by one, "
             f"{ret.get('no_match', 0)} with no OSM match. "
             "Nothing is ever deleted automatically."
         )

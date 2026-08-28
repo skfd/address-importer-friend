@@ -36,8 +36,14 @@ def test_untouched_import_node_is_still_safe_to_delete():
     assert _bucket([_match("pristine_ours")]) == ("pristine_ours", "safe")
 
 
-def test_feature_and_no_match_are_unchanged():
+def test_an_address_riding_a_feature_is_a_question_not_a_keep():
+    """The verdict names what is uncertain — the addr:* tags on the feature —
+    rather than instructing a blanket KEEP. Parks and buildings turn up here
+    carrying addresses that turned out to be wrong."""
     assert _bucket([_match("pristine_ours", is_feature=True)]) == (
-        "keep_feature", "feature"
+        "address_on_feature", "feature"
     )
+
+
+def test_no_match_is_unchanged():
     assert _bucket([]) == ("no_match", "no_match")
