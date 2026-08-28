@@ -140,6 +140,10 @@ docs below are reference.
 - [11-feature-types.md](11-feature-types.md) — the second axis. Hydrants, not
   just cities. Splits the core into a dataset layer and a conflation layer,
   and explains why layerist stays separate.
+- [12-mechanical-edits.md](12-mechanical-edits.md) — editing an existing object,
+  not just creating one. Why campaigns live in the city checkout while the
+  engine keeps only the changeset transport, and which of the requirements a
+  campaign may not trade away.
 
 ## Open questions
 
