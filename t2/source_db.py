@@ -270,18 +270,38 @@ def _unit_rank(sf: _config.SourceFields, alias: str) -> str:
     )
 
 
+def _active_at(alias: str, param: str = ":snap") -> str:
+    """SQL for "this row-range is the one live at the given snapshot".
+
+    A range is `[min_snapshot_id, max_snapshot_id]` inclusive, and an *open*
+    range carries the latest snapshot as its max — so `max_snapshot_id = :snap`
+    is right at the latest snapshot and silently wrong at any earlier one, where
+    it matches only the ranges that happened to close on exactly that day. That
+    made every historical query (the /maintenance page's per-run new/retired
+    counts, and any report over a past window) return near-nothing for additions
+    and over-report retirements, while the live ingest path — which only ever
+    asks about the latest snapshot — stayed correct. The two forms agree at the
+    latest snapshot, so this is a fix to history, not to ingest."""
+    p = f"{alias}." if alias else ""
+    return f"{p}min_snapshot_id <= {param} AND {p}max_snapshot_id >= {param}"
+
+
 def build_active_bbox_query(
     sf: _config.SourceFields,
     collapse: bool,
     active_status: tuple[str, ...] | None = None,
 ) -> str:
     """Active-rows-in-bbox query. Params: (snapshot, min_lat, max_lat,
-    min_lon, max_lon) in both variants."""
+    min_lon, max_lon) in both variants.
+
+    Numbered params (`?1`) rather than plain `?`: "active at the snapshot"
+    needs the snapshot twice (both ends of the range), and numbering keeps
+    the binding a 5-tuple for every caller."""
     cols = build_address_cols(sf)
     where = (
-        "max_snapshot_id = ?\n"
-        "              AND latitude BETWEEN ? AND ?\n"
-        "              AND longitude BETWEEN ? AND ?"
+        f"{_active_at('', '?1')}\n"
+        "              AND latitude BETWEEN ?2 AND ?3\n"
+        "              AND longitude BETWEEN ?4 AND ?5"
         + _status_filter(sf, active_status, "")
     )
     if not collapse:
@@ -328,14 +348,14 @@ def build_new_since_query(
             JOIN (
                 {first_appeared}
             ) n ON n.identity_key = a.identity_key
-            WHERE a.max_snapshot_id = :snap{_status_filter(sf, active_status, "a")}
+            WHERE {_active_at("a")}{_status_filter(sf, active_status, "a")}
         """
     return f"""
             SELECT {cols}
             FROM (
                 SELECT *, {_unit_rank(sf, '')}
                 FROM addresses
-                WHERE max_snapshot_id = :snap{_status_filter(sf, active_status, "")}
+                WHERE {_active_at("")}{_status_filter(sf, active_status, "")}
             ) a
             JOIN (
                 {first_appeared}
@@ -371,7 +391,7 @@ def build_retired_since_query(
         f"                WHERE {field_sql(sf, 'number', 'b')}   = {field_sql(sf, 'number', 'a')}\n"
         f"                  AND {field_sql(sf, 'street', 'b')}   = {field_sql(sf, 'street', 'a')}\n"
         "                  AND b.identity_key <> a.identity_key\n"
-        "                  AND b.max_snapshot_id   = :snap\n"
+        f"                  AND {_active_at('b')}\n"
         "            )"
     )
     # The status filter applies to the retired row itself: a Pending row that
