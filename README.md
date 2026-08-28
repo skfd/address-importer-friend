@@ -371,6 +371,7 @@ snapshot** and, each month, processes only what changed since — visit
 ```bash
 python -m t2.maintenance              # print the delta since the watermark
 python -m t2.maintenance --prepare    # also ingest + conflate the additions
+python -m t2.maintenance --report     # the closing report for the newest run
 ```
 
 - **Additions** (points whose first appearance is after the watermark) become a
@@ -394,6 +395,41 @@ at snapshot #52 (citywide-complete). Provenance and history reads always hit
 
 After finalizing a month, publish a fresh credential-scrubbed snapshot of the
 living DB with `/publish-db <city-dir>` — see *Database snapshots & releases*.
+
+### Closing report
+
+A maintenance month ends in paperwork, not in code: a row in the import
+proposal's *Continuous maintenance* table, the running total in the city README,
+and — for a month worth announcing — a post on the city's forum thread. All of
+it is already in `tool.db`, so `--report` renders it rather than having the
+operator retype it out of the web UI:
+
+```bash
+python -m t2.maintenance --report                        # newest run, plain summary
+python -m t2.maintenance --report 2598                   # a specific run
+python -m t2.maintenance --report --format wikitable     # the whole proposal table
+python -m t2.maintenance --report --format markdown      # a forum-ready post
+python -m t2.maintenance --report --format json
+```
+
+The same renders sit on the `/maintenance` page as copy-paste boxes for the
+focused run. `--format wikitable` regenerates the *whole* table with the Total
+row recomputed — appending a row by hand is how that total goes stale.
+
+Counts come from the run's own candidates (`UPLOADED` / `REJECTED` / `SKIPPED`),
+never from re-querying the feed: the source DB is living, and re-asking about a
+closed window can return more points than the run ingested. The recomputed feed
+delta is still shown, labelled as such.
+
+Until the month is actually closed the report says what is missing —
+unresolved candidates, an un-uploaded run, an unpublished DB snapshot, a
+watermark still short of the processed snapshot. It reports, it does not
+enforce; and it never edits the proposal, the README or the wiki, because each
+of those also wants a changelog line only a human can write.
+
+Retirement provenance (`--report` without `--no-retirements`) costs one OSM
+history request per matched element, so the web card leaves it out and the
+retirements card below it fetches it instead.
 
 ## Database snapshots & releases
 

@@ -7,7 +7,7 @@ from pathlib import Path
 
 from flask import Flask, abort, flash, g, jsonify, redirect, render_template, request, send_file, send_from_directory, url_for
 
-from .. import audit, candidates, config as _config, db as _db, maintenance as _maintenance, multi_addresses as _multi_addresses, multi_fixes as _multi_fixes, osm_client, osm_export, osm_refresh, pipeline, ranges as _ranges, reverse_sweep as _reverse_sweep, review, run_for_all, source_db, source_multi as _source_multi, streets as _streets, tag_diff, tiles_build
+from .. import audit, candidates, config as _config, db as _db, maintenance as _maintenance, maintenance_report as _maintenance_report, multi_addresses as _multi_addresses, multi_fixes as _multi_fixes, osm_client, osm_export, osm_refresh, pipeline, ranges as _ranges, reverse_sweep as _reverse_sweep, review, run_for_all, source_db, source_multi as _source_multi, streets as _streets, tag_diff, tiles_build
 from ..conflate import _proposed_tags, _is_poi_node, POI_TAG_KEYS, normalize_street
 from ..checks import REGISTRY
 from .glossary import GLOSSARY
@@ -1619,8 +1619,23 @@ def create_app() -> Flask:
         # here is what made this page slow to open.
         # Prepare button is gated on the *monthly* run for the latest snapshot.
         monthly_run = _maintenance.find_run(delta["latest_snapshot"])
+        # Closing report for the focused run: the paperwork a finished month
+        # owes (proposal table row, forum post). Retirement provenance is left
+        # out — the card below fetches it separately, and it costs an OSM
+        # history request per element.
+        report = renders = None
+        if run:
+            report = _maintenance_report.report(
+                run["run_id"], include_retirements=False
+            )
+            renders = {
+                fmt: _maintenance_report.render(report, fmt)
+                for fmt in ("text", "wiki", "wikitable", "markdown")
+            }
         return render_template(
             "maintenance.html",
+            report=report,
+            renders=renders,
             delta=delta,
             run=run,
             focused=focused,

@@ -53,7 +53,7 @@ def _run_report(row: dict, *, conn_counts: dict | None = None) -> dict:
     return {
         "run_id": row["run_id"],
         "run_name": row["name"],
-        "is_catchup": not row["name"].startswith("maint-snap"),
+        "is_catchup": not row["name"].startswith(_m._RUN_PREFIX),
         "from_snapshot": frm,
         "to_snapshot": to,
         "from_date": _m.source_db.snapshot_date(frm) if frm is not None else None,
@@ -119,8 +119,13 @@ def report(run_id: int | None = None, *, include_retirements: bool = True) -> di
 
     rep = _run_report(row)
     frm, to = rep["from_snapshot"], rep["to_snapshot"]
-    rep["source_new"] = sum(1 for _ in _m.source_db.iter_new_since(frm, to))
-    rep["source_retired"] = sum(1 for _ in _m.source_db.iter_retired_since(frm, to))
+    # Recomputed from the feed *now*, not the numbers the run saw. The source DB
+    # is a living SCD-2 store: re-asking about a closed window can return more
+    # points than the run ingested, because the publisher has since revised what
+    # that window contained. So these are context, never the run's record — the
+    # candidates table is the record, and it is what every count below uses.
+    rep["feed_new_now"] = sum(1 for _ in _m.source_db.iter_new_since(frm, to))
+    rep["feed_retired_now"] = sum(1 for _ in _m.source_db.iter_retired_since(frm, to))
 
     cfg = _config.load()
     rep["city"] = cfg.city_name
@@ -227,9 +232,9 @@ def render_markdown(rep: dict) -> str:
         f"**{city} address import — maintenance run `{rep['run_name']}` "
         f"({window})**",
         "",
-        f"The City feed gained {rep['source_new']} civic address(es) and dropped "
-        f"{rep['source_retired']} over this window (source snapshots "
-        f"#{rep['from_snapshot']} → #{rep['to_snapshot']}).",
+        f"Source snapshots #{rep['from_snapshot']} → #{rep['to_snapshot']}. The "
+        f"City feed's additions over that window came to {rep['candidates']} "
+        f"candidate(s), each reviewed by hand:",
         "",
         f"- **Uploaded:** {rep['uploaded']} — {cs}",
         f"- **Rejected in review:** {rep['rejected']}",
@@ -238,16 +243,16 @@ def render_markdown(rep: dict) -> str:
     ret = rep.get("retirements")
     if ret:
         lines.append(
-            f"- **Retirements surfaced:** {rep['source_retired']} "
+            f"- **Retirements surfaced:** {sum(ret.values())} "
             f"({ret.get('safe', 0)} import-created and untouched, "
             f"{ret.get('caution', 0)} community-touched, "
             f"{ret.get('feature', 0)} on a feature, "
             f"{ret.get('no_match', 0)} with no OSM match). "
             "Nothing is auto-deleted; these are reviewed by hand."
         )
-    elif rep["source_retired"]:
+    elif rep["feed_retired_now"]:
         lines.append(
-            f"- **Retirements surfaced:** {rep['source_retired']} — reviewed by "
+            f"- **Retirements surfaced:** {rep['feed_retired_now']} — reviewed by "
             "hand, nothing auto-deleted."
         )
     t = rep["totals"]
@@ -269,7 +274,8 @@ def render_text(rep: dict) -> str:
         + ("  [catch-up]" if rep["is_catchup"] else ""),
         f"  window:     #{rep['from_snapshot']} ({rep['from_date']}) -> "
         f"#{rep['to_snapshot']} ({rep['to_date']})",
-        f"  source:     {rep['source_new']} new, {rep['source_retired']} retired",
+        f"  feed now:   {rep['feed_new_now']} new, {rep['feed_retired_now']} "
+        f"retired (recomputed today, not the run's record)",
         f"  candidates: {rep['candidates']}  "
         f"({rep['uploaded']} uploaded / {rep['rejected']} rejected / "
         f"{rep['skipped']} skipped"
