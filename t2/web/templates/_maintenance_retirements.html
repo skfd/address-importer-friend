@@ -16,6 +16,9 @@
 {% elif retire %}
   <p>
     <span class="pill ok">{{ retire.summary.safe }} pristine-ours (safe)</span>
+    {% if retire.summary.deleted %}
+      <span class="pill ok">{{ retire.summary.deleted }} deleted</span>
+    {% endif %}
     <span class="pill warn">{{ retire.summary.caution }} community (review)</span>
     <span class="pill bad">{{ retire.summary.feature }} building/POI (keep)</span>
     <span class="pill muted">{{ retire.summary.no_match }} no OSM match</span>

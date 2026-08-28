@@ -495,6 +495,36 @@ _VERDICT_RANK = {
 }
 
 
+# Which summary bucket each row verdict lands in. `already_deleted` needs its
+# own: it used to fall through to "caution", so a month's summary got *worse*
+# as the operator worked through it — delete the 22 safe ones and they moved
+# from "safe" to "community (review)", which is the opposite of what happened.
+_VERDICT_BUCKET = {
+    "already_deleted": "deleted",
+    "pristine_ours": "safe",
+    "keep_feature": "feature",
+    "no_match": "no_match",
+}
+
+
+def _row_verdict(matches: list[dict], non_feature: list[dict]) -> str:
+    """One verdict for a retired address from its OSM matches.
+
+    The worst non-feature match decides, by `_VERDICT_RANK` — and because
+    `already_deleted` ranks lowest, a row reads as deleted only when *every*
+    non-feature match is gone. A row with one deleted match and one
+    community-touched one still needs review: something else out there still
+    carries that address."""
+    if not matches:
+        return "no_match"
+    if not non_feature:
+        return "keep_feature"
+    return max(
+        (m["provenance"]["verdict"] for m in non_feature),
+        key=lambda v: _VERDICT_RANK.get(v, 4),
+    )
+
+
 def retirements(run_id: int) -> dict:
     """Match each retired point to live OSM, attach provenance, build links.
 
@@ -530,7 +560,7 @@ def retirements(run_id: int) -> dict:
             prov_by_key = dict(zip(keys, ex.map(lambda k: osm_history.analyze(*k), keys)))
 
     rows: list[dict] = []
-    summary = {"safe": 0, "caution": 0, "feature": 0, "no_match": 0}
+    summary = {"safe": 0, "caution": 0, "feature": 0, "no_match": 0, "deleted": 0}
     safe_objects: list[str] = []
     for r, descriptors in row_descriptors:
         matches = [{
@@ -540,26 +570,14 @@ def retirements(run_id: int) -> dict:
         } for d in descriptors]
 
         non_feature = [m for m in matches if not m["provenance"].get("is_feature")]
-        if not matches:
-            row_verdict = "no_match"
-            summary["no_match"] += 1
-        elif non_feature:
-            row_verdict = max(
-                (m["provenance"]["verdict"] for m in non_feature),
-                key=lambda v: _VERDICT_RANK.get(v, 4),
-            )
-            if row_verdict == "pristine_ours":
-                summary["safe"] += 1
-                safe_objects += [
-                    f"{_TYPE_PREFIX[m['type']]}{m['id']}"
-                    for m in non_feature
-                    if m["provenance"]["verdict"] == "pristine_ours"
-                ]
-            else:
-                summary["caution"] += 1
-        else:
-            row_verdict = "keep_feature"
-            summary["feature"] += 1
+        row_verdict = _row_verdict(matches, non_feature)
+        summary[_VERDICT_BUCKET.get(row_verdict, "caution")] += 1
+        if row_verdict == "pristine_ours":
+            safe_objects += [
+                f"{_TYPE_PREFIX[m['type']]}{m['id']}"
+                for m in non_feature
+                if m["provenance"]["verdict"] == "pristine_ours"
+            ]
 
         rows.append({
             "address_full": r.get("address_full"),
