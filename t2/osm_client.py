@@ -201,10 +201,23 @@ def find_changeset_by_client_token(client_token: str) -> int | None:
     return None
 
 
-def _create_changeset(run_id: int) -> int:
+# --- Changeset primitives -------------------------------------------------
+#
+# Open / upload / close, taking plain tags and a plain osmChange body. The run
+# pipeline below is one caller; the other is work that edits OSM outside a run
+# — Guelph's announced mechanical-edit campaigns, which are written per
+# campaign rather than built into the engine. Those need the OAuth token this
+# module already holds encrypted, plus its 401-refresh and 429-backoff, and
+# must not stand up a second place with write access to the import account.
+# Everything above the transport (what to touch, what to skip, what to record)
+# stays with the caller.
+
+
+def create_changeset(tags: dict[str, str]) -> int:
+    """Open a changeset carrying exactly `tags`, and return its id."""
     payload = ET.Element("osm")
     cs = ET.SubElement(payload, "changeset")
-    for k, v in osm_export.changeset_tags(run_id).items():
+    for k, v in tags.items():
         ET.SubElement(cs, "tag", k=k, v=v)
     body = ET.tostring(payload, encoding="utf-8")
     r = _request("PUT", f"{_API}/changeset/create", data=body, headers={"Content-Type": "text/xml"})
@@ -212,21 +225,38 @@ def _create_changeset(run_id: int) -> int:
     return int(r.text.strip())
 
 
-def _upload_diff(changeset_id: int, run_id: int) -> dict[int, int]:
-    body = osm_export.osmchange_xml(run_id, changeset_id)
+def upload_osmchange(changeset_id: int, body: bytes) -> str:
+    """POST an osmChange document to an open changeset; return the diffResult.
+
+    A non-200 is raised rather than recovered from: a 409 here means the server
+    disagrees with our idea of an object's version, which is a stop, not a
+    retry.
+    """
     r = _request("POST", f"{_API}/changeset/{changeset_id}/upload",
                  data=body, headers={"Content-Type": "text/xml"})
     if r.status_code != 200:
         raise RuntimeError(f"Upload failed: HTTP {r.status_code} {r.text[:500]}")
-    root = ET.fromstring(r.text)
+    return r.text
+
+
+def close_changeset(changeset_id: int) -> None:
+    _request("PUT", f"{_API}/changeset/{changeset_id}/close")
+
+
+# --- Run upload pipeline --------------------------------------------------
+
+
+def _create_changeset(run_id: int) -> int:
+    return create_changeset(osm_export.changeset_tags(run_id))
+
+
+def _upload_diff(changeset_id: int, run_id: int) -> dict[int, int]:
+    text = upload_osmchange(changeset_id, osm_export.osmchange_xml(run_id, changeset_id))
+    root = ET.fromstring(text)
     mapping: dict[int, int] = {}
     for el in root.findall("node"):
         mapping[int(el.attrib["old_id"])] = int(el.attrib["new_id"])
     return mapping
-
-
-def _close_changeset(changeset_id: int) -> None:
-    _request("PUT", f"{_API}/changeset/{changeset_id}/close")
 
 
 def upload(run_id: int) -> None:
@@ -354,7 +384,7 @@ def upload(run_id: int) -> None:
     finally:
         conn.close()
 
-    _close_changeset(changeset_id)
+    close_changeset(changeset_id)
     conn = _db.connect()
     try:
         conn.execute("BEGIN IMMEDIATE")
