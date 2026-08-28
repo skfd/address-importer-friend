@@ -297,6 +297,26 @@ def parse_node_tags(section: dict, origin: str = "config.toml") -> dict[str, str
     return {k.strip(): v.strip() for k, v in tags.items()}
 
 
+def parse_source_license(section: dict, origin: str = "config.toml") -> str:
+    """Validate [export] source_license — the changeset's `source:license` tag.
+
+    Optional, and absent for Toronto: its published changeset-tag table has no
+    such key and adding one would put a tag on the changeset that the proposal
+    does not document. Guelph's plan names OGL-Canada-2.0. Declared-but-blank
+    is a mistake, not a way to opt out — omit the key instead.
+    """
+    value = section.get("source_license")
+    if value is None:
+        return ""
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(
+            f"{origin} [export] source_license = {value!r} is invalid; expected "
+            "a licence identifier such as 'OGL-Canada-2.0'. Omit the key "
+            "entirely for a city whose changeset tags name no licence."
+        )
+    return value.strip()
+
+
 @dataclass
 class Config:
     city_slug: str
@@ -337,6 +357,9 @@ class Config:
     # Constant tags on every created node. Empty for a city that adds none;
     # {"addr:city": "Guelph"} where the published tagging plan promises one.
     export_node_tags: dict[str, str]
+    # Changeset `source:license`. Empty where the city's published changeset
+    # tag table names no licence (Toronto).
+    export_source_license: str
 
     osm_api_base: str
     osm_client_id: str
@@ -492,6 +515,7 @@ def load() -> Config:
         export_attribution=str(export_section.get("attribution", "")),
         export_import_plan=str(export_section.get("import_plan", "")),
         export_node_tags=parse_node_tags(export_section, str(toml_path)),
+        export_source_license=parse_source_license(export_section, str(toml_path)),
         osm_api_base=env.get("OSM_API_BASE") or default_api,
         osm_client_id=env.get("OSM_CLIENT_ID", ""),
         osm_client_secret=env.get("OSM_CLIENT_SECRET", ""),

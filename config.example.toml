@@ -125,3 +125,6 @@ import_plan = "https://wiki.openstreetmap.org/wiki/Toronto/Import/AddressPoints"
 # where it promises nothing (Toronto writes no addr:city, deliberately).
 # Redefining a derived tag is refused at load.
 # node_tags = { "addr:city" = "Guelph" }
+# Changeset `source:license` tag. Declare it only where this city's published
+# changeset-tag table names a licence — Toronto's does not.
+# source_license = "OGL-Canada-2.0"

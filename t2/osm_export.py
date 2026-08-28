@@ -75,7 +75,7 @@ def changeset_tags(run_id: int) -> dict[str, str]:
             "config.toml [export] import_plan is empty — the changeset must point "
             "at this city's import wiki page."
         )
-    return {
+    tags = {
         "comment": comment,
         "source": _attribution(),
         "import": "yes",
@@ -84,6 +84,11 @@ def changeset_tags(run_id: int) -> dict[str, str]:
         "import:client_token": token,
         "import_plan": _CONFIG.export_import_plan,
     }
+    # Optional, and absent for Toronto: its published changeset-tag table names
+    # no licence. Guelph's names OGL-Canada-2.0.
+    if _CONFIG.export_source_license:
+        tags["source:license"] = _CONFIG.export_source_license
+    return tags
 
 
 def _load_upload_items(run_id: int) -> list[dict]:
