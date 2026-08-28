@@ -1619,23 +1619,8 @@ def create_app() -> Flask:
         # here is what made this page slow to open.
         # Prepare button is gated on the *monthly* run for the latest snapshot.
         monthly_run = _maintenance.find_run(delta["latest_snapshot"])
-        # Closing report for the focused run: the paperwork a finished month
-        # owes (proposal table row, forum post). Retirement provenance is left
-        # out — the card below fetches it separately, and it costs an OSM
-        # history request per element.
-        report = renders = None
-        if run:
-            report = _maintenance_report.report(
-                run["run_id"], include_retirements=False
-            )
-            renders = {
-                fmt: _maintenance_report.render(report, fmt)
-                for fmt in ("text", "wiki", "wikitable", "markdown")
-            }
         return render_template(
             "maintenance.html",
-            report=report,
-            renders=renders,
             delta=delta,
             run=run,
             focused=focused,
@@ -1663,6 +1648,35 @@ def create_app() -> Flask:
             retire_error = f"{type(exc).__name__}: {exc}"
         return render_template(
             "_maintenance_retirements.html", retire=retire, retire_error=retire_error
+        )
+
+    @app.get("/maintenance/<int:run_id>/report")
+    def maintenance_report_fragment(run_id: int):
+        """Closing-report fragment, loaded async like the retirements one.
+
+        Kept off the main render for the same reason: the report needs the run
+        history, and each maintenance run's window costs a full scan of the
+        source feed. Retirement provenance is left out here — the retirements
+        card fetches that itself."""
+        run = _maintenance.get_run(run_id)
+        if not run:
+            abort(404)
+        history = _maintenance.history()
+        focused = next((h for h in history if h["run_id"] == run_id), None)
+        report = _maintenance_report.report(
+            run_id,
+            include_retirements=False,
+            history=history,
+            feed_counts=(
+                (focused["new_count"], focused["retired_count"]) if focused else None
+            ),
+        )
+        renders = {
+            fmt: _maintenance_report.render(report, fmt)
+            for fmt in ("text", "wiki", "wikitable", "markdown")
+        }
+        return render_template(
+            "_maintenance_report.html", run=run, report=report, renders=renders
         )
 
     @app.post("/maintenance/prepare")

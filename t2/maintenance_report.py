@@ -72,10 +72,10 @@ def _run_report(row: dict, *, conn_counts: dict | None = None) -> dict:
     }
 
 
-def latest_run_id() -> int | None:
+def latest_run_id(history: list[dict] | None = None) -> int | None:
     """The newest maintenance run, monthly or catch-up — the one `--report`
     means when given no id."""
-    hist = _m.history()
+    hist = _m.history() if history is None else history
     return hist[0]["run_id"] if hist else None
 
 
@@ -103,14 +103,25 @@ def blockers(rep: dict) -> list[str]:
     return out
 
 
-def report(run_id: int | None = None, *, include_retirements: bool = True) -> dict:
+def report(
+    run_id: int | None = None,
+    *,
+    include_retirements: bool = True,
+    history: list[dict] | None = None,
+    feed_counts: tuple[int, int] | None = None,
+) -> dict:
     """Everything the closing paperwork for one maintenance run needs.
 
     `include_retirements` drives one OSM-history round trip per retired
     element's match, so the CLI can turn it off (and does, automatically, if the
-    call fails — a report is worth having without the provenance breakdown)."""
+    call fails — a report is worth having without the provenance breakdown).
+
+    `history` and `feed_counts` let a caller that has already paid for them hand
+    them over. Both cost a full scan of the source feed per maintenance run, and
+    the /maintenance page has computed both before it ever reaches this — asking
+    again doubled a page load that was already measured in tens of seconds."""
     if run_id is None:
-        run_id = latest_run_id()
+        run_id = latest_run_id(history)
         if run_id is None:
             raise ValueError("no maintenance runs in this database")
     row = _m.get_run(run_id)
@@ -124,8 +135,12 @@ def report(run_id: int | None = None, *, include_retirements: bool = True) -> di
     # points than the run ingested, because the publisher has since revised what
     # that window contained. So these are context, never the run's record — the
     # candidates table is the record, and it is what every count below uses.
-    rep["feed_new_now"] = sum(1 for _ in _m.source_db.iter_new_since(frm, to))
-    rep["feed_retired_now"] = sum(1 for _ in _m.source_db.iter_retired_since(frm, to))
+    if feed_counts is None:
+        feed_counts = (
+            sum(1 for _ in _m.source_db.iter_new_since(frm, to)),
+            sum(1 for _ in _m.source_db.iter_retired_since(frm, to)),
+        )
+    rep["feed_new_now"], rep["feed_retired_now"] = feed_counts
 
     cfg = _config.load()
     rep["city"] = cfg.city_name
@@ -146,16 +161,17 @@ def report(run_id: int | None = None, *, include_retirements: bool = True) -> di
         except Exception as exc:
             rep["retirements_error"] = str(exc)
 
-    rep["totals"] = totals()
+    rep["_history"] = history
+    rep["totals"] = totals(history)
     rep["blockers"] = blockers(rep)
     return rep
 
 
-def totals() -> dict:
+def totals(history: list[dict] | None = None) -> dict:
     """Running totals across every uploaded maintenance run — the figures the
     proposal's Total row and the README's "N changesets, M addresses" line
     quote. Only uploaded runs count: an in-flight run has pushed nothing."""
-    rows = uploaded_runs()
+    rows = uploaded_runs(history)
     return {
         "runs": len(rows),
         "changesets": sum(1 for r in rows if r["changeset_id"]),
@@ -167,11 +183,11 @@ def totals() -> dict:
     }
 
 
-def uploaded_runs() -> list[dict]:
+def uploaded_runs(history: list[dict] | None = None) -> list[dict]:
     """Every uploaded maintenance run, oldest first — table order."""
     rows = [
         _run_report(_m.get_run(h["run_id"]))
-        for h in _m.history()
+        for h in (_m.history() if history is None else history)
         if h["upload_status"] == "uploaded"
     ]
     rows.sort(key=lambda r: (r["upload_date"] or "", r["run_id"]))
@@ -196,7 +212,7 @@ def render_wiki(rep: dict) -> str:
     return _wiki_row(rep)
 
 
-def render_wikitable(rep: dict) -> str:
+def render_wikitable(rep: dict, history: list[dict] | None = None) -> str:
     """The whole § Continuous maintenance table, Total row recomputed.
 
     Regenerating the table beats appending a row: the Total line is the part
@@ -206,7 +222,7 @@ def render_wikitable(rep: dict) -> str:
         '{| class="wikitable"',
         "! Changeset !! Run !! Date !! Uploaded !! Rejected !! Skipped",
     ]
-    for r in uploaded_runs():
+    for r in uploaded_runs(rep.get("_history")):
         lines.append(_wiki_row(r))
     lines += [
         "|-",
@@ -310,7 +326,10 @@ _RENDERERS = {
     "wiki": render_wiki,
     "wikitable": render_wikitable,
     "markdown": render_markdown,
-    "json": lambda rep: json.dumps(rep, indent=2, sort_keys=True, default=str),
+    "json": lambda rep: json.dumps(
+        {k: v for k, v in rep.items() if not k.startswith("_")},
+        indent=2, sort_keys=True, default=str,
+    ),
 }
 
 FORMATS = tuple(_RENDERERS)

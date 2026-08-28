@@ -1,0 +1,33 @@
+<h2>Closing report <span class="muted">&mdash; what this month owes on paper</span></h2>
+  {% if report.blockers %}
+    <p>Not closed yet:</p>
+    <ul>{% for b in report.blockers %}<li>{{ b }}</li>{% endfor %}</ul>
+  {% else %}
+    <p><span class="pill ok">month closed</span> uploaded, published, watermark advanced.</p>
+  {% endif %}
+  <p class="muted">
+    Running total: {{ report.totals.changesets }} changesets,
+    {{ report.totals.uploaded }} addresses
+    ({{ report.totals.first_date }} &rarr; {{ report.totals.last_date }}).
+    The feed recomputes to {{ report.feed_new_now }} new /
+    {{ report.feed_retired_now }} retired over this window today &mdash; context,
+    not this run's record; the counts below come from the run itself.
+  </p>
+  <details>
+    <summary>Proposal table row <span class="muted">(&sect; Continuous maintenance)</span></summary>
+    <textarea readonly rows="2" style="width:100%">{{ renders.wiki }}</textarea>
+    <p class="muted">Or the whole table, Total row recomputed &mdash; paste over the existing one:</p>
+    <textarea readonly rows="12" style="width:100%">{{ renders.wikitable }}</textarea>
+  </details>
+  <details>
+    <summary>Forum post <span class="muted">(only for a month worth announcing)</span></summary>
+    <textarea readonly rows="16" style="width:100%">{{ renders.markdown }}</textarea>
+  </details>
+  <details>
+    <summary>Plain summary</summary>
+    <pre>{{ renders.text }}</pre>
+  </details>
+  <p class="muted">
+    Same from the CLI:
+    <code>python -m t2.maintenance --report {{ run.run_id }} --format wikitable</code>
+  </p>
