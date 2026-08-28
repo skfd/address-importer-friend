@@ -388,10 +388,37 @@ python -m t2.maintenance --report     # the closing report for the newest run
   since → safe; anything community-created or community-edited → review), with
   a per-element version timeline underneath.
 
-The watermark advances only when the operator confirms it (after the month's
-additions are uploaded), so a skipped or aborted month loses nothing. It starts
-at snapshot #52 (citywide-complete). Provenance and history reads always hit
-**production** OSM (`api.openstreetmap.org`), independent of the upload `--env`.
+### Closing a month
+
+Once the additions are uploaded and the retirements dealt with, **Close month**
+on `/maintenance` ends it. Closing:
+
+* advances the watermark to **the snapshot that run processed** — never to
+  whatever is latest. The City publishes daily, so a month closed a day after
+  its run would push the watermark past snapshots the run never looked at, and
+  `first_snap > :wm` hides those addresses from every later month. That is the
+  #45-vs-#52 gap that cost 31 addresses once already, and the bare "advance
+  watermark" button this replaced had exactly that shape;
+* records what the operator says happened to the retirements, which is the one
+  part of a month nothing else in the tool remembers. Stated, not proven — the
+  retirement design has always been operator-decides, and a close is not the
+  place to start demanding evidence;
+* refuses while candidates are still unresolved (`force` overrides), and stays
+  gated on the published DB snapshot as before;
+* hands back the closing report and what the month still owes outside the
+  database: the proposal row, the README total, the changelog line, and a forum
+  post if the month was unusual. The DB snapshot is checked live from `kv`
+  rather than ticked by hand — a checkbox recording someone's claim is a worse
+  record than the thing it claims about.
+
+The watermark is still what *defines* closed; the close record only says when it
+was declared and on what account. A month whose watermark moved without the
+close flow reads as closed with no retirement account, which is the truth.
+
+The watermark advances only when the operator confirms it, so a skipped or
+aborted month loses nothing. It starts at the import's source snapshot.
+Provenance and history reads always hit **production** OSM
+(`api.openstreetmap.org`), independent of the upload `--env`.
 
 After finalizing a month, publish a fresh credential-scrubbed snapshot of the
 living DB with `/publish-db <city-dir>` — see *Database snapshots & releases*.

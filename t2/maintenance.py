@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor
 
 from . import (
@@ -38,6 +39,10 @@ from . import (
     pipeline,
     source_db,
 )
+
+def _iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
 
 WATERMARK_KEY = "maintenance.watermark_snapshot"
 WATERMARK_DATE_KEY = "maintenance.watermark_date"
@@ -242,13 +247,19 @@ def run_name_for(latest_snapshot: int) -> str:
 # processed. config_json otherwise only holds checks params, so adding a key is
 # safe (readers use .get).
 
-def set_run_window(run_id: int, from_snapshot: int, to_snapshot: int) -> None:
+def _update_run_maintenance(run_id: int, fields: dict) -> None:
+    """Merge keys into `runs.config_json["maintenance"]`, leaving the rest of it
+    alone. The window and the close record share that dict, and `prepare()` is
+    idempotent — a re-prepare that replaced the dict wholesale would silently
+    drop the close."""
     conn = _db.connect()
     try:
         conn.execute("BEGIN IMMEDIATE")
         row = conn.execute("SELECT config_json FROM runs WHERE run_id=?", (run_id,)).fetchone()
         cfg_obj = json.loads(row["config_json"]) if row and row["config_json"] else {}
-        cfg_obj["maintenance"] = {"from_snapshot": from_snapshot, "to_snapshot": to_snapshot}
+        m = dict(cfg_obj.get("maintenance") or {})
+        m.update(fields)
+        cfg_obj["maintenance"] = m
         conn.execute("UPDATE runs SET config_json=? WHERE run_id=?", (json.dumps(cfg_obj), run_id))
         conn.execute("COMMIT")
     except Exception:
@@ -256,6 +267,12 @@ def set_run_window(run_id: int, from_snapshot: int, to_snapshot: int) -> None:
         raise
     finally:
         conn.close()
+
+
+def set_run_window(run_id: int, from_snapshot: int, to_snapshot: int) -> None:
+    _update_run_maintenance(
+        run_id, {"from_snapshot": from_snapshot, "to_snapshot": to_snapshot}
+    )
 
 
 def get_run_window(run_id: int) -> dict | None:
@@ -592,6 +609,94 @@ def advance_watermark(latest_snapshot: int | None = None, force: bool = False) -
         latest_snapshot = source_db.latest_snapshot_id()
     set_watermark(latest_snapshot)
     return latest_snapshot
+
+
+# ---- closing a month ------------------------------------------------------
+
+# Stages a candidate can be sitting in when the month is genuinely finished.
+_TERMINAL_STAGES = ("UPLOADED", "REJECTED", "SKIPPED")
+
+
+class MonthNotFinished(RuntimeError):
+    """Raised when a close is asked for while the run still has work in it."""
+
+
+def get_close(run_id: int) -> dict | None:
+    """When this month was declared done and what the operator said about its
+    retirements — or None while it is still open.
+
+    The watermark remains the *definition* of closed (a month whose watermark
+    has moved is closed whether or not anyone pressed the button). This record
+    only says when it was declared and by what account of the retirements, which
+    is the part nothing else in the tool remembers."""
+    row = get_run(run_id)
+    if not row:
+        return None
+    cfg_obj = json.loads(row["config_json"]) if row["config_json"] else {}
+    m = cfg_obj.get("maintenance") or {}
+    if not m.get("closed_at"):
+        return None
+    return {
+        "closed_at": m["closed_at"],
+        "retirements_note": m.get("retirements_note"),
+    }
+
+
+def close_month(
+    run_id: int, *, retirements_note: str | None = None, force: bool = False
+) -> dict:
+    """Declare a maintenance month done: advance the watermark to the snapshot
+    this run processed, and write down the operator's account of its
+    retirements.
+
+    **Advances to the run's own `to_snapshot`, never to whatever is latest.**
+    The City publishes daily, so a month closed a day after its run would push
+    the watermark past snapshots the run never looked at, and `first_snap > :wm`
+    then hides those points from every future month — permanently. That is the
+    #45-vs-#52 gap that cost 31 addresses the first time; the bare "advance
+    watermark" button had inherited exactly that shape.
+
+    Refuses while candidates are still un-resolved, which is the tool's only
+    hard precondition — retirements are *stated* as handled, not proven, in
+    keeping with the rest of the retirement design (the operator decides, the
+    tool records). `force` overrides.
+
+    Idempotent: closing an already-advanced month re-records the account and
+    returns the same report."""
+    run = get_run(run_id)
+    if not run:
+        raise ValueError(f"no run {run_id}")
+    window = get_run_window(run_id)
+    if not window or window.get("to_snapshot") is None:
+        raise ValueError(f"run {run_id} has no maintenance window to close")
+    to = int(window["to_snapshot"])
+
+    counts = candidates.count_by_stage(run_id)
+    open_now = {s: n for s, n in counts.items() if s not in _TERMINAL_STAGES}
+    if open_now and not force:
+        detail = ", ".join(f"{n} {s}" for s, n in sorted(open_now.items()))
+        raise MonthNotFinished(
+            f"run {run['name']} still has unresolved candidates ({detail}). "
+            "Finish the review and upload, or close with force."
+        )
+
+    watermark = get_watermark()
+    advanced_to = None
+    if watermark < to:
+        # Explicit snapshot: see the docstring. Never the live latest.
+        advanced_to = advance_watermark(to, force=force)
+    _update_run_maintenance(run_id, {
+        "closed_at": _iso(),
+        "retirements_note": (retirements_note or "").strip() or None,
+    })
+    return {
+        "run_id": run_id,
+        "run_name": run["name"],
+        "closed_at": get_close(run_id)["closed_at"],
+        "watermark": get_watermark(),
+        "advanced_to": advanced_to,
+        "already_advanced": advanced_to is None,
+    }
 
 
 # ---- CLI ------------------------------------------------------------------

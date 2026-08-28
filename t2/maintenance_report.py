@@ -103,6 +103,67 @@ def blockers(rep: dict) -> list[str]:
     return out
 
 
+def followups(rep: dict) -> list[dict]:
+    """What a closed month still owes the world outside `tool.db`.
+
+    `blockers` is what stops a month closing; this is what closing hands you.
+    The split matters: the first list is about the data, the second about the
+    record — the proposal table, the README total, the changelog, and (for a
+    month worth announcing) the forum. None of that lives in the database, and
+    the tool can neither do it nor see it done.
+
+    The one exception is the DB snapshot, which `kv` *can* answer, so it is
+    verified live rather than ticked off by hand. Nothing here is persisted: a
+    checkbox that only records someone's claim is a worse record than the thing
+    it claims about."""
+    snap = rep.get("snapshot") or {}
+    date = (rep.get("to_date") or "").replace("-", "")
+    return [{
+        "key": "publish_db",
+        "label": "Publish the DB snapshot for this month",
+        "done": bool(snap.get("published_date")) and not snap.get("lagging"),
+        "detail": (
+            f"/publish-db, then python -m scripts.publish_db "
+            f"--record-published {date or '<YYYYMMDD>'}"
+            + (f" — currently at {snap.get('published_tag')}"
+               if snap.get("published_tag") else "")
+        ),
+        "verified": True,
+    }, {
+        "key": "proposal_row",
+        "label": "Add the run to the proposal's § Continuous maintenance table",
+        "done": None,
+        "detail": "--format wikitable regenerates the whole table, Total included.",
+        "verified": False,
+    }, {
+        "key": "readme_total",
+        "label": "Update the city README's maintenance line",
+        "done": None,
+        "detail": (
+            f"{rep['totals']['changesets']} changesets, "
+            f"{rep['totals']['uploaded']} addresses, "
+            f"{rep['totals']['first_date']} to {rep['totals']['last_date']}."
+        ),
+        "verified": False,
+    }, {
+        "key": "changelog",
+        "label": "Add a dated row to IMPORT_PROPOSAL_CHANGELOG.md",
+        "done": None,
+        "detail": "Anything that shifts what the proposal asserts wants a line.",
+        "verified": False,
+    }, {
+        "key": "forum",
+        "label": "Post to the forum thread — only if this month was unusual",
+        "done": None,
+        "detail": (
+            "The proposal says batches are not individually announced; a large "
+            "batch, a source change or a new failure mode is what earns a post. "
+            "--format markdown has one ready."
+        ),
+        "verified": False,
+    }]
+
+
 def report(
     run_id: int | None = None,
     *,
@@ -163,7 +224,9 @@ def report(
 
     rep["_history"] = history
     rep["totals"] = totals(history)
+    rep["closed"] = _m.get_close(run_id)
     rep["blockers"] = blockers(rep)
+    rep["followups"] = followups(rep)
     return rep
 
 
@@ -317,7 +380,19 @@ def render_text(rep: dict) -> str:
         lines.append("  not closed yet:")
         lines += [f"    - {b}" for b in rep["blockers"]]
     else:
-        lines.append("  month is closed (uploaded, published, watermark advanced)")
+        closed = rep.get("closed")
+        lines.append(
+            "  month closed" + (f" {closed['closed_at'][:10]}" if closed else "")
+            + ("" if closed else
+               " (watermark advanced, but not declared through the close flow)")
+        )
+        if closed and closed.get("retirements_note"):
+            lines.append(f"  retirements: {closed['retirements_note']}")
+        lines.append("  still owed:")
+        for item in rep["followups"]:
+            mark = "x" if item["done"] else ("?" if item["done"] is None else " ")
+            lines.append(f"    [{mark}] {item['label']}")
+            lines.append(f"        {item['detail']}")
     return "\n".join(lines)
 
 

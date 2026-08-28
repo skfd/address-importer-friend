@@ -3,7 +3,33 @@
     <p>Not closed yet:</p>
     <ul>{% for b in report.blockers %}<li>{{ b }}</li>{% endfor %}</ul>
   {% else %}
-    <p><span class="pill ok">month closed</span> uploaded, published, watermark advanced.</p>
+    <p>
+      <span class="pill ok">month closed</span>
+      {% if report.closed %}
+        declared {{ report.closed.closed_at[:10] }}.
+        {% if report.closed.retirements_note %}
+          Retirements: {{ report.closed.retirements_note }}
+        {% else %}
+          <span class="muted">No account of the retirements was recorded.</span>
+        {% endif %}
+      {% else %}
+        <span class="muted">Watermark is past this run's snapshot, but the month
+          was never declared through the close flow &mdash; so nothing records
+          what happened to its retirements.</span>
+      {% endif %}
+    </p>
+    <p class="muted">Still owed outside the database:</p>
+    <ul>
+      {% for item in report.followups %}
+        <li>
+          {% if item.done %}<span class="pill ok">done</span>
+          {% elif item.verified %}<span class="pill warn">outstanding</span>
+          {% else %}<span class="pill">by hand</span>{% endif %}
+          {{ item.label }}
+          <br><span class="muted">{{ item.detail }}</span>
+        </li>
+      {% endfor %}
+    </ul>
   {% endif %}
   <p class="muted">
     Running total: {{ report.totals.changesets }} changesets,

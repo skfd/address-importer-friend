@@ -1693,20 +1693,37 @@ def create_app() -> Flask:
         )
         return redirect(url_for("maintenance_view"))
 
-    @app.post("/maintenance/advance")
-    def maintenance_advance():
-        # Advancing declares the month finished, so it is gated on that month's
-        # DB snapshot being published (t2.maintenance.snapshot_status). The
-        # override is an explicit second button, not a silent fallback.
+    @app.post("/maintenance/<int:run_id>/close")
+    def maintenance_close(run_id: int):
+        """Declare the month done: advance the watermark to the snapshot this
+        run processed and record what was done about its retirements.
+
+        Replaces the bare "advance watermark" button, which advanced to
+        whatever snapshot was *latest at click time*. Closing a day after the
+        run would have pushed the watermark past snapshots the run never saw,
+        hiding those addresses from every later month — the #45-vs-#52 gap that
+        cost 31 of them once already."""
         force = request.form.get("force") == "1"
+        note = request.form.get("retirements_note", "")
         try:
-            new_wm = _maintenance.advance_watermark(force=force)
+            res = _maintenance.close_month(
+                run_id, retirements_note=note, force=force
+            )
         except _maintenance.SnapshotUnpublished as exc:
-            flash(f"Watermark not advanced. {exc}")
-            return redirect(url_for("maintenance_view"))
-        flash(f"Watermark advanced to snapshot #{new_wm}."
-              + (" Publish gate overridden." if force else ""))
-        return redirect(url_for("maintenance_view"))
+            flash(f"Month not closed. {exc}")
+            return redirect(url_for("maintenance_view", run_id=run_id))
+        except _maintenance.MonthNotFinished as exc:
+            flash(f"Month not closed. {exc}")
+            return redirect(url_for("maintenance_view", run_id=run_id))
+        if res["already_advanced"]:
+            flash(f"{res['run_name']} closed. Watermark was already at "
+                  f"#{res['watermark']}.")
+        else:
+            flash(f"{res['run_name']} closed — watermark advanced to snapshot "
+                  f"#{res['advanced_to']}."
+                  + (" Publish gate overridden." if force else "")
+                  + " What it still owes is listed under Closing report.")
+        return redirect(url_for("maintenance_view", run_id=run_id))
 
     @app.get("/osm/multi")
     def osm_multi_view():
