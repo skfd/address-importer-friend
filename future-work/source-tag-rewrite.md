@@ -4,6 +4,32 @@ Status: **abandoned (2026-06-03).** Investigated and dropped after a read-only
 pilot showed the premise does not hold. Kept as a record so the idea is not
 re-proposed without the evidence below.
 
+## Update 2026-08-27: new nodes write `addr:source`, and 49 do not
+
+Two things moved after this was abandoned, neither reviving it.
+
+**Forward-only correction.** New nodes now write `addr:source` directly, so the
+backlog this campaign would have cleared stopped growing. The premise sentence
+below ("every node this import uploaded carries `source=…`") is true of the
+rollout, not of maintenance runs from 2026-08-27 onward. `STATIC_TAGS` is gone
+with it — `osm_export.build_tags` is the one builder now.
+
+**A 49-node seam.** That change landed on the preview path first and on the
+upload path 52 minutes later, and one maintenance run went out in between:
+changeset [188123936](https://www.openstreetmap.org/changeset/188123936),
+run 2599, 49 nodes, uploaded 2026-08-28T00:55Z with the bare `source` key while
+the review UI and the proposal page both said `addr:source`. They are ours
+provably — the run's candidate rows carry their node ids — so if anything ever
+does rewrite manifest nodes, these 49 belong in the same set. Nothing else is
+affected: the run before it was 2026-07-23.
+
+**The proposal page needs a look either way.** § Post-import follow-ups
+describes this campaign as scoped and forthcoming, and links it as
+`toronto-2-address-import/blob/main/future-work/source-tag-rewrite.md` — a path
+that 404s, since future-work moved to the engine repo in the split. A public
+page pointing at a missing file that would have told the reader the campaign
+was abandoned is worse than either fact alone.
+
 ## The original idea
 
 Every node this import uploaded carries `source=City of Toronto Open Data`
