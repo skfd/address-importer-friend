@@ -278,11 +278,17 @@ def build_tags(it: dict) -> dict[str, str]:
     plan promises addr:city=Guelph; Toronto declares none and writes none).
     Config cannot redefine a derived tag — parse_node_tags refuses that at
     load — so the splat is safe last.
+
+    Reads `export_attribution` raw rather than through `_attribution()`: an
+    unset attribution drops the tag here (the empty-value filter below) and
+    stops the *upload* instead, in `changeset_tags`, which every upload path
+    goes through. A city being scaffolded must still be able to conflate and
+    open the review UI before its attribution string is settled.
     """
     tags = {
         "addr:housenumber": (it.get("housenumber") or "").strip(),
         "addr:street": (it.get("street_raw") or "").strip(),
-        "addr:source": _attribution(),
+        "addr:source": _CONFIG.export_attribution,
     }
     postcode = (it.get("proposed_postcode") or "").strip()
     if postcode:

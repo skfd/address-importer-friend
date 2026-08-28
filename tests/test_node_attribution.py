@@ -12,6 +12,8 @@ review is what has to leave the building.
 """
 import xml.etree.ElementTree as ET
 
+import pytest
+
 from t2 import osm_export
 from t2.conflate import _proposed_tags
 
@@ -41,3 +43,17 @@ def test_the_emitted_xml_carries_it():
     keys = {t.attrib["k"] for t in root.findall("./node/tag")}
     assert "addr:source" in keys
     assert "source" not in keys
+
+
+def test_an_unsettled_attribution_blocks_the_upload_not_the_review(monkeypatch):
+    """A city can conflate and be reviewed before its attribution string is
+    settled — `_attribution`'s standing promise, and the reason a scaffolded
+    city's review UI must still render. The refusal belongs on the upload,
+    where `changeset_tags` raises and every upload path goes through it."""
+    monkeypatch.setattr(osm_export._CONFIG, "export_attribution", "")
+    tags = osm_export.build_tags(ITEM)
+    assert "addr:source" not in tags
+    assert tags["addr:street"] == "Main Street"
+    assert _proposed_tags(ITEM) == tags
+    with pytest.raises(ValueError, match="attribution is empty"):
+        osm_export._attribution()
