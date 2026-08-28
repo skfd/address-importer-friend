@@ -28,10 +28,10 @@ TILES_PATH = _CFG.data_dir / "tiles.json"
 # page, and the engine repo stays free of one city's artifacts.
 OUT_PATH = _config.CITY_DIR / "docs" / "operator-animation.html"
 
-# One definition of "the operator did something", shared with the wrap-up page
-# so the animation's action count and the one-pager's hands-on clock can never
-# drift apart.
-from t2.campaign_stats import OPERATOR_EVENTS
+# One definition of "the operator did something", and one of "which runs are
+# the import", both shared with the wrap-up page so the animation's action
+# count and the one-pager's hands-on clock can never drift apart.
+from t2.campaign_stats import IMPORT_RUNS, OPERATOR_EVENTS
 
 UPLOAD_KIND = "CHANGESET_UPLOADED"
 REVIEW_KINDS = tuple(k for k in OPERATOR_EVENTS if k != UPLOAD_KIND)
@@ -49,10 +49,18 @@ def build_payload() -> dict:
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
 
-    # Map run_id → tile_id (and pick up name for sidebar).
+    # Map run_id → tile_id (and pick up name for sidebar). Import runs only:
+    # this is a replay of the import, not of the monthly maintenance that keeps
+    # landing in the same tool.db for years afterwards. Maintenance runs happen
+    # to be named `maint-snapNN`, which matches no tile id and so fell out of
+    # the tile lookup below anyway — but that is a naming convention doing a
+    # scope's job, and `maintenance.py` records the window on the run precisely
+    # so nothing has to infer it from a name.
     run_to_tile: dict[int, str] = {}
     run_meta: dict[int, dict] = {}
-    for r in conn.execute("SELECT run_id, name FROM runs").fetchall():
+    for r in conn.execute(
+        f"SELECT run_id, name FROM runs WHERE run_id IN ({IMPORT_RUNS})"
+    ).fetchall():
         tid = run_name_to_tile_id(r["name"])
         run_to_tile[int(r["run_id"])] = tid
         run_meta[int(r["run_id"])] = {"tile_id": tid, "run_name": r["name"]}

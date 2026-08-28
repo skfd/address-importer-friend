@@ -428,9 +428,13 @@ would have got a mislabeled page in the wrong repo. It now takes the name from
 `campaign_stats.OPERATOR_EVENTS` so its action count and the wrap-up's clock
 cannot drift apart.
 
-Still open: the animation's replay includes maintenance activity (it compresses
-idle gaps, so it degrades gracefully, but the scope question is the same one
-the wrap-up answered).
+The animation takes the same scope. It was already free of maintenance, but by
+accident: maintenance runs are named `maint-snapNN`, which matches no tile id,
+so they fell out of its name-based tile lookup. That is a naming convention
+doing a scope's job. It now filters on `campaign_stats.IMPORT_RUNS` like the
+wrap-up does. Verified a no-op on Toronto's data — tiles, events and gaps are
+byte-identical either way, and identical to the artifact committed in May, so
+the published page needed no refresh.
 
 ## Housekeeping
 
