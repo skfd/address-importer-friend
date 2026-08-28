@@ -46,8 +46,13 @@ also the unit of upload — one run becomes one OSM changeset.
    ```bash
    python -m venv .venv
    .venv\Scripts\activate    # PowerShell / cmd
+   pip install -e ../accordeur
    pip install -e .
    ```
+   `accordeur` is the family's shared conflation core — the street normalizer
+   this engine and `address-beholder` must agree on. It is a sibling checkout
+   (<https://github.com/skfd/accordeur>), not a published package, so it is
+   installed from its path rather than declared as a dependency.
 3. **Register an OAuth2 application** on the OSM dev server:
    - Log into <https://master.apis.dev.openstreetmap.org/>.
    - My Settings → OAuth 2 applications → **Register new application**.

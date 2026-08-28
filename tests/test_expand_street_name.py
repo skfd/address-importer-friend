@@ -69,6 +69,21 @@ def test_mac_prefix_is_not_glued():
     assert expand_street_name("Mac Frost Way") == "Mac Frost Way"
 
 
+def test_raw_source_name_reaches_the_osm_key_without_expansion():
+    # Deliberate change, 2026-08-28, from unifying the two engines'
+    # normalizers in accordeur: normalize_street now glues Mc itself, where
+    # this engine used to glue only in expand_street_name at ingest.
+    #
+    # The conflation path is unaffected — candidates are ingested expanded, so
+    # their stored street_norm does not move — but the reports that normalize
+    # a *raw* source name (ranges coverage, /source/multi, the OSM-not-in-source
+    # sweep) previously produced "MC CAUL ST" while the candidate and OSM both
+    # said "MCCAUL ST", so nine Toronto streets never matched themselves there.
+    # Symmetry is the invariant: both sides go through one function.
+    assert normalize_street("Mc Caul St") == normalize_street("McCaul Street")
+    assert normalize_street("Mc Gee St") == normalize_street("McGee St")
+
+
 def test_mc_glue_is_case_insensitive_on_the_prefix():
     # The "Mc" trigger is case-insensitive, but we always emit "Mc" (the
     # OSM convention) and preserve the surname's original case.

@@ -1,181 +1,56 @@
 """Stage 3: conflate candidates against cached OSM snapshot, write verdicts to DB.
 
-Core helpers (normalize_street, GridIndex, haversine) preserved from sibling
-project's src/conflate.py — the algorithmic contract there is proven.
+GridIndex and haversine are preserved from the sibling project's
+src/conflate.py — the algorithmic contract there is proven. Street
+normalization moved out to `accordeur` on 2026-08-28 and is re-exported below.
 """
 import json
 import math
 from collections import defaultdict
 from datetime import datetime, timezone
 
-from . import audit, db as _db, osm_export, osm_fetch
+from accordeur import (  # noqa: F401 -- re-exported; see the note below
+    DIRS,
+    DIRS_EXPAND,
+    STREET_SUFFIX_EXPAND,
+    STREET_SUFFIXES,
+    StreetProfile,
+    expand_street_name,
+    normalize_street,
+)
 
-STREET_SUFFIXES = {
-    "STREET": "ST", "ROAD": "RD", "AVENUE": "AVE", "BOULEVARD": "BLVD",
-    "DRIVE": "DR", "LANE": "LN", "COURT": "CT", "PLACE": "PL",
-    "TERRACE": "TER", "CRESCENT": "CRES", "SQUARE": "SQ", "GATE": "GTE",
-    "CIRCLE": "CIR", "WAY": "WAY", "TRAIL": "TRL", "PARKWAY": "PKWY",
-    "HIGHWAY": "HWY", "EXPRESSWAY": "EXPY",
-    "CRT": "CT", "CRCL": "CIR", "GT": "GTE",
-    # Cornwall's variant shorts (2026-08-15, TODO "cheap suffix-table wins"):
-    # its source emits AV/CR/BV/WY, covering 32% of its rows. Guardrail-checked
-    # against toronto/hamilton/guelph/quinte-west the same day: zero streets in
-    # any of them end in these tokens, so no existing normalization moves.
-    "AV": "AVE", "CR": "CRES", "BV": "BLVD", "WY": "WAY",
-    "GARDENS": "GDNS", "GROVE": "GRV", "HEIGHTS": "HTS",
-    "PATHWAY": "PTWY", "CIRCUIT": "CRCT", "BRIDGE": "BDGE", "LAWN": "LWN",
-    "PARK": "PK", "ROADWAY": "RDWY", "CLOSE": "CS", "WOODS": "WDS",
-    "GREEN": "GRN",
-}
-DIRS = {"NORTH": "N", "SOUTH": "S", "EAST": "E", "WEST": "W"}
+from . import audit, config as _config, db as _db, osm_export, osm_fetch
 
-# Short → full mapping for upload. The City source emits short suffix and
-# direction tokens ("Foo Ave W"), but OSM Toronto convention is the full
-# form ("Foo Avenue West"). expand_street_name() applies this at ingest so
-# both the review-page display and the uploaded addr:street tag carry the
-# full form. Multiple shorts pointing to the same long form (CRT and CT both
-# → Court) are listed because the City source actually emits both spellings.
-STREET_SUFFIX_EXPAND: dict[str, str] = {
-    "ST": "Street", "RD": "Road", "AVE": "Avenue", "BLVD": "Boulevard",
-    "DR": "Drive", "LN": "Lane", "CT": "Court", "CRT": "Court",
-    "PL": "Place", "TER": "Terrace", "CRES": "Crescent", "SQ": "Square",
-    "GTE": "Gate", "GT": "Gate", "CIR": "Circle", "CRCL": "Circle",
-    "TRL": "Trail", "PKWY": "Parkway", "HWY": "Highway", "EXPY": "Expressway",
-    "AV": "Avenue", "CR": "Crescent", "BV": "Boulevard", "WY": "Way",
-    "GDNS": "Gardens", "GRV": "Grove", "HTS": "Heights",
-    "PTWY": "Pathway", "CRCT": "Circuit", "BDGE": "Bridge", "LWN": "Lawn",
-    "PK": "Park", "RDWY": "Roadway", "CS": "Close", "WDS": "Woods",
-    "GRN": "Green",
-}
+# Street normalization lives in `accordeur`, the family's shared conflation
+# core: one answer to "are these the same street" for this engine and for
+# address-beholder, instead of a copy each that drifted apart (see that repo's
+# README, and future-work/multi-city/01-core-library.md). The names are
+# re-exported here because they were this module's for their whole life and
+# nine modules plus the review UI import them from it.
+#
+# The per-city half is the override table. It is a fact about one city's data
+# -- the handful of names where that source and OSM disagree about the actual
+# name -- so it is declared in the city checkout's `[streets] overrides`, not
+# hardcoded here. Toronto declares thirteen; Guelph and Hamilton declare none.
+_STREET_PROFILE = StreetProfile(_config.load().street_overrides)
 
-DIRS_EXPAND: dict[str, str] = {"N": "North", "S": "South", "E": "East", "W": "West"}
-
-
-def expand_street_name(name: str | None) -> str | None:
-    """Rewrite the trailing direction and suffix tokens of `name` from the
-    City source's short form to the OSM full form ("Foo Ave W" → "Foo Avenue
-    West"). Only the last token (direction) and the token immediately before
-    it (suffix) are touched. Earlier tokens — including a leading "St "
-    standing for "Saint" in names like "St Clair Ave E" — are preserved
-    verbatim. A standalone "Mc" token followed by an alphabetic word is
-    glued back into a single surname token ("Mc Caul St" → "McCaul St"),
-    matching OSM Toronto's convention. Empty/None passes through.
-    """
-    if not name:
-        return name
-    parts = _glue_mc_prefix(name.split())
-    if not parts:
-        return name
-    i = len(parts) - 1
-    last_key = parts[i].upper().replace(".", "")
-    if last_key in DIRS_EXPAND:
-        parts[i] = DIRS_EXPAND[last_key]
-        i -= 1
-    if i >= 0:
-        sfx_key = parts[i].upper().replace(".", "")
-        if sfx_key in STREET_SUFFIX_EXPAND:
-            parts[i] = STREET_SUFFIX_EXPAND[sfx_key]
-    return " ".join(parts)
-
-
-def _glue_mc_prefix(parts: list[str]) -> list[str]:
-    """Collapse `["Mc", "Caul"]` → `["McCaul"]` for surname-prefix tokens.
-    Only fires when the next token is alphabetic and not a known
-    suffix/direction, so names like "Mc Way" (hypothetical) or "Mc West"
-    are left alone. The next token's case is preserved, so "Mc caul" stays
-    "Mccaul" and "Mc Caul" becomes "McCaul" — we don't re-case the
-    surname.
-    """
-    out: list[str] = []
-    i = 0
-    while i < len(parts):
-        tok = parts[i]
-        key = tok.upper().replace(".", "")
-        if (
-            key == "MC"
-            and i + 1 < len(parts)
-            and parts[i + 1].isalpha()
-        ):
-            nxt_key = parts[i + 1].upper()
-            if (
-                nxt_key not in STREET_SUFFIXES
-                and nxt_key not in STREET_SUFFIX_EXPAND
-                and nxt_key not in DIRS
-                and nxt_key not in DIRS_EXPAND
-            ):
-                out.append("Mc" + parts[i + 1])
-                i += 2
-                continue
-        out.append(tok)
-        i += 1
-    return out
-
-# Hardcoded source-name -> OSM-canonical-name overrides for known street
-# names where the City source and OSM disagree on the actual name. Two
-# shapes show up in practice:
-#   - proper-noun spacing differences the normalizer can't bridge
-#     (source "Deane Field Cres" vs OSM "Deanefield Crescent"), and
-#   - outright suffix corrections where the source has the street type
-#     wrong (source "Kathleen Ave" sits on what OSM and signage call
-#     "Kathleen Crescent").
-# Applied at ingest, so the candidate's street_raw and street_norm — and
-# therefore both conflation matching and the uploaded addr:street tag —
-# carry the OSM name local mappers already know. Override values keep the
-# source's short suffixes (Rd / Cres / …) so the lookup matches the source
-# spelling; expand_street_name() runs after the override and rewrites those
-# shorts to the OSM full form. Lookup is case- and whitespace-insensitive on
-# the source's `linear_name_full` value. Each entry is a candidate for
-# retirement once the source and OSM converge; the `nearby_street_mismatch`
-# review check surfaces fresh candidates for inclusion.
-STREET_NAME_OVERRIDES: dict[str, str] = {
-    "Deane Field Cres": "Deanefield Cres",
-    "Golfcrest Rd": "Golf Crest Rd",
-    "Forest View Rd": "Forestview Rd",
-    "Greenhouse Rd": "Green House Rd",
-    "Kathleen Ave": "Kathleen Cres",
-    "Meadow Crest Rd": "Meadowcrest Rd",
-    "Posthorn Grv": "Post Horn Grv",
-    "Scenic Millway": "Scenic Mill Way",
-    "Mac Gregor Ave": "MacGregor Ave",
-    "Governor's Rd": "Governors Road",
-    "St Andrews Gdns": "St. Andrew's Gardens",
-    "St Leonard's Ave": "Saint Leonard's Avenue",
-    # OSM's canonical name carries no street-type suffix at all (road
-    # way/27371860 name="Sunny Slope", alt_name="Sunnyslope Avenue"); the
-    # existing OSM building addresses use addr:street="Sunny Slope". This is
-    # the one entry whose value intentionally has no short suffix — don't
-    # "fix" it by appending one.
-    "Sunnyslope Ave": "Sunny Slope",
-}
-
-_STREET_NAME_OVERRIDES_LOOKUP: dict[str, str] = {
-    " ".join(k.upper().split()): v for k, v in STREET_NAME_OVERRIDES.items()
-}
+#: This city's declared overrides, source spelling -> OSM-canonical spelling.
+STREET_NAME_OVERRIDES: dict[str, str] = dict(_STREET_PROFILE.overrides)
 
 
 def apply_street_override(name: str | None) -> str | None:
-    """Return the OSM-canonical street name when `name` is a known source
-    spelling variant from `STREET_NAME_OVERRIDES`; otherwise return `name`
-    unchanged. Empty/None passes through. Lookup is case-insensitive on
-    the whitespace-collapsed input."""
-    if not name:
-        return name
-    key = " ".join(name.upper().split())
-    return _STREET_NAME_OVERRIDES_LOOKUP.get(key, name)
+    """Return the OSM-canonical street name when `name` is a spelling variant
+    this city declares in `[streets] overrides`; otherwise return `name`
+    unchanged. Empty/None passes through. Lookup is case-insensitive on the
+    whitespace-collapsed input.
 
-
-def normalize_street(name: str | None) -> str:
-    if not name:
-        return ""
-    out = []
-    for p in name.upper().replace(".", "").split():
-        if p in STREET_SUFFIXES:
-            out.append(STREET_SUFFIXES[p])
-        elif p in DIRS:
-            out.append(DIRS[p])
-        else:
-            out.append(p)
-    return " ".join(out)
+    Applied at ingest, so the candidate's street_raw and street_norm -- and
+    therefore both conflation matching and the uploaded addr:street tag --
+    carry the OSM name local mappers already know. Each entry is a candidate
+    for retirement once the source and OSM converge; the
+    `nearby_street_mismatch` review check surfaces fresh candidates.
+    """
+    return _STREET_PROFILE.apply_override(name)
 
 
 class GridIndex:

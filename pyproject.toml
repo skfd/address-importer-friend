@@ -6,6 +6,9 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "skfd", email = "kk@comentality.com" }]
+# `accordeur` (the shared conflation core) is a sibling checkout, not a
+# published package, so it is installed with `pip install -e ../accordeur`
+# rather than declared here. See README "Setup".
 dependencies = [
     "flask>=3.0",
     "requests>=2.31",

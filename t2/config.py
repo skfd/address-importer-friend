@@ -4,6 +4,8 @@ import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from accordeur import normalize_street
+
 ROOT = Path(__file__).resolve().parent.parent
 
 # The city checkout this process operates on. config.toml, .env.*, and data/
@@ -261,6 +263,47 @@ def parse_status_policy(
 # Tags the engine derives per candidate. A city may add constant tags of its
 # own, but never redefine one of these: a typo in config silently overriding a
 # conflated street would be indistinguishable from a conflation bug.
+def parse_street_overrides(section: dict, origin: str = "config.toml") -> dict[str, str]:
+    """Validate this city's `[streets] overrides` — source spelling -> the
+    OSM-canonical name.
+
+    These are the names where the source and OSM disagree about the actual
+    name, not about how to abbreviate it, so no normalizer can bridge them
+    (`accordeur.StreetProfile`). They are a fact about one city's data, which
+    is why they are declared per city rather than compiled in: Toronto needs
+    thirteen, Guelph and Hamilton none. A city that declares none gets an empty
+    table and every street name reaches conflation exactly as the source wrote
+    it. Absent section = no overrides, so nothing is required of a new city.
+
+    An entry that does not change the normalized form is refused: it is a no-op
+    the normalizer already covers, and leaving it in the table would make it
+    look like a rule that is doing work.
+    """
+    raw = section.get("overrides", section) if section else {}
+    if not raw:
+        return {}
+    if not isinstance(raw, dict):
+        raise ValueError(
+            f"{origin} [streets] overrides must be a table of "
+            "\"Source Spelling\" = \"OSM Spelling\" pairs."
+        )
+    out: dict[str, str] = {}
+    for src, dst in raw.items():
+        if not isinstance(dst, str) or not dst.strip():
+            raise ValueError(
+                f"{origin} [streets] overrides {src!r} = {dst!r} is not a "
+                "street name."
+            )
+        if normalize_street(src) == normalize_street(dst):
+            raise ValueError(
+                f"{origin} [streets] overrides {src!r} -> {dst!r} does not "
+                "change the normalized form; the normalizer already covers "
+                "this case, so the entry does nothing. Remove it."
+            )
+        out[str(src)] = dst
+    return out
+
+
 DERIVED_NODE_TAGS = ("addr:housenumber", "addr:street", "addr:postcode", "addr:source")
 
 
@@ -405,6 +448,10 @@ class Config:
     # None (no status field) or the tuple of status values whose rows are
     # importable reality; everything else is filtered from every source query.
     status_active_values: tuple[str, ...] | None
+    # Source spelling -> OSM-canonical name, for the handful of streets
+    # where this city's source and OSM disagree about the actual name.
+    # Empty for a city that declares none.
+    street_overrides: dict[str, str]
     default_bbox: tuple[float, float, float, float]
     overpass_url: str
     match_radius_m: float
@@ -571,6 +618,7 @@ def load() -> Config:
         status_active_values=parse_status_policy(
             cfg.get("status", {}), source_fields, str(toml_path)
         ),
+        street_overrides=parse_street_overrides(cfg.get("streets", {}), str(toml_path)),
         default_bbox=bbox,  # type: ignore
         overpass_url=cfg["run_defaults"]["overpass_url"],
         match_radius_m=float(cfg["conflation"]["match_radius_m"]),
