@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sqlite3
 import sys
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor
@@ -247,13 +248,22 @@ def run_name_for(latest_snapshot: int) -> str:
 # processed. config_json otherwise only holds checks params, so adding a key is
 # safe (readers use .get).
 
-def _update_run_maintenance(run_id: int, fields: dict) -> None:
+def _update_run_maintenance(
+    run_id: int, fields: dict, busy_timeout_ms: int | None = None
+) -> None:
     """Merge keys into `runs.config_json["maintenance"]`, leaving the rest of it
     alone. The window and the close record share that dict, and `prepare()` is
     idempotent — a re-prepare that replaced the dict wholesale would silently
-    drop the close."""
+    drop the close.
+
+    ``busy_timeout_ms`` overrides the connection default (120s, sized for a
+    conflate batch). Callers that must not wait that long for the writer lock —
+    a page render memoizing something it can just as well recompute — pass a
+    short one and handle the failure."""
     conn = _db.connect()
     try:
+        if busy_timeout_ms is not None:
+            conn.execute(f"PRAGMA busy_timeout={int(busy_timeout_ms)}")
         conn.execute("BEGIN IMMEDIATE")
         row = conn.execute("SELECT config_json FROM runs WHERE run_id=?", (run_id,)).fetchone()
         cfg_obj = json.loads(row["config_json"]) if row and row["config_json"] else {}
@@ -273,6 +283,34 @@ def set_run_window(run_id: int, from_snapshot: int, to_snapshot: int) -> None:
     _update_run_maintenance(
         run_id, {"from_snapshot": from_snapshot, "to_snapshot": to_snapshot}
     )
+
+
+def _window_counts(
+    run_id: int, maint: dict, frm: int, to: int
+) -> tuple[int, int]:
+    """(new, retired) source-feed counts for this run's window, memoized on the
+    run itself under ``config_json["maintenance"]["counts"]``.
+
+    Both scans read snapshots that are already published and never rewritten,
+    so a window's answer is fixed once computed. The cached record carries the
+    window it was computed for, so a re-prepare or reopen that moves
+    ``to_snapshot`` (see :func:`set_run_window`) invalidates it by not
+    matching — nothing has to remember to clear it."""
+    cached = maint.get("counts") or {}
+    if cached.get("from") == frm and cached.get("to") == to:
+        return int(cached["new"]), int(cached["retired"])
+    new_count = sum(1 for _ in source_db.iter_new_since(frm, to))
+    retired_count = sum(1 for _ in source_db.iter_retired_since(frm, to))
+    try:
+        _update_run_maintenance(
+            run_id,
+            {"counts": {"from": frm, "to": to,
+                        "new": new_count, "retired": retired_count}},
+            busy_timeout_ms=2000,
+        )
+    except sqlite3.Error:
+        pass  # An in-flight run holds the writer lock; recompute next time.
+    return new_count, retired_count
 
 
 def get_run_window(run_id: int) -> dict | None:
@@ -328,7 +366,12 @@ def history() -> list[dict]:
     retired counts are reconstructed from the source feed for that window, and
     `uploaded` is the run's candidates that actually reached OSM. The window is
     read from the run (see :func:`get_run_window`), so a back-dated catch-up
-    sorts and dates correctly alongside the monthly runs."""
+    sorts and dates correctly alongside the monthly runs.
+
+    The two feed counts are memoized on the run (see :func:`_window_counts`):
+    a closed window over past snapshots can never change its answer, and
+    recomputing every run's on every page load is what made /maintenance take
+    a minute to open."""
     conn = _db.connect()
     try:
         rows = conn.execute(
@@ -347,13 +390,14 @@ def history() -> list[dict]:
         m = cfg_obj.get("maintenance") or {}
         frm = int(m.get("from_snapshot", DEFAULT_WATERMARK))
         to = int(m.get("to_snapshot", r["source_snapshot_id"]))
+        new_count, retired_count = _window_counts(r["run_id"], m, frm, to)
         r.update(
             from_snapshot=frm,
             to_snapshot=to,
             from_date=source_db.snapshot_date(frm),
             to_date=source_db.snapshot_date(to),
-            new_count=sum(1 for _ in source_db.iter_new_since(frm, to)),
-            retired_count=sum(1 for _ in source_db.iter_retired_since(frm, to)),
+            new_count=new_count,
+            retired_count=retired_count,
             uploaded_count=candidates.count_by_stage(r["run_id"]).get("UPLOADED", 0),
             is_catchup=not r["name"].startswith(_RUN_PREFIX),
         )

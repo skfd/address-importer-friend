@@ -13,6 +13,12 @@ def connect_readonly() -> sqlite3.Connection:
     uri = f"file:{_CONFIG.source_sqlite_path}?mode=ro"
     conn = sqlite3.connect(uri, uri=True)
     conn.row_factory = sqlite3.Row
+    # The delta queries make SQLite build transient indexes over the whole
+    # active set (~525k rows for Toronto). With the default temp_store those
+    # spill to a file and the retired-since query takes ~10s; in memory it
+    # takes ~1s. Nothing here writes, so the temp space is bounded by one
+    # such index — tens of MB.
+    conn.execute("PRAGMA temp_store=MEMORY")
     return conn
 
 
@@ -373,7 +379,7 @@ def build_retired_since_query(
 
     The collapsed form ranks over the surviving retired rows, so a civic
     address whose whole stack retires is flagged once, not once per unit. A
-    partially-retired stack is already suppressed by the re-issue NOT EXISTS
+    partially-retired stack is already suppressed by the re-issue anti-join
     (some same-street row is still active)."""
     cols = build_address_cols(sf)
     retired_join = (
@@ -385,18 +391,38 @@ def build_retired_since_query(
         "            ) r ON r.identity_key = a.identity_key\n"
         "               AND r.last_snap = a.max_snapshot_id"
     )
-    not_reissued = (
-        "NOT EXISTS (\n"
-        "                SELECT 1 FROM addresses b\n"
-        f"                WHERE {field_sql(sf, 'number', 'b')}   = {field_sql(sf, 'number', 'a')}\n"
-        f"                  AND {field_sql(sf, 'street', 'b')}   = {field_sql(sf, 'street', 'a')}\n"
-        "                  AND b.identity_key <> a.identity_key\n"
-        f"                  AND {_active_at('b')}\n"
-        "            )"
+    # Re-issue exclusion, as an anti-join against the (number, street) pairs
+    # alive at :snap — materialized once. This was a correlated NOT EXISTS over
+    # `addresses`, which the planner ran per candidate row against the whole
+    # active set: ~20s per window on Toronto's 538k rows, and /maintenance pays
+    # it once per maintenance run (48s to open the page). Same rows, ~100x less
+    # work.
+    #
+    # The old subquery's `b.identity_key <> a.identity_key` is dropped because
+    # it was always true: `a` only carries identities whose last snapshot is
+    # < :snap, so no row of theirs can be active at :snap. That is what lets the
+    # check collapse to a set of pairs with the identity forgotten.
+    #
+    # An anti-join, not `NOT IN`: a NULL number or street on any active row
+    # would make `NOT IN` yield NULL and silently drop every retirement. NULL
+    # join keys just never match — which is what the old `=` comparisons did.
+    # No DISTINCT on the pair set: a candidate that matches several active rows
+    # is dropped by the IS NULL either way, and one that matches none produces
+    # exactly one NULL-extended row. Deduplicating first would only add a sort
+    # over half a million rows.
+    active_pairs = (
+        "LEFT JOIN (\n"
+        f"                SELECT {field_sql(sf, 'number', '')} AS _ns_number,\n"
+        f"                       {field_sql(sf, 'street', '')} AS _ns_street\n"
+        "                FROM addresses\n"
+        f"                WHERE {_active_at('')}\n"
+        f"            ) ns ON ns._ns_number = {field_sql(sf, 'number', 'a')}\n"
+        f"               AND ns._ns_street = {field_sql(sf, 'street', 'a')}"
     )
+    not_reissued = "ns._ns_number IS NULL"
     # The status filter applies to the retired row itself: a Pending row that
     # vanishes was never importable, so its retirement is not OSM-actionable.
-    # The not_reissued EXISTS deliberately stays unfiltered — any surviving
+    # The active-pairs set deliberately stays unfiltered — any surviving
     # same-street row suppresses the flag, importable or not, erring toward
     # silence over a false retirement.
     if not collapse:
@@ -404,6 +430,7 @@ def build_retired_since_query(
             SELECT {cols}, r.last_snap AS last_snapshot_id
             FROM addresses a
             {retired_join}
+            {active_pairs}
             WHERE {not_reissued}{_status_filter(sf, active_status, "a")}
         """
     return f"""
@@ -412,6 +439,7 @@ def build_retired_since_query(
                 SELECT a.*, r.last_snap, {_unit_rank(sf, 'a')}
                 FROM addresses a
                 {retired_join}
+                {active_pairs}
                 WHERE {not_reissued}{_status_filter(sf, active_status, "a")}
             ) a
             WHERE a._unit_rn = 1
