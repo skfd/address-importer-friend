@@ -6,6 +6,86 @@ decided here, and the reasoning is not recoverable from the code.
 
 Full context lives in [08-survey-results-2026-08-12.md](08-survey-results-2026-08-12.md).
 
+## Beholder generalization (`07`) — DONE 2026-08-28
+
+`07`'s first-implementation-target status held, three weeks late: the engine is
+**`address-beholder`** (github.com/skfd/address-beholder, private), with
+`toronto-import-beholder` and `guelph-beholder` reduced to thin dataset
+directories carrying one `config.toml` each. The house pattern again — the
+*new* repo is the engine, so neither city repo's name or URL moved. The seam is
+`run.py --dataset-dir` / `BEHOLDER_DATASET_DIR`, mirroring `T2_CITY_DIR`.
+
+**How it got here matters for the next one.** `guelph-beholder` was built on
+2026-08-27 as a *fork* of the Toronto beholder, in ignorance of this folder —
+the fork/generalize decision was made from the `*-address-import` repo pattern
+without reading `07`. That was caught the next day and the fork became the
+engine, but the lesson is cheap to state: the plan existed and was not
+consulted, because nothing in the beholder repos pointed at it. Both dataset
+READMEs now link here.
+
+What `07` asked for, and what actually happened:
+
+- **Config slug-driven** — done, and further: `[source_fields]` projects a
+  tracker row (column / `props:KEY` / absent), so Toronto's
+  `MUNICIPALITY_NAME`/`LO_NUM`/`HI_NUM` and Guelph's `PLACE`/`WARD`/`POSTCODE`
+  differ only in TOML. Same Tier 2 contract as `02`, arrived at independently.
+  Undeclared disables the dependent feature rather than failing open (`03`).
+- **Boundary polygon** — *not* done. The bbox is still a rectangle and Guelph
+  still bleeds into Eramosa; `10` stays open.
+- **`streets.py` deleted in favour of the core** — half done, deliberately. The
+  engine owns *one* profile-driven copy (`[streets] overrides`) instead of the
+  three that existed, and `StreetProfile` is the seam that moves into
+  `accordeur` when `01` is built. Waiting for `01` would have blocked this.
+- **Notes → adjudications (`06`)** — not started; still a local table.
+- **Per-dataset allowlist** — done, by construction: the allowlist is in the
+  dataset's config, and the engine has none.
+- **Deployment shape** — single-set is what exists; `create_app` takes one
+  dataset and the pages are named from `[dataset] name`. Multi-set is not built.
+
+**Two design decisions `07` did not anticipate**, both forced by Guelph:
+
+1. **Readings.** Guelph's 2025 import wrote units into the housenumber, so its
+   conflation must accept `addr:housenumber=714-30` as civic `714`. That is a
+   fact about one city's data on one set of dates, so it is a *plugin* in the
+   dataset directory (`guelph-beholder/readings.py`), deleted when the split
+   campaign lands. The engine reads addresses literally. Two guardrails: a
+   plugin reading must rank below the literal one, so correct tagging always
+   wins the match; and readings only add candidate keys, so a bad plugin can
+   never hide a real address. The user's framing decided this — "if we allow
+   something like that it should be some pluggable piece not part of engine".
+2. **A correctness audit beside present/missing.** `07` scoped the beholder to
+   coverage. It now also checks postcode, `addr:city`, street literal, match
+   distance, duplicate objects and deprecated tags, per point, with the issue
+   set part of the append-on-change tuple.
+
+**The acceptance test was `07`'s third guardrail** — a Guelph-driven change that
+moves Toronto's counts is a regression. Over 523,835 points the engine
+reproduces the old code's per-point `(status, osm_ref)` digest exactly
+(`bbe3b978…`). It caught one: a distance rounding introduced during the Guelph
+work let a marginally-further element tie and win on insertion order,
+reassigning 16 points.
+
+**Scale taught the audit three lessons Guelph could not**, all now engine
+behaviour:
+
+- `street_spelling` must compare *after* collapsing suffix and direction
+  abbreviations. Toronto's short-form source against OSM's long-form tags gave
+  490,076 findings; after the fix, 67.
+- A tag absent from OSM is only a defect if the tagging plan promised it
+  (`[audit] expect_tags`). Toronto writes no `addr:city` by design and its
+  source municipality is the *former* municipality where OSM says "Toronto":
+  512,885 false `city_mismatch` findings.
+- An issue carried by most of a city is a bulk campaign, not a per-address
+  defect (`[audit] campaign_issues`). Toronto's `duplicate_osm` covers 95,639
+  addresses; drawing them made the map 16.5 MB of amber hiding 452 red.
+
+Guardrail 2 (append-only history) held: `init_db` adds missing columns to an
+older DB and reports them, so Toronto's 2026-06-06 and 2026-08-10 runs are still
+readable beside the runs under the engine.
+
+State: Toronto 523,383 present / 452 missing; Guelph 45,397 / 8,449 with 7,216
+matches resting on a workaround reading. 68 tests.
+
 ## Hamilton neighbourhoods layer + orphan policy — DONE 2026-08-15
 
 The 2026-08-13 config comment "Hamilton has no neighbourhood polygon layer"

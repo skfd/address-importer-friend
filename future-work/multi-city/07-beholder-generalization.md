@@ -1,9 +1,18 @@
 # Beholder generalization — first target
 
-Status: **agreed as the first implementation target, not started.**
-Captured 2026-08-10.
+Status: **IMPLEMENTED 2026-08-28.** See the DONE.md entry for what was built,
+what was skipped, and the two decisions this document did not anticipate
+(conflation readings as a dataset plugin, and a correctness audit beside
+present/missing). Everything below is the 2026-08-10 design as captured; read
+DONE.md first, and treat the numbers here as stale.
 
-Repo: `C:/Users/kk/Code/toronto-import-beholder`.
+Engine: `C:/Users/kk/Code/address-beholder` (github.com/skfd/address-beholder).
+Datasets: `C:/Users/kk/Code/toronto-import-beholder`,
+`C:/Users/kk/Code/guelph-beholder` — both now thin, one `config.toml` each.
+
+Still open from this document: the boundary polygon (`10`), notes becoming
+adjudications (`06`), multi-set deployment, and moving `StreetProfile` into
+`accordeur` (`01`).
 
 ## Why it goes first
 

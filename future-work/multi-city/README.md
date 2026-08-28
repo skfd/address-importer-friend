@@ -21,7 +21,7 @@ problem, and two of them have already solved parts of it:
 | `ontario-address-changes` | acquires + change-tracks municipal address feeds | **already generic** — 42 datasets, all 42 DBs on disk |
 | `address-layerist` | turns a feed into iD/JOSM tile layers | **already generic** — engine + thin per-city repos + onboarding skill |
 | `address-vault` | data acquisition | separate tool, generic by design |
-| `toronto-import-beholder` | audits OSM address completeness over time | Toronto-coupled but only ~5 references in 1,122 LOC |
+| `address-beholder` | audits OSM address completeness **and correctness** over time | **generic since 2026-08-28** — engine + thin dataset repos (`toronto-import-beholder`, `guelph-beholder`) |
 | `toronto-2-address-import` (this repo) | conflate → review → upload | Toronto-coupled across four tiers (see `02`) |
 
 `address-layerist` already established the house pattern and it works:
@@ -50,6 +50,10 @@ should align to that pattern rather than invent a second one.
    which is publicly observable and limited-audience writable (`06`).
 5. **Start with the beholder** (`07`). It is 1,122 LOC, nearly generic
    already, and it is the product a brownfield city actually needs.
+   *Done 2026-08-28, three weeks after this was written — and briefly done
+   wrong: `guelph-beholder` was first built as a fork of the Toronto beholder
+   by a session that never read this folder. If a repo is in scope here, say so
+   in that repo's README.*
 6. **Locked vs fuzzy**, borrowed from `address-layerist`: deterministic probes
    belong in the library, judgment belongs in a skill.
 7. **The unit of work is a dataset, not a city** — a `(jurisdiction,
@@ -125,7 +129,9 @@ docs below are reference.
 - [06-adjudication-layer.md](06-adjudication-layer.md) — the collective
   "this mismatch is deliberate" store. The largest and least-settled design.
 - [07-beholder-generalization.md](07-beholder-generalization.md) — first
-  implementation target.
+  implementation target. **Implemented 2026-08-28** → see
+  [DONE.md](DONE.md); the engine is `address-beholder`, with
+  `toronto-import-beholder` and `guelph-beholder` as thin datasets.
 - [08-portfolio-survey.md](08-portfolio-survey.md) — sweep all 42 tracked
   datasets to design against real distributions instead of two data points.
   **Run 2026-08-12** →
