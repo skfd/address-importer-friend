@@ -10,20 +10,25 @@ from . import audit, config as _config, db as _db
 _CONFIG = _config.load()
 
 def _attribution() -> str:
-    """`source` tag for every node we create. Deliberately checked here rather
-    than at config load: a city can conflate and be reviewed before its
-    attribution string is settled, but it must never upload without one."""
+    """`addr:source` tag for every node we create, and `source` on the
+    changeset. Deliberately checked here rather than at config load: a city can
+    conflate and be reviewed before its attribution string is settled, but it
+    must never upload without one."""
     value = _CONFIG.export_attribution
     if not value:
         raise ValueError(
-            "config.toml [export] attribution is empty — it becomes the `source` "
-            "tag on every uploaded node and cannot be omitted."
+            "config.toml [export] attribution is empty — it becomes the "
+            "`addr:source` tag on every uploaded node and cannot be omitted."
         )
     return value
 
 
+# `addr:source` rather than a bare `source`: it sources the *address*, sits in
+# the addr:* namespace with the tags it belongs to, and survives a later merge
+# into a building polygon without claiming to source the building. The
+# changeset keeps the plain `source` key — that one is about the edit.
 STATIC_TAGS = {
-    "source": _CONFIG.export_attribution,
+    "addr:source": _CONFIG.export_attribution,
 }
 
 
@@ -73,7 +78,7 @@ def changeset_tags(run_id: int) -> dict[str, str]:
         "source": _attribution(),
         "import": "yes",
         "bot": "no",
-        "created_by": "t2-address-import",
+        "created_by": "address-importer-friend",
         "import:client_token": token,
         "import_plan": _CONFIG.export_import_plan,
     }

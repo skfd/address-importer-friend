@@ -597,16 +597,38 @@ def advance_watermark(latest_snapshot: int | None = None, force: bool = False) -
 # ---- CLI ------------------------------------------------------------------
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Monthly Toronto address maintenance delta.")
+    # Imported here, not at module scope: maintenance_report reads this module,
+    # so a top-level import would be circular. The CLI is its only caller.
+    from . import maintenance_report
+
+    p = argparse.ArgumentParser(description="Monthly address maintenance delta.")
     p.add_argument("--prepare", action="store_true",
                    help="Ingest + conflate additions (default: just print the delta).")
     p.add_argument("--watermark", type=int, default=None,
                    help="Override the watermark snapshot for this invocation.")
+    p.add_argument("--report", nargs="?", const="latest", default=None,
+                   metavar="RUN_ID",
+                   help="Print a maintenance run's closing report (default: the "
+                        "newest run) instead of the delta.")
+    p.add_argument("--format", default="text", choices=maintenance_report.FORMATS,
+                   help="Report format (default: text).")
+    p.add_argument("--no-retirements", action="store_true",
+                   help="Leave retirement provenance out of the report — it "
+                        "costs one OSM history request per matched element.")
     return p.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
+    from . import maintenance_report
+
     args = _parse_args(argv)
+    if args.report is not None:
+        run_id = None if args.report == "latest" else int(args.report)
+        rep = maintenance_report.report(
+            run_id, include_retirements=not args.no_retirements
+        )
+        print(maintenance_report.render(rep, args.format))
+        return 0
     delta = compute_delta(args.watermark)
     print(f"watermark snapshot: {delta['watermark']}")
     print(f"latest snapshot:    {delta['latest_snapshot']}")
