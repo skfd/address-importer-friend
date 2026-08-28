@@ -1715,14 +1715,36 @@ def create_app() -> Flask:
         except _maintenance.MonthNotFinished as exc:
             flash(f"Month not closed. {exc}")
             return redirect(url_for("maintenance_view", run_id=run_id))
-        if res["already_advanced"]:
-            flash(f"{res['run_name']} closed. Watermark was already at "
-                  f"#{res['watermark']}.")
-        else:
-            flash(f"{res['run_name']} closed — watermark advanced to snapshot "
-                  f"#{res['advanced_to']}."
-                  + (" Publish gate overridden." if force else "")
-                  + " What it still owes is listed under Closing report.")
+        where = (f"Watermark was already at #{res['watermark']}."
+                 if res["already_advanced"] else
+                 f"Watermark advanced to snapshot #{res['advanced_to']}."
+                 + (" Publish gate overridden." if force else ""))
+        stats = res.get("retirement_stats")
+        outcome = (
+            f" Retirements: {stats.get('deleted', 0)} deleted, "
+            f"{stats.get('safe', 0)} left in place, "
+            f"{stats.get('caution', 0)} community-touched."
+            if stats else
+            f" Retirement outcome could not be read from OSM "
+            f"({res.get('retirement_stats_error')}) — the month is closed "
+            f"without it."
+        )
+        flash(f"{res['run_name']} closed. {where}{outcome} "
+              "What it still owes is listed under Closing report.")
+        return redirect(url_for("maintenance_view", run_id=run_id))
+
+    @app.post("/maintenance/<int:run_id>/reopen")
+    def maintenance_reopen(run_id: int):
+        """Undo a close: rewind the watermark to the month's start and drop its
+        close record. Only the month the watermark sits on can be reopened."""
+        try:
+            res = _maintenance.reopen_month(run_id)
+        except _maintenance.MonthNotReopenable as exc:
+            flash(f"Month not reopened. {exc}")
+            return redirect(url_for("maintenance_view", run_id=run_id))
+        flash(f"{res['run_name']} reopened — watermark back to #{res['watermark']} "
+              f"from #{res['was']}. Its close record and retirement outcome are "
+              "cleared; closing again re-reads them.")
         return redirect(url_for("maintenance_view", run_id=run_id))
 
     @app.get("/osm/multi")

@@ -7,10 +7,17 @@
       <span class="pill ok">month closed</span>
       {% if report.closed %}
         declared {{ report.closed.closed_at[:10] }}.
+        {% if report.retirements and report.retirements_source == 'captured' %}
+          <br>Retirements at close:
+          <span class="pill ok">{{ report.retirements.deleted }} deleted</span>
+          <span class="pill">{{ report.retirements.safe }} left in place</span>
+          <span class="pill warn">{{ report.retirements.caution }} community-touched</span>
+          <span class="pill bad">{{ report.retirements.feature }} on a feature</span>
+          <span class="pill muted">{{ report.retirements.no_match }} no match</span>
+          <span class="muted">— read from OSM when the month closed, not typed in.</span>
+        {% endif %}
         {% if report.closed.retirements_note %}
-          Retirements: {{ report.closed.retirements_note }}
-        {% else %}
-          <span class="muted">No account of the retirements was recorded.</span>
+          <br><span class="muted">Operator note:</span> {{ report.closed.retirements_note }}
         {% endif %}
       {% else %}
         <span class="muted">Watermark is past this run's snapshot, but the month
@@ -18,6 +25,12 @@
           what happened to its retirements.</span>
       {% endif %}
     </p>
+    <form method="post" action="/maintenance/{{ run.run_id }}/reopen"
+          style="margin:.4rem 0 .8rem">
+      <button type="submit" class="secondary">Reopen this month</button>
+      <span class="muted">— rewinds the watermark to where the month started.
+        Only works while this is the month the watermark sits on.</span>
+    </form>
     <p class="muted">Still owed outside the database:</p>
     <ul>
       {% for item in report.followups %}

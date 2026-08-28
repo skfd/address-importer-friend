@@ -399,10 +399,15 @@ on `/maintenance` ends it. Closing:
   `first_snap > :wm` hides those addresses from every later month. That is the
   #45-vs-#52 gap that cost 31 addresses once already, and the bare "advance
   watermark" button this replaced had exactly that shape;
-* records what the operator says happened to the retirements, which is the one
-  part of a month nothing else in the tool remembers. Stated, not proven — the
-  retirement design has always been operator-decides, and a close is not the
-  place to start demanding evidence;
+* reads back from OSM what actually became of the retirements — how many were
+  deleted, how many left in place, how many are community-touched or sit on a
+  building. `osm_history.analyze` already reports an element as
+  `already_deleted` once it is no longer visible, so the outcome is *counted*,
+  not claimed, and the operator keeps no ledger. It busts the verdict cache
+  first: that cache is keyed on the Overpass file's mtime, which does not move
+  when someone deletes an element in JOSM, and the flow is exactly open-page →
+  delete → close. The read is best-effort — a bad minute on the OSM API must not
+  block a close — and a free-text note is there for anything the counts miss;
 * refuses while candidates are still unresolved (`force` overrides), and stays
   gated on the published DB snapshot as before;
 * hands back the closing report and what the month still owes outside the
@@ -412,8 +417,20 @@ on `/maintenance` ends it. Closing:
   record than the thing it claims about.
 
 The watermark is still what *defines* closed; the close record only says when it
-was declared and on what account. A month whose watermark moved without the
-close flow reads as closed with no retirement account, which is the truth.
+was declared and what the retirements came to. A month whose watermark moved
+without the close flow reads as closed with no retirement account, which is the
+truth. A closed month reports its captured numbers rather than re-reading OSM,
+the same durable-over-living rule the feed counts follow — later community edits
+must not rewrite what a finished month said.
+
+**Reopen** undoes a close: it rewinds the watermark to where the month started
+and drops the close record, so the month can be worked and closed again. Only
+the month the watermark currently sits on can be reopened — rewinding further
+would reopen every month after it, over windows already uploaded. It is not
+gated on the published snapshot: that gate exists to stop a month being
+*declared* done with no public record of it, and a rewind makes no such claim.
+The published release stays recorded, because it is a true record of a state
+that really existed.
 
 The watermark advances only when the operator confirms it, so a skipped or
 aborted month loses nothing. It starts at the import's source snapshot.

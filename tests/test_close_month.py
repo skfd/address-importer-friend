@@ -50,6 +50,14 @@ def db(tmp_path, monkeypatch):
                         lambda: {"lagging": False, "watermark": 90})
     monkeypatch.setattr(maintenance.candidates, "count_by_stage",
                         lambda run_id: {"UPLOADED": 49, "REJECTED": 10, "SKIPPED": 18})
+    # Closing reads the retirement outcome from OSM. Stubbed for every test here
+    # — an unstubbed close would reach the live history API — and overridden by
+    # the tests that care what it returns.
+    monkeypatch.setattr(
+        maintenance, "retirements",
+        lambda run_id: {"summary": {"safe": 0, "caution": 0, "feature": 0,
+                                    "no_match": 0, "deleted": 0}},
+    )
     return path
 
 
@@ -122,3 +130,95 @@ def test_close_is_blocked_by_the_unpublished_snapshot_gate(db, monkeypatch):
     assert maintenance.get_close(1) is None, (
         "a refused close must not leave a close record behind"
     )
+
+# ---- retirement outcome, captured rather than claimed ---------------------
+
+def _fake_retirements(monkeypatch, summary, *, calls=None):
+    def _retire(run_id):
+        if calls is not None:
+            calls.append(run_id)
+        return {"summary": dict(summary)}
+    monkeypatch.setattr(maintenance, "retirements", _retire)
+
+
+def test_close_captures_what_became_of_the_retirements(db, monkeypatch):
+    _fake_retirements(monkeypatch, {"safe": 3, "caution": 0, "feature": 2,
+                                    "no_match": 1, "deleted": 22})
+    res = maintenance.close_month(1)
+
+    stats = maintenance.get_close(1)["retirement_stats"]
+    assert stats["deleted"] == 22 and stats["safe"] == 3
+    assert stats["captured_at"]
+    assert res["retirement_stats"]["deleted"] == 22
+
+
+def test_capture_busts_the_stale_verdict_cache(db, monkeypatch):
+    """_RETIRE_CACHE is keyed on the *Overpass* file's mtime, which does not
+    move when the operator deletes elements in JOSM. The real flow — open page,
+    delete, close — would otherwise capture the pre-deletion verdicts."""
+    stale = (0.0, {"summary": {"safe": 22, "caution": 0, "feature": 2,
+                               "no_match": 1, "deleted": 0}})
+    maintenance._RETIRE_CACHE[1] = stale
+    _fake_retirements(monkeypatch, {"safe": 0, "caution": 0, "feature": 2,
+                                    "no_match": 1, "deleted": 22})
+
+    maintenance.close_month(1)
+
+    assert 1 not in maintenance._RETIRE_CACHE or maintenance._RETIRE_CACHE[1] != stale
+    assert maintenance.get_close(1)["retirement_stats"]["deleted"] == 22
+
+
+def test_a_failed_osm_read_does_not_block_the_close(db, monkeypatch):
+    def _boom(run_id):
+        raise RuntimeError("OSM API 503")
+    monkeypatch.setattr(maintenance, "retirements", _boom)
+
+    res = maintenance.close_month(1, retirements_note="22 deleted")
+
+    assert res["retirement_stats"] is None
+    assert "503" in res["retirement_stats_error"]
+    assert maintenance.get_watermark() == 113            # still closed
+    assert maintenance.get_close(1)["retirements_note"] == "22 deleted"
+
+
+# ---- reopening ------------------------------------------------------------
+
+def test_reopen_rewinds_to_the_start_of_the_month(db, monkeypatch):
+    _fake_retirements(monkeypatch, {"safe": 0, "caution": 0, "feature": 2,
+                                    "no_match": 1, "deleted": 22})
+    maintenance.close_month(1, retirements_note="22 deleted")
+
+    res = maintenance.reopen_month(1)
+
+    assert res["watermark"] == 90 and res["was"] == 113
+    assert maintenance.get_watermark() == 90
+    assert maintenance.get_close(1) is None, "the close record must be gone"
+    assert maintenance.get_run_window(1) == {"from_snapshot": 90, "to_snapshot": 113}
+
+
+def test_reopen_refuses_a_month_that_is_not_the_current_one(db, monkeypatch):
+    """Rewinding to an older month's start would reopen every month after it."""
+    _fake_retirements(monkeypatch, {"safe": 0, "caution": 0, "feature": 0,
+                                    "no_match": 0, "deleted": 25})
+    maintenance.close_month(1)
+    maintenance.set_watermark(115)   # a later month has since been closed
+
+    with pytest.raises(maintenance.MonthNotReopenable, match="#115"):
+        maintenance.reopen_month(1)
+
+    assert maintenance.get_watermark() == 115
+    assert maintenance.get_close(1) is not None
+
+
+def test_close_after_reopen_recaptures(db, monkeypatch):
+    _fake_retirements(monkeypatch, {"safe": 22, "caution": 0, "feature": 2,
+                                    "no_match": 1, "deleted": 0})
+    maintenance.close_month(1)
+    maintenance.reopen_month(1)
+    # the operator goes and deletes them, then closes again
+    _fake_retirements(monkeypatch, {"safe": 0, "caution": 0, "feature": 2,
+                                    "no_match": 1, "deleted": 22})
+    maintenance.close_month(1)
+
+    assert maintenance.get_watermark() == 113
+    assert maintenance.get_close(1)["retirement_stats"]["deleted"] == 22

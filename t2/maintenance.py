@@ -639,6 +639,10 @@ class MonthNotFinished(RuntimeError):
     """Raised when a close is asked for while the run still has work in it."""
 
 
+class MonthNotReopenable(RuntimeError):
+    """Raised when the month asked for is not the one the watermark sits on."""
+
+
 def get_close(run_id: int) -> dict | None:
     """When this month was declared done and what the operator said about its
     retirements — or None while it is still open.
@@ -657,6 +661,7 @@ def get_close(run_id: int) -> dict | None:
     return {
         "closed_at": m["closed_at"],
         "retirements_note": m.get("retirements_note"),
+        "retirement_stats": m.get("retirement_stats"),
     }
 
 
@@ -703,9 +708,11 @@ def close_month(
     if watermark < to:
         # Explicit snapshot: see the docstring. Never the live latest.
         advanced_to = advance_watermark(to, force=force)
+    stats, stats_error = capture_retirement_stats(run_id)
     _update_run_maintenance(run_id, {
         "closed_at": _iso(),
         "retirements_note": (retirements_note or "").strip() or None,
+        "retirement_stats": stats,
     })
     return {
         "run_id": run_id,
@@ -714,6 +721,75 @@ def close_month(
         "watermark": get_watermark(),
         "advanced_to": advanced_to,
         "already_advanced": advanced_to is None,
+        "retirement_stats": stats,
+        "retirement_stats_error": stats_error,
+    }
+
+
+def capture_retirement_stats(run_id: int) -> tuple[dict | None, str | None]:
+    """What actually became of this month's retirements, read from OSM.
+
+    Counted, not claimed: `osm_history.analyze` already reports an element as
+    `already_deleted` when it is no longer visible, so the outcome of the
+    operator's hand-deletions is observable. That beats a ledger they would have
+    to keep in step by hand.
+
+    **Busts the cache first.** `_RETIRE_CACHE` is keyed on the *Overpass* cache
+    file's mtime, which does not move when someone deletes an element in JOSM —
+    and the operator's flow is exactly: open the page (verdicts cached
+    pre-deletion), delete, close. Reading through the cache would durably record
+    "22 safe, 0 deleted" for a month whose 22 were deleted minutes earlier.
+
+    Best-effort: it is one OSM history request per matched element, and a close
+    must not fail because the API is having a bad minute. Returns
+    `(stats, error)`, exactly one of which is None."""
+    _RETIRE_CACHE.pop(run_id, None)
+    try:
+        summary = retirements(run_id)["summary"]
+    except Exception as exc:
+        return None, str(exc)
+    return {**summary, "captured_at": _iso()}, None
+
+
+def reopen_month(run_id: int) -> dict:
+    """Undo a close: rewind the watermark to where the month started and drop
+    its close record.
+
+    Only the month the watermark is currently sitting on can be reopened.
+    Rewinding to an older month's start would re-open every month after it as
+    well, and their runs already exist — the delta would be recomputed over
+    windows that have been uploaded.
+
+    Deliberately not gated on the published snapshot: that gate is about
+    advancing (declaring a month done with no public record of it). Rewinding
+    makes no such claim, and the release that was published stays published —
+    it is a true record of a real state, so `snapshot.published_*` is left
+    alone."""
+    run = get_run(run_id)
+    if not run:
+        raise ValueError(f"no run {run_id}")
+    window = get_run_window(run_id)
+    if not window or window.get("to_snapshot") is None:
+        raise ValueError(f"run {run_id} has no maintenance window to reopen")
+    to, frm = int(window["to_snapshot"]), int(window["from_snapshot"])
+    watermark = get_watermark()
+    if watermark != to:
+        raise MonthNotReopenable(
+            f"the watermark is at #{watermark}, not at this run's #{to} — only "
+            "the most recently closed month can be reopened, or the months "
+            "after it would reopen with it."
+        )
+    set_watermark(frm)
+    _update_run_maintenance(run_id, {
+        "closed_at": None,
+        "retirements_note": None,
+        "retirement_stats": None,
+    })
+    return {
+        "run_id": run_id,
+        "run_name": run["name"],
+        "watermark": get_watermark(),
+        "was": to,
     }
 
 

@@ -215,16 +215,28 @@ def report(
     except Exception as exc:  # a source without snapshot bookkeeping still reports
         rep["snapshot"] = {"error": str(exc)}
 
+    rep["closed"] = _m.get_close(run_id)
+    # A closed month reports the outcome captured when it closed, not a fresh
+    # read: the same durable-over-living rule the feed counts follow. Later
+    # community edits can re-create or remove things, and the month's record
+    # should say what was true when it ended. It also means `--report` on a
+    # closed month never touches the OSM API.
+    captured = (rep["closed"] or {}).get("retirement_stats")
     rep["retirements"] = None
-    if include_retirements:
+    rep["retirements_source"] = None
+    if captured:
+        rep["retirements"] = {k: v for k, v in captured.items() if k != "captured_at"}
+        rep["retirements_captured_at"] = captured.get("captured_at")
+        rep["retirements_source"] = "captured"
+    elif include_retirements:
         try:
             rep["retirements"] = _m.retirements(run_id)["summary"]
+            rep["retirements_source"] = "live"
         except Exception as exc:
             rep["retirements_error"] = str(exc)
 
     rep["_history"] = history
     rep["totals"] = totals(history)
-    rep["closed"] = _m.get_close(run_id)
     rep["blockers"] = blockers(rep)
     rep["followups"] = followups(rep)
     return rep
@@ -322,12 +334,13 @@ def render_markdown(rep: dict) -> str:
     ret = rep.get("retirements")
     if ret:
         lines.append(
-            f"- **Retirements surfaced:** {sum(ret.values())} "
-            f"({ret.get('safe', 0)} import-created and untouched, "
+            f"- **Retirements surfaced:** {sum(ret.values())} — "
+            f"{ret.get('deleted', 0)} deleted by hand after review, "
+            f"{ret.get('safe', 0)} left in place though untouched since import, "
             f"{ret.get('caution', 0)} community-touched, "
-            f"{ret.get('feature', 0)} on a feature, "
-            f"{ret.get('no_match', 0)} with no OSM match). "
-            "Nothing is auto-deleted; these are reviewed by hand."
+            f"{ret.get('feature', 0)} on a building or POI, "
+            f"{ret.get('no_match', 0)} with no OSM match. "
+            "Nothing is ever deleted automatically."
         )
     elif rep["feed_retired_now"]:
         lines.append(
@@ -365,9 +378,11 @@ def render_text(rep: dict) -> str:
     ret = rep.get("retirements")
     if ret:
         lines.append(
-            f"  retired:    {ret.get('safe', 0)} safe / {ret.get('caution', 0)} "
-            f"caution / {ret.get('feature', 0)} feature / "
-            f"{ret.get('no_match', 0)} no match"
+            f"  retired:    {ret.get('deleted', 0)} deleted / "
+            f"{ret.get('safe', 0)} safe / {ret.get('caution', 0)} caution / "
+            f"{ret.get('feature', 0)} feature / {ret.get('no_match', 0)} no match"
+            + ("  (captured at close)" if rep.get("retirements_source") == "captured"
+               else "")
         )
     elif rep.get("retirements_error"):
         lines.append(f"  retired:    (provenance unavailable: {rep['retirements_error']})")
