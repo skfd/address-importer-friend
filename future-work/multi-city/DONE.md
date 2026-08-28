@@ -372,6 +372,66 @@ ever broken. Peel drops below york in the sorted table.
 
 Two follow-ups from this correction are still open — see TODO §6.
 
+## Campaign wrap-up page — DONE 2026-08-28
+
+Toronto's final stats one-pager (`docs/wrap-up.html` in the city checkout) was
+hand-authored: every figure a literal, every bar height an inline style. Wanted
+for every import from Guelph onward, so it had to become a generator.
+
+**Nothing needed instrumenting.** Every number on the page was already in
+`tool.db` — the pipeline writes `events`, `runs`, `changesets`, `candidates`
+and `conflation` as it goes — plus `tiles.json` for the area rollup. A city's
+page can therefore be generated long after its last changeset closed, and
+Guelph needs no preparation before it starts. `t2/campaign_stats.py` reproduces
+the published Toronto figures exactly: 768,888 source pool, 449,052 uploaded,
+206,621 duplicates, 8,967 streets, 1,297 changesets, 627,390 auto / 38,373
+manual, 16 days, 25 sessions, all five top streets, every bar of the daily
+chart.
+
+Three definitions had to be pinned down, none of which the hand-made page
+recorded:
+
+- **Scope is the import, not the database.** Monthly maintenance runs share the
+  city's `tool.db` and stretched Toronto's campaign from 16 days to 108, with a
+  bar chart of 92 empty days. Excluded via the `maintenance` key
+  `t2/maintenance.py` already writes into `runs.config_json` — the marker it
+  deliberately stores on the run "rather than infer it from the name". The tail
+  is reported as a footnote instead of vanishing.
+- **Hands-on time is a session-gap threshold**, and there is no clock in the
+  schema, so the threshold *is* the definition. The published "65h across 25
+  sessions" used a value nobody wrote down (near 50 minutes). 30 minutes is now
+  the documented default — it reproduces the 25 sessions — and
+  `[stats] session_gap_minutes` overrides it.
+- **`REVIEW_CLEARED` is presence, not a decision.** It reverts one, so counting
+  it would tally a candidate twice. Excluding it yields the published 38,373;
+  the hand-made page had made the same call silently.
+
+Shipped as a Flask route (`/stats`) plus
+`python -m t2.static_export --stats` → `<city-dir>/docs/stats/index.html`. The
+template does not extend `base.html`: its CSS is inline so the exported file
+survives being emailed or opened with no server. Below 100% of tiles uploaded
+it renders an "import in progress" notice with the figures so far, rather than
+a dead link or a half-filled wrap-up — the state Guelph will sit in for its
+whole run.
+
+Presentation comes from an optional `[stats]` block (Tier-2 style: absent
+section = engine defaults, never a silent inheritance of Toronto's identity).
+The default palette is the operator animation's own legend colours, so a city
+that declares nothing still gets two artifacts that look related; Toronto's
+config carries the TTC subway colours its page was built in.
+
+Folded into the same pass: `scripts/build_operator_animation.py` read paths
+from config but still wrote "Toronto" into its title and heading, and wrote
+into the **engine's** `docs/` rather than the city checkout's — a second city
+would have got a mislabeled page in the wrong repo. It now takes the name from
+`[city] name`, writes to `_config.CITY_DIR`, and shares
+`campaign_stats.OPERATOR_EVENTS` so its action count and the wrap-up's clock
+cannot drift apart.
+
+Still open: the animation's replay includes maintenance activity (it compresses
+idle gaps, so it degrades gracefully, but the scope question is the same one
+the wrap-up answered).
+
 ## Housekeeping
 
 - [x] The multi-city line of work is pushed — `659467f` (design docs) through
