@@ -271,7 +271,7 @@ def build_tags(it: dict) -> dict[str, str]:
     tags = {
         "addr:housenumber": (it.get("housenumber") or "").strip(),
         "addr:street": (it.get("street_raw") or "").strip(),
-        "source": _attribution(),
+        "addr:source": _attribution(),
     }
     postcode = (it.get("proposed_postcode") or "").strip()
     if postcode:
