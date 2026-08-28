@@ -251,6 +251,9 @@ function realToVirt(realMs) {
 
 // Map.
 const map = L.map('map', { zoomControl: true, attributionControl: false }).setView([43.72, -79.40], 11);
+// Generated file: built by address-importer-friend's
+// scripts/build_operator_animation.py - the same basemap swap lives there,
+// so edit the generator, not this copy.
 // Esri's dark Gray Canvas, not CARTO: CARTO now stamps "API KEY REQUIRED"
 // diagonally across every anonymous tile from basemaps.cartocdn.com. Esri's
 // raster service needs no key — note the {z}/{y}/{x} order, no {s} subdomains
