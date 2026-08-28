@@ -50,6 +50,19 @@ def _ensure_client_token(run_id: int) -> str:
         conn.close()
 
 
+def changeset_comment(run_name: str) -> str:
+    """The changeset `comment` tag, rendered from the city's template.
+
+    One owner for the substitution. The template gained `{city}` when the tool
+    went multi-city, and the two places that rendered it drifted: this one
+    passed both keys, the upload path in `osm_client` still passed only
+    `run_name` and died with `KeyError: 'city'` the moment a city actually used
+    the placeholder — mid-upload, after the run was reviewed and approved."""
+    return _CONFIG.changeset_comment_template.format(
+        run_name=run_name, city=_CONFIG.city_name
+    )
+
+
 def changeset_tags(run_id: int) -> dict[str, str]:
     """Per-run changeset-level tags (matches IMPORT_PROPOSAL.mediawiki § Tagging plan / Changeset tags).
 
@@ -65,9 +78,7 @@ def changeset_tags(run_id: int) -> dict[str, str]:
     if not row:
         raise ValueError(f"run {run_id} not found")
     token = row["client_token"] or _ensure_client_token(run_id)
-    comment = _CONFIG.changeset_comment_template.format(
-        run_name=row["name"], city=_CONFIG.city_name
-    )
+    comment = changeset_comment(row["name"])
     if not _CONFIG.export_import_plan:
         raise ValueError(
             "config.toml [export] import_plan is empty — the changeset must point "

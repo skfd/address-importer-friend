@@ -260,7 +260,7 @@ def upload(run_id: int) -> None:
     if not client_token:
         client_token = osm_export._ensure_client_token(run_id)
 
-    comment = _CONFIG.changeset_comment_template.format(run_name=run_name)
+    comment = osm_export.changeset_comment(run_name)
 
     # Crash recovery: if no local changeset_id yet but server has one tagged
     # with our client_token, adopt it instead of opening a duplicate.
