@@ -6,7 +6,10 @@ this file is only the action list.
 
 Completed items moved to [DONE.md](DONE.md) on 2026-08-13 — the entry-state
 probes for Hamilton and Mississauga, the city-#2 decision, the `05`/`02`/`03`
-doc work, Wellington's spike, and the Peel correction.
+doc work, Wellington's spike, and the Peel correction. **§9 (case
+normalization) and §11 (lifecycle-status filtering) followed on 2026-08-29**;
+the numbers of the remaining sections are unchanged, because the onboarding
+queue and the licence docs cite them.
 
 ## 1. Import Hamilton — the run itself
 
@@ -190,19 +193,6 @@ which for these rows looks populated.
       shape), or a distinct terminal status. Silent ingestion is the one wrong
       answer. Gate: needed before Quinte West's first baseline is read.
 
-## 9. Case normalization for upload (Quinte West, 2026-08-15)
-
-Quinte West's street names are ALL-CAPS ("ANNA COURT") — the first such
-source in the family. Conflation is case-insensitive so baselines are fine,
-but an upload would write shouting `addr:street` values. (Second consumer:
-Brant, 2026-08-16 — same shape, "GRAND RIVER STREET NORTH".)
-
-- [ ] Title-case step on the export path, driven by a per-city flag (Toronto/
-      Hamilton/Guelph must stay byte-identical: their sources are already
-      mixed-case). Mind the hard cases: "O'NEIL CRESCENT", "MCGILL",
-      hyphenated roads, "COUNTY ROAD 40". Gate: blocks any Quinte West upload,
-      not conflation.
-
 ## 10. Units that are civic numbers in disguise (Quinte West, 2026-08-15)
 
 23 GOULD STREET records 40 "units" whose values are street-facing civic
@@ -223,18 +213,6 @@ column and Sarnia's STNAME is bare — so under number_from/street_from =
 "full" the unit tail stays welded to the derived street and the rows
 surface as mismatch clusters at a handful of complexes. A tail-pattern
 extractor (" Unit <n>$") would cover it; decide with 09's deferred half.
-
-## 11. Lifecycle-status filtering (Niagara Region, 2026-08-15)
-
-The "niagara-falls" dataset (really the 12-municipality Niagara Region — see
-onboarding-queue.md) carries the family's first non-Active rows: 260
-`LifeCycleStatus='Proposed'` of 208,004. A Proposed address must not be
-imported, and today the projection has no status concept at all — every
-prior source was 100% Active, so the absence was invisible.
-
-- [ ] `[source_fields] status = "props:<KEY>"` + a declared active-value
-      policy, same lie-together pattern as unit/[units]. Gate: blocks any
-      consumer of the Niagara dataset; harmless everywhere else.
 
 ## 12. Licence review + government contacts (2026-08-16)
 

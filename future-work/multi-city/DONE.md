@@ -6,6 +6,87 @@ decided here, and the reasoning is not recoverable from the code.
 
 Full context lives in [08-survey-results-2026-08-12.md](08-survey-results-2026-08-12.md).
 
+## Title-casing for the ALL-CAPS sources (`09`) — DONE 2026-08-29
+
+Three of the portfolio's sources publish street names in capitals: Quinte West
+("ANNA COURT", found 2026-08-15 and the reason TODO §9 was written), Brant
+("GRAND RIVER STREET NORTH"), and Oakville, whose 1,646-of-1,647 all-caps
+`SNAME` column made this the named blocker on the import checklist a friend of
+the user is working from.
+
+**Only the upload was wrong.** `normalize_street` uppercases both sides, so
+every baseline these cities produced is correct and none of them moves.
+`expand_street_name` rewrote the trailing tokens and left the rest alone, so
+what would have reached `addr:street` was "MCCRANEY Street East" — a mixed-case
+artifact of our own making, worse than the source.
+
+`[export] street_case = "title"` runs in `build_tags`, the single writer that
+both the review preview and the changeset read, so the operator cannot be shown
+one spelling and upload another. Default `"preserve"`; an unknown value is
+refused at load rather than falling back, since a typo would upload capitals to
+a live city. **The step is on the export path and nowhere else**, which is the
+part worth keeping: `street_raw` still holds the source's own spelling, so the
+flag can be turned on for a city that has already conflated. There is no
+re-ingest path in this pipeline (a street override needs a surgical reset and
+re-conflate per street), and a casing bug found in six months must not need
+one.
+
+**Two rules were decided by measurement, not by argument** — the same method
+the normalizer extraction used, against OSM Toronto's 13,170 distinct
+`addr:street` values:
+
+- *Mc yes, Mac no.* 68 distinct names capitalize the letter after "Mc" against
+  4 that do not, and those 4 read as typos ("Mccowan"). "Mac" is genuinely
+  split — 16 against 20 — and the 20 are not sloppiness: Macaulay, Macedonia,
+  Macey, Mackinac, Macklem, Machockie are words where a capital would be wrong,
+  and six surnames appear both ways on different streets. So "MCCRANEY" becomes
+  "McCraney" and "MACDONALD" stays "Macdonald". This is the call `accordeur`
+  already makes about *gluing* "Mac", now with a number behind it.
+- *No lowercased particles.* The first draft lowercased medial "of/the/de" the
+  way English prose titles do. On real data that is a coin flip, and it loses
+  exactly where it matters — OSM writes "Chester Le Boulevard" (53) and
+  "Vittorio De Luca Drive" (18), where the particle belongs to a name, against
+  "Avenue of the Islands" (30) and "Avenue Of The Islands" (10) for one street.
+  No casing rule separates a surname's "De" from a preposition's "of", so every
+  word is capitalized and a city that disagrees writes the name in `[streets]
+  overrides` — the mechanism that already exists for "the source and OSM
+  disagree about the actual name".
+
+**Guardrail, run in both directions.** Uppercasing every OSM Toronto street
+name and putting it back through the step reproduces 13,095 of 13,170 distinct
+spellings (99.43%; 262,616 of 263,316 values, 99.73%). 23 of the 75 misses are
+the Mac ambiguity above; most of the remainder are OSM's own typos and
+intercaps — "Rathburn road", "yonge", "bpNichol Lane", "WillowBank Trail" —
+which no caser can recover and which set the ceiling of the measurement. Over
+the three real sources (1,647, 853 and 1,760 distinct street strings) no
+all-caps word survives the step, and with the flag off nothing anywhere is
+touched.
+
+Two limits are now documented rather than discovered later. An acronym is
+unrecoverable — an all-caps source spells "YMCA" exactly the way it spells
+"MAIN", so "YMCA BOULEVARD" becomes "Ymca Boulevard" and overrides are the
+answer. And a word arriving with any lowercase letter is returned untouched,
+which is what makes the step idempotent after `expand_street_name` and leaves
+an override value exactly as the operator wrote it.
+
+Found while sweeping the three sources: Quinte West's two railway-crossing
+roads ("CNR/WALLBRIDGE-LOYALIST ROAD") needed the slash to split a word the way
+a hyphen does, and Brant's `full`-derived street strings carry a "(Unit: n/s)"
+tail on eight names — a projection wart for `09`'s deferred half, not a casing
+one, noted in its checkout.
+
+## Lifecycle-status filtering (`11`) — DONE 2026-08-15, recorded 2026-08-29
+
+Shipped as part of Barrie's onboarding (`3159d66`, whose message cites "TODO
+#11") and never ticked off the list, so it sat open for a fortnight while three
+cities used it. `[source_fields] status = "props:<KEY>"` plus `[status]
+active_values` — the units lie-together pattern, enforced at load in both
+directions — excludes non-active rows from every source query, NULL included.
+Load-bearing in Barrie (3,369 Pending), Greater Sudbury (896 Retired live) and
+Kitchener (4,380 Pending excluded in-query), and the gate on any consumer of
+the Niagara Region dataset (260 Proposed). Toronto declares no status field and
+its queries are byte-identical, test-pinned in `tests/test_status_filter.py`.
+
 ## The import UI stopped saying Toronto to every city — DONE 2026-08-29
 
 Tier 1 de-Torontoized the engine's *behaviour* in August and stopped there. Its
