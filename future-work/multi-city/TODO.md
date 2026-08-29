@@ -282,7 +282,15 @@ Guardrail: Toronto's match rates must not move (`tool.db` is living).
       `addr:source` rewrite as investigated and dropped, and it repoints the
       three `future-work/` links — which have 404'd on a public import proposal
       since the 2026-08-13 repo split, including the very file that would tell a
-      reader the rewrite was abandoned. Paste both; only a human can.
+      reader the rewrite was abandoned. Paste it; only a human can.
+      **Policy set 2026-08-29: the wiki carries the rules, the repo carries the
+      ledger.** § Continuous maintenance's per-run table and the § Status counts
+      are gone — every row was a hand-copy of a changeset's own id, date and
+      counts, and having one made pasting the page read as monthly bookkeeping,
+      which is what the two substantive revisions sat behind for a fortnight.
+      The run list lives in the checkout README's Phase 5 row. So a paste is
+      owed when a *rule* changes, not when a month closes, and the badge below
+      goes amber for that rather than for a ledger nobody reads.
       **Decided and built 2026-08-29: a badge, not a gate** (`t2/wiki_sync.py`,
       `/maintenance` → `/maintenance/wiki`). `publish-db` could earn a gate
       because the tool owns both ends of it; here it owns neither the wiki nor
