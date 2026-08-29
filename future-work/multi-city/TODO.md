@@ -268,8 +268,29 @@ Guardrail: Toronto's match rates must not move (`tool.db` is living).
 
 ## Housekeeping
 
-- [ ] Maintenance run is due ~2026-08-22 (last: `maint-snap90`, 2026-07-23,
-      watermark snapshot 90 / 2026-07-22). Unrelated to the above — it conflates
+- [x] **`maint-snap113` ran and closed 2026-08-28** — window 2026-07-22 →
+      2026-08-27, changeset 188123936, 49 uploaded / 10 rejected / 18 skipped,
+      22 of 25 retirements deleted by hand. Watermark 113 / 2026-08-27; the DB
+      snapshot published as `tool-db-20260827` and recorded, so the gate below
+      passed on its own. Largest maintenance month so far. Next due ~2026-09-27.
+- [ ] **The OSM wiki page is two revisions behind the local proposal** (checked
+      2026-08-29). `IMPORT_PROPOSAL.mediawiki` carries both 2026-08-28 entries;
+      <https://wiki.openstreetmap.org/wiki/Toronto/Import/AddressPoints> still
+      says `Last revised: 2026-08-27`, "3 further changesets, 54 addresses", and
+      a Total of 54/7/27 with no `maint-snap113` row. The second unpublished
+      revision matters more than the month row: it records the `source` →
+      `addr:source` rewrite as investigated and dropped, and it repoints the
+      three `future-work/` links — which have 404'd on a public import proposal
+      since the 2026-08-13 repo split, including the very file that would tell a
+      reader the rewrite was abandoned. Paste both; only a human can.
+      **The shape is the `/publish-db` shape again.** An outward-facing manual
+      step at the end of a month, with nothing enforcing it, gets skipped and
+      nobody notices because the local record looks complete. `publish-db`
+      earned a gate for exactly this (2026-08-16) and that gate worked this
+      month. The wiki paste has no equivalent and is the last unenforced step in
+      the close — worth deciding whether it gets one, or at least a "wiki
+      revision the proposal was last pasted at" line the close can compare.
+- [ ] Maintenance cadence generally. Unrelated to the above — it conflates
       against live Overpass and needs none of this.
       **Finish the month with `/publish-db ../toronto-2-address-import`.** The
       snapshot is half the month's work and the half that gets skipped: the
