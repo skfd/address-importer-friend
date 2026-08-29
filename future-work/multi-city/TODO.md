@@ -273,22 +273,6 @@ Not blocking anything. Worth doing when a third consumer appears, or when one
 of these three next needs a change — that is the moment the copies would
 otherwise drift.
 
-## 14. The import UI still says Toronto to every city (2026-08-28)
-
-Found while extracting the normalizer. Tier 1 de-Torontoized the engine's
-*behaviour*; its chrome was never done. A Guelph or Hamilton operator sees a
-nav link labelled "Toronto Open Data ranges", a footer crediting Toronto Open
-Data and linking Toronto's OSM discussion thread, and a static-export banner
-describing the page as evidence for the Toronto import proposal.
-
-- [ ] A per-city `[links]`/`[about]` config block feeding `base.html`,
-      `source_multi.html`, `streets.html` and `osm_orphans.html`. Toronto's
-      values move to its checkout; a city that declares none should get its own
-      `[city] name` and no links rather than another city's.
-- [ ] `t2/reverse_sweep.py:48` `_load_toronto_boundary` is generic apart from
-      its name. Rename it with the chrome; the actual polygon work is §5 and
-      stays open.
-
 ## Not blocking, worth doing when touching the normalizer
 
 Split `suffix_range` if a rangeless city ever wants the I/O/Q

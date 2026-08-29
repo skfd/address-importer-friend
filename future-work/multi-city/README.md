@@ -22,7 +22,7 @@ problem, and two of them have already solved parts of it:
 | `address-vault` | data acquisition | separate tool, generic by design |
 | `accordeur` | the shared conflation core — street normalization both engines agree on | **built 2026-08-28** — standalone sibling repo, both engines consume it (`01`) |
 | `address-beholder` | audits OSM address completeness **and correctness** over time | **generic since 2026-08-28** — engine + thin dataset repos (`toronto-import-beholder`, `guelph-beholder`) |
-| `address-importer-friend` (this repo) | conflate → review → upload | **engine since 2026-08-13** — thin city checkouts (`toronto-2-address-import`, `guelph-address-import`, `hamilton-address-import`, …). Tiers 1, 2 and 4 done; the UI chrome is still Toronto-branded |
+| `address-importer-friend` (this repo) | conflate → review → upload | **engine since 2026-08-13** — thin city checkouts (`toronto-2-address-import`, `guelph-address-import`, `hamilton-address-import`, …). Tiers 1, 2 and 4 done; UI chrome de-Torontoized 2026-08-29 |
 
 `address-layerist` already established the house pattern and it works:
 **reusable engine + thin per-city repo carrying one TOML + a Claude Code skill

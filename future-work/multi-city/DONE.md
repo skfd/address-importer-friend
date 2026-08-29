@@ -6,6 +6,60 @@ decided here, and the reasoning is not recoverable from the code.
 
 Full context lives in [08-survey-results-2026-08-12.md](08-survey-results-2026-08-12.md).
 
+## The import UI stopped saying Toronto to every city — DONE 2026-08-29
+
+Tier 1 de-Torontoized the engine's *behaviour* in August and stopped there. Its
+chrome stayed Toronto's, and nobody noticed for a fortnight because the person
+reading those pages was reading Toronto's. Measured before the fix: **22
+occurrences of "Toronto" across Guelph's pages, 28 across Hamilton's** — a nav
+link labelled "Toronto Open Data ranges", a footer crediting Toronto Open Data
+and linking Toronto's OSM thread, prose explaining that "Toronto's open data has
+refresh lag", and a static-export banner describing the operator's own run as
+evidence for the Toronto import proposal.
+
+Found while extracting the normalizer (`01`), not by anyone using the tool.
+
+**The mechanism is `[links]` in the city checkout** — repo, OSM discussion
+thread, import proposal, open-data credit; the four things that were literals in
+`base.html`. Every key optional, and **an absent key is hidden, not defaulted**:
+that is the whole point, since defaulting is what produced the bug. Hamilton
+declares only its repo and its footer simply has no discussion link, because
+Hamilton has not announced and has no wiki page.
+
+Two judgement calls:
+
+- **The open-data credit falls back to `[export] attribution`, unlinked**, when
+  no `open_data` URL is declared. No canonical licence-page URL is recorded
+  anywhere in the family for Guelph or Hamilton — `datasets/*.toml` carries
+  `license_name` only — and a credit without a link beats a guessed one.
+  Toronto keeps its link. Fill the key in if a URL is ever confirmed.
+- **The footer's "MIT" now points at the engine's LICENSE**, not the Toronto
+  checkout's. The tool lives in the engine; that link had simply not moved when
+  the repos split 2026-08-13.
+
+**The ranges page is gated, not just relabelled.** Guelph and Hamilton declare
+no `lo_num`/`hi_num`, so `/source/multi` renders an honest zero for them. The
+nav hides it and both static exporters skip it (`_ranges_page()`), or an export
+would publish an empty page nothing links to. That is `03` applied to
+navigation, which nothing had done before.
+
+**Verified by rendering** `/streets`, `/source/multi` and `/osm/orphans` for all
+three checkouts before and after. Guelph and Hamilton go 22 → 0 and 28 → 0.
+Toronto's diff is four intended lines — the two link repointings above, "City of
+Toronto boundary" → "the Toronto boundary", and the README anchor following its
+section's rename — plus one whitespace-only line. Every link Toronto's operator
+clicks is unchanged, because its config declares exactly what the template
+hardcoded; pinned by `tests/test_links.py` the same way the street overrides
+were.
+
+Also done here: `_load_toronto_boundary` → `_load_city_boundary` (generic apart
+from its name since it was written; the actual polygon work is TODO §5 and stays
+open), and the engine README's "Removing OSM addresses absent from Toronto
+source" section — which the orphans page links to — now reads for any city.
+
+**Not touched, deliberately:** the header still says "t2 address import". That
+is the engine's name, not a Toronto string.
+
 ## Street normalizer extracted into `accordeur` (`01`) — DONE 2026-08-28
 
 The family has two engines and six datasets now, and one table answering "are
