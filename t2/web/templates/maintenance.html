@@ -73,6 +73,15 @@
           <span class="pill ok">current</span>
         {% endif %}
       </td></tr>
+    {#- The paste is the last step of a month that nothing enforces, and on
+        2026-08-29 Toronto's page was three revisions behind. Loaded async: the
+        check is a network fetch and this page render is 0.28s cold. -#}
+    {% if wiki_tracked %}
+    <tr><th>Published proposal</th>
+      <td hx-get="/maintenance/wiki" hx-trigger="load" hx-swap="innerHTML">
+        <span class="muted">checking the wiki…</span>
+      </td></tr>
+    {% endif %}
   </table>
 
   {% if history %}

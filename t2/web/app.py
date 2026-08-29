@@ -7,7 +7,7 @@ from pathlib import Path
 
 from flask import Flask, abort, flash, g, jsonify, redirect, render_template, request, send_file, send_from_directory, url_for
 
-from .. import audit, campaign_stats as _campaign_stats, candidates, config as _config, db as _db, maintenance as _maintenance, maintenance_report as _maintenance_report, multi_addresses as _multi_addresses, multi_fixes as _multi_fixes, osm_client, osm_export, osm_refresh, pipeline, ranges as _ranges, reverse_sweep as _reverse_sweep, review, run_for_all, source_db, source_multi as _source_multi, streets as _streets, tag_diff, tiles_build
+from .. import audit, campaign_stats as _campaign_stats, candidates, config as _config, db as _db, maintenance as _maintenance, maintenance_report as _maintenance_report, multi_addresses as _multi_addresses, multi_fixes as _multi_fixes, osm_client, osm_export, osm_refresh, pipeline, ranges as _ranges, reverse_sweep as _reverse_sweep, review, run_for_all, source_db, source_multi as _source_multi, streets as _streets, tag_diff, tiles_build, wiki_sync as _wiki_sync
 from ..conflate import _proposed_tags, _is_poi_node, POI_TAG_KEYS, normalize_street
 from ..checks import REGISTRY
 from .glossary import GLOSSARY
@@ -1729,8 +1729,25 @@ def create_app() -> Flask:
             baseline=_maintenance.import_baseline(),
             history=history,
             snapshot=_maintenance.snapshot_status(),
+            # Cheap: a stat and a config read, no network. The fetch itself is
+            # the async fragment below, so this row costs the page nothing.
+            wiki_tracked=bool(
+                _wiki_sync.local_proposal() and _config.load().export_import_plan
+            ),
             watermark_behind=bool(run and run["upload_status"] == "uploaded"
                                   and delta["watermark"] < delta["latest_snapshot"]),
+        )
+
+    @app.get("/maintenance/wiki")
+    def maintenance_wiki_fragment():
+        """Is the published proposal the one in the checkout? Loaded async by
+        the maintenance page because it is a network fetch of a third-party
+        wiki and the page render is 0.28s cold.
+
+        Warns, never blocks — `t2/wiki_sync.py` records why this is not the
+        gate its neighbour (the published DB snapshot) is."""
+        return render_template(
+            "_maintenance_wiki.html", wiki=_wiki_sync.status()
         )
 
     @app.get("/maintenance/<int:run_id>/retirements")

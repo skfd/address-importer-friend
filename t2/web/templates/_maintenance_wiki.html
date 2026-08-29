@@ -1,0 +1,24 @@
+{#- Loaded async into the baseline table (see maintenance.html): the check is a
+    network fetch of a third-party wiki and GET /maintenance is 0.28s cold, a
+    number that cost real work to get. It never blocks a close — see
+    t2/wiki_sync.py for why this warns where the DB snapshot gates. -#}
+{% if wiki.state == "match" %}
+  <a href="{{ wiki.url }}" target="_blank" rel="noopener">the wiki page</a>
+  <span class="pill ok">matches the checkout</span>
+{% elif wiki.state == "diverged" %}
+  <a href="{{ wiki.url }}" target="_blank" rel="noopener">the wiki page</a>
+  <span class="pill warn" data-tip="Paste IMPORT_PROPOSAL.mediawiki onto the wiki page. Nothing here blocks a close — this is the last step of the month that nothing enforces.">{{ wiki.changed_lines }} line{{ '' if wiki.changed_lines == 1 else 's' }} behind</span>
+  <div class="muted">
+    The checkout's <code>{{ wiki.local_path.split('\\')|last }}</code> and the published
+    page disagree on {{ wiki.changed_lines }} line{{ '' if wiki.changed_lines == 1 else 's' }}
+    ({{ wiki.local_only }} only in the file, {{ wiki.live_only }} only on the page).
+    Diff them with
+    <code>curl -s "{{ wiki.raw_url }}"</code> and paste when you are happy.
+  </div>
+{% elif wiki.state == "unknown" %}
+  <span class="muted">could not read the wiki</span>
+  <span class="pill">unknown</span>
+  <div class="muted">{{ wiki.reason }} — a network fact, not a paste fact.</div>
+{% else %}
+  <span class="muted">not tracked — {{ wiki.reason }}</span>
+{% endif %}

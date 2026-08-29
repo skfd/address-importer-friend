@@ -283,13 +283,28 @@ Guardrail: Toronto's match rates must not move (`tool.db` is living).
       three `future-work/` links — which have 404'd on a public import proposal
       since the 2026-08-13 repo split, including the very file that would tell a
       reader the rewrite was abandoned. Paste both; only a human can.
-      **The shape is the `/publish-db` shape again.** An outward-facing manual
-      step at the end of a month, with nothing enforcing it, gets skipped and
-      nobody notices because the local record looks complete. `publish-db`
-      earned a gate for exactly this (2026-08-16) and that gate worked this
-      month. The wiki paste has no equivalent and is the last unenforced step in
-      the close — worth deciding whether it gets one, or at least a "wiki
-      revision the proposal was last pasted at" line the close can compare.
+      **Decided and built 2026-08-29: a badge, not a gate** (`t2/wiki_sync.py`,
+      `/maintenance` → `/maintenance/wiki`). `publish-db` could earn a gate
+      because the tool owns both ends of it; here it owns neither the wiki nor
+      the paste, and the check is a network fetch of a third-party site, so a
+      gate would stop a close for a MediaWiki outage. It compares the whole
+      wikitext from `?action=raw` against the checkout's
+      `IMPORT_PROPOSAL.mediawiki` — cheaper and sharper than hunting for a
+      marker, since the real diff came to exactly the pending revisions plus a
+      trailing newline. Standing, not close-time, which is what makes it catch
+      the two divergences that did not arrive with a month. An unreachable wiki
+      reports `unknown`, never `diverged`. Enabled by convention: proposal file
+      present + `[export] import_plan` declared.
+- [ ] **The check the badge is not.** It compares two documents to each other,
+      and on the day it was written the local one was the wrong one — the
+      tagging plan claimed maintenance writes `addr:source` from 2026-08-27
+      while `maint-snap113`'s 49 nodes carry a bare `source` (the key moved on
+      the preview path 85 minutes before the upload path, and the changeset went
+      out in between; corrected in the checkout 2026-08-29). A *truth* check —
+      do the tags the month's changeset actually carries match what the proposal
+      claims — is a different check, and the tool has both halves already:
+      `build_tags` knows what it writes and the run knows its changeset id.
+      Deliberately not built yet; it is the one that would have caught this.
 - [ ] Maintenance cadence generally. Unrelated to the above — it conflates
       against live Overpass and needs none of this.
       **Finish the month with `/publish-db ../toronto-2-address-import`.** The
