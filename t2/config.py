@@ -451,6 +451,32 @@ def parse_source_license(section: dict, origin: str = "config.toml") -> str:
     return value.strip()
 
 
+STREET_CASE_VALUES = ("preserve", "title")
+
+
+def parse_street_case(section: dict, origin: str = "config.toml") -> str:
+    """Validate [export] street_case — how `addr:street` is written out.
+
+    "preserve" (the default, and every city scaffolded before 2026-08-29) writes
+    the source's own spelling. "title" title-cases it on the export path only,
+    for the sources that publish ALL-CAPS names: Quinte West's "ANNA COURT",
+    Brant's "GRAND RIVER STREET NORTH", Oakville's "MCCRANEY ST". Conflation is
+    case-insensitive either way, so this changes what is uploaded and nothing
+    about what matches.
+
+    An unknown value is refused rather than treated as "preserve": a typo here
+    would silently upload shouting street names to a live city.
+    """
+    value = section.get("street_case", "preserve") if section else "preserve"
+    if not isinstance(value, str) or value not in STREET_CASE_VALUES:
+        raise ValueError(
+            f"{origin} [export] street_case = {value!r} is invalid; expected "
+            f"one of {STREET_CASE_VALUES}. Omit the key for a source that "
+            "already publishes mixed-case street names."
+        )
+    return value
+
+
 _HEX_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
 # The wrap-up page's three accents, in the order it uses them: the headline
@@ -568,6 +594,9 @@ class Config:
     # Changeset `source:license`. Empty where the city's published changeset
     # tag table names no licence (Toronto).
     export_source_license: str
+    # "preserve" | "title". How addr:street is cased on the way out; only the
+    # ALL-CAPS sources need "title" (see parse_street_case).
+    export_street_case: str
 
     # Wrap-up page presentation + its one measurement knob. Always present;
     # a city with no [stats] block gets StatsTheme's defaults.
@@ -730,6 +759,7 @@ def load() -> Config:
         export_import_plan=str(export_section.get("import_plan", "")),
         export_node_tags=parse_node_tags(export_section, str(toml_path)),
         export_source_license=parse_source_license(export_section, str(toml_path)),
+        export_street_case=parse_street_case(export_section, str(toml_path)),
         stats=parse_stats(cfg.get("stats", {}), str(toml_path)),
         osm_api_base=env.get("OSM_API_BASE") or default_api,
         osm_client_id=env.get("OSM_CLIENT_ID", ""),

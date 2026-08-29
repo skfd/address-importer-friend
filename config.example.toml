@@ -192,6 +192,17 @@ import_plan = "https://wiki.openstreetmap.org/wiki/Toronto/Import/AddressPoints"
 # changeset-tag table names a licence — Toronto's does not.
 # source_license = "OGL-Canada-2.0"
 
+# How addr:street is written on the way out: "preserve" (default) keeps the
+# source's own spelling, "title" title-cases it. Only for the sources that
+# publish ALL-CAPS names — Quinte West's "ANNA COURT", Brant's "GRAND RIVER
+# STREET NORTH", Oakville's "MCCRANEY ST" — which would otherwise upload
+# shouting street names. Toronto, Hamilton and Guelph publish mixed case and
+# must keep "preserve"; conflation is case-insensitive either way, so this
+# changes what is uploaded and nothing about what matches. The step runs on the
+# export path only, so it can be turned on for a city that has already
+# conflated. An unknown value is refused at load.
+# street_case = "title"
+
 # Optional. Presentation for the wrap-up one-pager at /stats, exported with
 # `python -m t2.static_export --stats`. Omit the whole section and the page
 # renders in the engine's neutral palette (the operator animation's own legend

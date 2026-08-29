@@ -1,4 +1,5 @@
 """Emit JOSM-compatible .osm XML and osmChange XML for a run's APPROVED candidates."""
+import re
 import uuid
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
@@ -260,6 +261,95 @@ def _assign_local_node_ids(run_id: int, items: list[dict]) -> list[dict]:
     return items
 
 
+#: Separators that start a new capitalized part inside one whitespace-free
+#: word: "Saint-Louis", "Cnr/Wallbridge".
+_WORD_PARTS = re.compile(r"([-/])")
+
+
+def _cap_word(word: str) -> str:
+    """Capitalize one space- and hyphen-free word, apostrophes included.
+
+    A segment after an apostrophe is capitalized only when it is more than one
+    character: "O'NEIL" is "O'Neil" but "GOVERNOR'S" is "Governor's", not
+    "Governor'S".
+    """
+    segs = word.split("'")
+    out = [segs[0][:1].upper() + segs[0][1:].lower()]
+    for seg in segs[1:]:
+        out.append(seg[:1].upper() + seg[1:].lower() if len(seg) > 1 else seg.lower())
+    return "'".join(out)
+
+
+def _cap_mc(word: str) -> str:
+    """Restore the "Mc" convention inside an already-capitalized word.
+
+    "Mccraney" -> "McCraney", "Mcgill" -> "McGill". Only fires on a word this
+    module just capitalized from an all-caps source, where the surname's own
+    case was destroyed by the publisher and has to be invented; `accordeur`
+    deliberately never re-cases a name that arrived with case, which is why
+    "Mcgee Street" written that way in a mixed-case source stays "Mcgee".
+
+    "Mac" is left alone, the same call `accordeur.glue_mc` makes — and OSM
+    Toronto's own addr:street values say why. "Mc" is all but unanimous there:
+    68 distinct names capitalize the third letter (1,389 values), 4 do not, and
+    those 4 read as typos ("Mccowan"). "Mac" is genuinely split: 16 distinct
+    capitalize (MacGregor, MacPherson) and 20 do not — and that second list is
+    not sloppiness, it holds words where a capital would be wrong (Macaulay,
+    Macedonia, Macey, Mackinac, Macklem, Machockie). Six surnames appear both
+    ways on different streets. No rule can separate them, so "MACDONALD"
+    becomes "Macdonald" and a city that wants "MacDonald" writes it in
+    `[streets] overrides`.
+    """
+    if len(word) > 3 and word.startswith("Mc") and word[2:].isalpha():
+        return "Mc" + word[2].upper() + word[3:]
+    return word
+
+
+def title_case_street(name: str) -> str:
+    """Rewrite an ALL-CAPS street name in OSM's mixed case ("ANNA COURT" ->
+    "Anna Court"). Export path only — see `config.parse_street_case`.
+
+    **A word that already carries any lowercase letter is returned untouched.**
+    That is what makes the step idempotent and safe to run after
+    `expand_street_name`, which has already produced OSM's spelling for the
+    trailing tokens: "MCCRANEY Street" title-cases to "McCraney Street" without
+    the risk of a second pass flattening "McCraney" to "Mccraney". It also means
+    a `[streets] overrides` value, which is written in OSM's own spelling,
+    passes through as the operator wrote it.
+
+    Hyphens and slashes split a word before it is capitalized ("SAINT-LOUIS" ->
+    "Saint-Louis", Quinte West's "CNR/WALLBRIDGE-LOYALIST ROAD" ->
+    "Cnr/Wallbridge-Loyalist Road"); digits are left as they are, so "COUNTY
+    ROAD 40" becomes "County Road 40" and "3RD LINE" becomes "3rd Line".
+
+    An acronym cannot be recovered: an ALL-CAPS source spells "YMCA" exactly
+    the way it spells "MAIN", so "YMCA BOULEVARD" becomes "Ymca Boulevard".
+    That is what `[streets] overrides` is for.
+
+    **Every word is capitalized, including "of", "the" and "de".** An earlier
+    draft lowercased medial particles the way English prose titles do; measured
+    against OSM Toronto's 13,170 distinct addr:street values it was a coin
+    flip, and it got the proper nouns wrong in both cases that matter: OSM
+    writes "Chester Le Boulevard" (53) and "Vittorio De Luca Drive" (18), where
+    the particle is part of a name, against "Avenue of the Islands" (30) and
+    "Avenue Of The Islands" (10) for the same street. No casing rule separates
+    a surname's "De" from a preposition's "of", so the step does not try: a
+    city that wants one writes it in `[streets] overrides`, which is the
+    mechanism for "the source and OSM disagree about the actual name".
+    """
+    if not name:
+        return name
+    out: list[str] = []
+    for word in name.split():
+        if any(ch.islower() for ch in word):
+            out.append(word)
+        else:
+            out.append("".join(
+                part if part in "-/" else _cap_mc(_cap_word(part))
+                for part in _WORD_PARTS.split(word)))
+    return " ".join(out)
+
+
 def build_tags(it: dict) -> dict[str, str]:
     """Tag dict for a candidate row — the one owner, for preview and upload
     alike. `conflate._proposed_tags` calls this and adds only its POI-postcode
@@ -279,15 +369,23 @@ def build_tags(it: dict) -> dict[str, str]:
     Config cannot redefine a derived tag — parse_node_tags refuses that at
     load — so the splat is safe last.
 
+    `[export] street_case = "title"` title-cases addr:street here and nowhere
+    else. The stored `street_raw` keeps the source's own spelling, so the flag
+    can be added or corrected without re-ingesting a city, and conflation --
+    which compares through `normalize_street` -- cannot move either way.
+
     Reads `export_attribution` raw rather than through `_attribution()`: an
     unset attribution drops the tag here (the empty-value filter below) and
     stops the *upload* instead, in `changeset_tags`, which every upload path
     goes through. A city being scaffolded must still be able to conflate and
     open the review UI before its attribution string is settled.
     """
+    street = (it.get("street_raw") or "").strip()
+    if _CONFIG.export_street_case == "title":
+        street = title_case_street(street)
     tags = {
         "addr:housenumber": (it.get("housenumber") or "").strip(),
-        "addr:street": (it.get("street_raw") or "").strip(),
+        "addr:street": street,
         "addr:source": _CONFIG.export_attribution,
     }
     postcode = (it.get("proposed_postcode") or "").strip()
