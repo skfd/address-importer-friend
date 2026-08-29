@@ -268,14 +268,14 @@ additions. Two cleanup flows in the opposite direction are **explicitly out of
 scope** and left for a later phase. Documented here so reviewers don't assume
 they were overlooked.
 
-### Removing OSM addresses absent from Toronto source
+### Removing OSM addresses absent from the city source
 
-If OSM has an address that Toronto's active snapshot doesn't, we do not flag,
+If OSM has an address the city's active snapshot doesn't, we do not flag,
 propose, or remove it.
 
-Reasoning — the absence direction is asymmetric. Toronto's open data is
+Reasoning — the absence direction is asymmetric. A municipal open-data feed is
 authoritative when it asserts an address exists; silence is a weaker signal.
-The feed has refresh lag, known-missing neighborhoods, and retired-address
+Feeds have refresh lag, known-missing neighborhoods, and retired-address
 states that aren't cleanly separable from "never existed." Deleting OSM data
 based on absence alone would destroy real addresses on worse evidence than we
 accept for additions.
@@ -283,7 +283,7 @@ accept for additions.
 A future phase would need, at minimum: a reverse-sweep stage enumerating OSM
 addresses in the run bbox; a separate review queue (not `Candidate` — the
 verdicts don't fit); a street-level cross-check to suppress the common case
-where Toronto's feed is missing a whole street; prioritization by OSM metadata
+where the feed is missing a whole street; prioritization by OSM metadata
 (`start_date`, last-edit age, `source`); and human-only approval — no
 automation, since OSM deletions are high blast radius and hard to reverse.
 

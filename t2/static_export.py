@@ -85,6 +85,19 @@ def _pilot_tile_id(data_dir: Path, bbox: tuple[float, float, float, float]) -> s
     return None
 
 
+def _ranges_page() -> list[tuple[str, str]]:
+    """The `/source/multi` entry, for a city whose source has ranges at all.
+
+    The nav hides it for a source that declares no `lo_num`/`hi_num`
+    (03-capability-gating.md); exporting it anyway would publish an empty page
+    nothing links to."""
+    from . import config as _config
+
+    if not _config.load().source_fields.has_ranges:
+        return []
+    return [("/source/multi", "source/multi/index.html")]
+
+
 def _output_paths(run_id: int, candidates: list[dict], tile_id: str | None) -> list[tuple[str, str]]:
     """Return list of (source_url, output_path_relative_to_out) to render."""
     pairs: list[tuple[str, str]] = [
@@ -101,7 +114,7 @@ def _output_paths(run_id: int, candidates: list[dict], tile_id: str | None) -> l
         (f"/runs/{run_id}/audit", f"runs/{run_id}/audit/index.html"),
         ("/data", "data/index.html"),
         ("/streets", "streets/index.html"),
-        ("/source/multi", "source/multi/index.html"),
+        *_ranges_page(),
         ("/osm", "osm/index.html"),
         ("/osm/multi", "osm/multi/index.html"),
         ("/osm/multi/corners", "osm/multi/corners/index.html"),

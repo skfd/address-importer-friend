@@ -16,6 +16,11 @@ ROOT = Path(__file__).resolve().parent.parent
 # entrypoints and subprocesses spawned by the web app inherit it for free.
 CITY_DIR = Path(os.environ.get("T2_CITY_DIR") or ROOT).resolve()
 
+# This tool's own repo. A fact about the engine, not about any city, so it is
+# a constant rather than config: it backs the footer's "MIT" licence link and
+# stands in for a city that declares no repo of its own.
+ENGINE_REPO = "https://github.com/skfd/address-importer-friend"
+
 # Which OSM server uploads target: "dev" (sandbox) or "prod". Picks which
 # .env file is read. run.py overwrites this from its --env/--prod flag before
 # importing the rest of t2; nothing else changes it. Deliberately a module
@@ -263,6 +268,92 @@ def parse_status_policy(
 # Tags the engine derives per candidate. A city may add constant tags of its
 # own, but never redefine one of these: a typo in config silently overriding a
 # conflated street would be indistinguishable from a conflation bug.
+@dataclass(frozen=True)
+class Links:
+    """Where this city's operator-facing chrome points.
+
+    Tier 1 de-Torontoized the engine's behaviour; its *chrome* stayed Toronto's
+    until 2026-08-29, so Guelph's and Hamilton's operators were shown Toronto's
+    repo, Toronto's OSM thread and Toronto's open-data licence. Everything here
+    is optional: a city that declares nothing gets the engine's own links and no
+    city-specific credit, never another city's.
+    """
+
+    #: This city checkout's repo. Footer "GitHub", and the static export's
+    #: "Run the live tool". Falls back to the engine's repo.
+    repo: str = ""
+    #: The OSM community thread where this import is discussed. Hidden when
+    #: absent — a city that has not announced yet has nowhere to point.
+    discussion: str = ""
+    #: The import proposal or evidence document this checkout publishes; the
+    #: static-export banner describes the snapshot as evidence for it.
+    proposal: str = ""
+    #: The source's open-data licence, credited in the footer beside OSM's.
+    #: Distinct from `[export] source_license`, which is the SPDX id written
+    #: onto the changeset: this is a name and a URL for a human to click.
+    open_data_name: str = ""
+    open_data_url: str = ""
+
+
+_LINK_KEYS = ("repo", "discussion", "proposal", "open_data")
+
+
+def parse_links(section: dict, origin: str = "config.toml") -> Links:
+    """Validate `[links]`. Absent section = every link absent.
+
+    Loud like the rest of the contract: an unknown key is a typo that would
+    otherwise silently drop a link, a non-http value is a mistake, and
+    `open_data` must carry both a name and a URL or neither — a credit with no
+    link, or a link with nothing to call it, is half a citation.
+    """
+    if not section:
+        return Links()
+    unknown = sorted(set(section) - set(_LINK_KEYS))
+    if unknown:
+        raise ValueError(
+            f"{origin} [links] has unknown key(s) {unknown}; valid keys are "
+            f"{sorted(_LINK_KEYS)}."
+        )
+
+    def _url(key: str, value) -> str:
+        if value in (None, ""):
+            return ""
+        if not isinstance(value, str) or not value.startswith(("http://", "https://")):
+            raise ValueError(
+                f"{origin} [links] {key} = {value!r} is not an http(s) URL."
+            )
+        return value
+
+    open_data = section.get("open_data") or {}
+    if open_data and not isinstance(open_data, dict):
+        raise ValueError(
+            f"{origin} [links] open_data must be a table with `name` and `url` "
+            'keys, e.g. open_data = { name = "Guelph Open Data", url = "https://..." }.'
+        )
+    od_unknown = sorted(set(open_data) - {"name", "url"})
+    if od_unknown:
+        raise ValueError(
+            f"{origin} [links] open_data has unknown key(s) {od_unknown}; "
+            "valid keys are ['name', 'url']."
+        )
+    od_name = str(open_data.get("name", "") or "").strip()
+    od_url = _url("open_data.url", open_data.get("url"))
+    if bool(od_name) != bool(od_url):
+        raise ValueError(
+            f"{origin} [links] open_data needs both `name` and `url`, or "
+            "neither: a credit with no link, or a link with nothing to call "
+            "it, is half a citation."
+        )
+
+    return Links(
+        repo=_url("repo", section.get("repo")),
+        discussion=_url("discussion", section.get("discussion")),
+        proposal=_url("proposal", section.get("proposal")),
+        open_data_name=od_name,
+        open_data_url=od_url,
+    )
+
+
 def parse_street_overrides(section: dict, origin: str = "config.toml") -> dict[str, str]:
     """Validate this city's `[streets] overrides` — source spelling -> the
     OSM-canonical name.
@@ -452,6 +543,9 @@ class Config:
     # where this city's source and OSM disagree about the actual name.
     # Empty for a city that declares none.
     street_overrides: dict[str, str]
+    # Operator-facing chrome: this city's repo, OSM thread, proposal and
+    # open-data credit. Empty for a city that declares none.
+    links: Links
     default_bbox: tuple[float, float, float, float]
     overpass_url: str
     match_radius_m: float
@@ -619,6 +713,7 @@ def load() -> Config:
             cfg.get("status", {}), source_fields, str(toml_path)
         ),
         street_overrides=parse_street_overrides(cfg.get("streets", {}), str(toml_path)),
+        links=parse_links(cfg.get("links", {}), str(toml_path)),
         default_bbox=bbox,  # type: ignore
         overpass_url=cfg["run_defaults"]["overpass_url"],
         match_radius_m=float(cfg["conflation"]["match_radius_m"]),

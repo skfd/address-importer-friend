@@ -20,7 +20,7 @@ parcel as a point inside it.
 
 This is analytical only. The README's "Out of scope" section explicitly
 defers reverse-direction deletion of OSM addresses based on source
-silence — Toronto's open-data feed has refresh lag, missing
+silence — a municipal open-data feed has refresh lag, missing
 neighborhoods, and retired-address states that are not separable from
 "never existed" without further validation.
 """
@@ -45,12 +45,13 @@ _RANGE_SIMPLE = re.compile(r"^\s*(\d+)\s*-\s*(\d+)\s*$")
 _FRACTION = re.compile(r"^\s*\d+\s+\d+/\d+\s*$|^\s*\d+/\d+\s*$")
 
 
-def _load_toronto_boundary(geojson_path: Path):
-    """Return a Shapely (Multi)Polygon representing the City of Toronto.
+def _load_city_boundary(geojson_path: Path):
+    """Return a Shapely (Multi)Polygon representing this city.
 
-    Built as the union of the 158 neighbourhood polygons in
-    `data/neighbourhoods/neighbourhoods-4326.geojson`. Cached by mtime;
-    the union takes ~0.5s and shouldn't run per request.
+    Built as the union of the neighbourhood polygons in the city's
+    `data/<slug>/neighbourhoods/neighbourhoods-4326.geojson` (158 of them for
+    Toronto, 234 for Hamilton, 23 for Guelph). Cached by mtime; the union takes
+    ~0.5s and shouldn't run per request.
     """
     from shapely.geometry import shape
     from shapely.ops import unary_union
@@ -152,7 +153,7 @@ def _classify_osm_nodes(
 
     Filters: type=node, has addr:housenumber, not POI, not an
     addr:interpolation way endpoint, and (when `boundary` is provided)
-    inside the City of Toronto polygon. Split by presence of `entrance` tag.
+    inside the city polygon. Split by presence of `entrance` tag.
     """
     from shapely.geometry import Point
     from shapely.prepared import prep
@@ -340,7 +341,7 @@ def collect(snapshot_id: int | None = None) -> dict:
         return cached
 
     boundary_path = cfg.data_dir / "neighbourhoods" / "neighbourhoods-4326.geojson"
-    boundary = _load_toronto_boundary(boundary_path) if boundary_path.exists() else None
+    boundary = _load_city_boundary(boundary_path) if boundary_path.exists() else None
     pure, entrance, outside_count = _classify_osm_nodes(json_path, boundary=boundary)
     source_idx = _build_source_index(snapshot_id)
     pure_stats = _split_results(pure, source_idx)

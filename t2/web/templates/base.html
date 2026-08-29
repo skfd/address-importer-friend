@@ -38,7 +38,7 @@
       {% if not static_export.active or static_export.multi %}<a href="/map">Map</a>{% endif %}
       <a href="/osm">OSM extract</a>
       <a href="/streets">Streets</a>
-      <a href="/source/multi">Toronto Open Data ranges</a>
+      {% if cfg.source_fields.has_ranges %}<a href="/source/multi">{{ cfg.city_name }} Open Data ranges</a>{% endif %}
       <a href="/osm/multi">Multi-addresses</a>
       <a href="/osm/multi/corners">Corners</a>
       <a href="/osm/orphans">OSM not in source</a>
@@ -49,25 +49,32 @@
       {% if not static_export.active %}<a href="/oauth">OSM auth</a>{% endif %}
     </span>
     <span class="meta">
-      <a href="https://github.com/skfd/toronto-2-address-import" target="_blank" rel="noopener">GitHub</a>
+      <a href="{{ cfg.links.repo or engine_repo }}" target="_blank" rel="noopener">GitHub</a>
       <span class="sep">·</span>
-      <a href="https://community.openstreetmap.org/t/address-import-for-toronto/119368" target="_blank" rel="noopener">OSM discussion</a>
+      {% if cfg.links.discussion %}<a href="{{ cfg.links.discussion }}" target="_blank" rel="noopener">OSM discussion</a>
       <span class="sep">·</span>
-      <a href="https://github.com/skfd/toronto-2-address-import/blob/main/LICENSE" target="_blank" rel="noopener">MIT</a>
+      {% endif %}<a href="{{ engine_repo }}/blob/main/LICENSE" target="_blank" rel="noopener">MIT</a>
       <span class="sep">·</span>
-      <a href="https://open.toronto.ca/open-data-licence/" target="_blank" rel="noopener">Toronto Open Data</a>
+      {# The city's open-data credit. A declared [links] open_data makes it a
+          link; otherwise fall back to the [export] attribution string the city
+          already stamps on its changesets, unlinked — not every city's licence
+          page URL is known, and a credit without a link beats no credit. -#}
+      {% if cfg.links.open_data_url %}<a href="{{ cfg.links.open_data_url }}" target="_blank" rel="noopener">{{ cfg.links.open_data_name }}</a>
       &amp;
-      &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OSM</a>
+      {% elif cfg.export_attribution %}{{ cfg.export_attribution }}
+      &amp;
+      {% endif %}&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OSM</a>
     </span>
   </header>
   {% if static_export.active %}
   <div class="static-banner">
     Static snapshot of run <strong>{{ static_export.run_name }}</strong>
     {% if static_export.snapshot_date %}as of {{ static_export.snapshot_date }}{% endif %} —
-    pilot evidence for the
-    <a href="https://github.com/skfd/toronto-2-address-import/blob/main/IMPORT_PROPOSAL.mediawiki" target="_blank" rel="noopener">Toronto address import proposal</a>.
-    Interactive actions (stages, review decisions, uploads) are disabled.
-    <a href="https://github.com/skfd/toronto-2-address-import" target="_blank" rel="noopener">Run the live tool</a>
+    {% if cfg.links.proposal %}pilot evidence for the
+    <a href="{{ cfg.links.proposal }}" target="_blank" rel="noopener">{{ cfg.city_name }} address import proposal</a>.
+    {% else %}pilot evidence for the {{ cfg.city_name }} address import.
+    {% endif %}Interactive actions (stages, review decisions, uploads) are disabled.
+    <a href="{{ cfg.links.repo or engine_repo }}" target="_blank" rel="noopener">Run the live tool</a>
     to exercise them.
   </div>
   <script>

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Toronto Open Data ranges · half-numbers{% endblock %}
+{% block title %}{{ cfg.city_name }} Open Data ranges · half-numbers{% endblock %}
 {% block content %}
 
 {% macro bar(count, max_count, width_px=140, color='#2563eb') -%}
@@ -24,7 +24,7 @@
 </style>
 
 <div class="card">
-  <h2>Toronto Open Data ranges <span class="pill">{{ '{:,}'.format(stats.ranges_total + stats.halves_total) }}</span></h2>
+  <h2>{{ cfg.city_name }} Open Data ranges <span class="pill">{{ '{:,}'.format(stats.ranges_total + stats.halves_total) }}</span></h2>
   <p class="muted">
     Snapshot #{{ stats.snapshot_id }}{% if stats.snapshot_filename %}
       · <code>{{ stats.snapshot_filename }}</code>{% endif %}{% if stats.snapshot_downloaded %}
@@ -32,7 +32,7 @@
     · {{ '{:,}'.format(stats.total_active) }} active addresses
   </p>
   <p>
-    Toronto's address-points dataset is one row per point, so it doesn't pack
+    {{ cfg.city_name }}'s address-points dataset is one row per point, so it doesn't pack
     multi-values into a single tag the way OSM <code>addr:housenumber</code> does.
     Two list-shaped exceptions show up:
   </p>

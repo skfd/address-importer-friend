@@ -184,6 +184,10 @@ def create_app() -> Flask:
     app = Flask(__name__, template_folder="templates", static_folder="static")
     app.secret_key = cfg.flask_secret_key
     app.jinja_env.globals["tip"] = lambda key: GLOSSARY.get(key, "")
+    # The tool's own repo, for links that are about the engine rather than
+    # about this city (the MIT licence, and the fallback when a city checkout
+    # declares no repo of its own).
+    app.jinja_env.globals["engine_repo"] = _config.ENGINE_REPO
     app.jinja_env.filters.update(STATS_FILTERS)
     _static_run_id_env = os.environ.get("T2_STATIC_EXPORT_RUN_ID", "")
     _static_run_ids_env = os.environ.get("T2_STATIC_EXPORT_RUN_IDS", "")

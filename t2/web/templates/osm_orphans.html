@@ -35,7 +35,7 @@
         · downloaded {{ data.snapshot.downloaded[:19] }}{% endif %}{% endif %}
       · source index keys: {{ '{:,}'.format(data.source_index_size) }}
       {% if data.boundary_applied -%}
-        · clipped to City of Toronto boundary ({{ '{:,}'.format(data.outside_boundary_count) }}
+        · clipped to the {{ cfg.city_name }} boundary ({{ '{:,}'.format(data.outside_boundary_count) }}
         nodes excluded as outside city limits)
       {%- else -%}
         · <strong>boundary not applied</strong> — neighbourhoods GeoJSON missing,
@@ -45,7 +45,7 @@
     </p>
     <p>
       For every pure-address node and entrance node in the cached OSM
-      Toronto extract, this scan checks whether the City source has an
+      {{ cfg.city_name }} extract, this scan checks whether the City source has an
       active row with the same normalized
       <code>(addr:street, addr:housenumber)</code>. Source ranges
       (<code>lo_num != hi_num</code>) are parity-expanded into per-integer
@@ -54,9 +54,9 @@
     </p>
     <div class="callout">
       <strong>Analytical only.</strong> Per
-      <a href="https://github.com/skfd/toronto-2-address-import/blob/main/README.md#removing-osm-addresses-absent-from-toronto-source"
+      <a href="{{ engine_repo }}/blob/main/README.md#removing-osm-addresses-absent-from-the-city-source"
          target="_blank" rel="noopener">README § Out of scope</a>:
-      Toronto's open data has refresh lag, missing neighborhoods, and
+      {{ cfg.city_name }}'s open data has refresh lag, missing neighborhoods, and
       retired-address states that are not separable from "never existed"
       without further validation. This page surfaces candidates for
       curiosity and quality review — it does not propose deletions.
@@ -182,7 +182,7 @@
     "Nodes with <code>addr:housenumber</code>, no POI tags
      (amenity/shop/office/tourism/leisure/craft/healthcare/building/disused:*/was:*),
      and no <code>entrance=*</code> tag. These are the canonical address
-     points OSM and Toronto's source represent the same way.",
+     points OSM and " ~ cfg.city_name ~ "'s source represent the same way.",
     data.pure
 ) }}
 

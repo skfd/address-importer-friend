@@ -5,7 +5,7 @@
   <h2>Streets <span class="muted">global source vs OSM</span></h2>
   <p class="muted">
     Every active source address and every OSM <code>addr:housenumber</code> feature
-    inside the Toronto bbox, grouped by normalized street name. Read-only — this
+    inside the {{ cfg.city_name }} bbox, grouped by normalized street name. Read-only — this
     page surfaces data quality, it doesn't propose any OSM edit.
   </p>
 
@@ -14,6 +14,9 @@
     <tr><th>Computed</th><td><code>{{ data.computed_at }}</code></td></tr>
     <tr><th>Source snapshot</th><td>#{{ data.source_snapshot_id }} <span class="muted">(downloaded {{ data.source_snapshot_downloaded or '—' }})</span></td></tr>
     <tr><th>OSM extract</th><td>{{ data.osm_extract_downloaded or '—' }} <span class="muted">· sha256 <code>{{ (data.osm_extract_json_sha256 or '')[:16] }}…</code></span></td></tr>
+    {#- `toronto_bbox` is what streets.json carried before the multi-city
+        rename. Toronto's cached artifact still has that key, so the fallback
+        stays until the next regeneration; new cities only write `city_bbox`. -#}
     {% set bb = data.city_bbox or data.toronto_bbox %}
     <tr><th>Bbox</th><td><code>{{ '%.3f, %.3f → %.3f, %.3f' % (bb[0], bb[1], bb[2], bb[3]) }}</code></td></tr>
     <tr><th>Totals</th><td>
