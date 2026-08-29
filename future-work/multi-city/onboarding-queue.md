@@ -112,7 +112,9 @@ user owns.
 
 1. **Locked probes** (`04`), all against the tracker DB + city's own portal:
    source profile (rows, snapshot, extent, unit/postcode/ward coverage,
-   street form), civic-collapse measurement if units exist, polygon-fabric
+   street form **including its case — an ALL-CAPS source declares `[export]
+   street_case = "title"` in the same pass, not in a TODO; eleven of the first
+   eighteen cities are all-caps**), civic-collapse measurement if units exist, polygon-fabric
    probe with point-test coverage (multiple Hub search terms — "neighbourhood"
    alone missed Guelph's), boundary layer noted for `10`.
 2. **Entry-state probe**: add the city to `scripts/entry_state_probe.py`

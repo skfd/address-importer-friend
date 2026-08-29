@@ -8,11 +8,43 @@ Full context lives in [08-survey-results-2026-08-12.md](08-survey-results-2026-0
 
 ## Title-casing for the ALL-CAPS sources (`09`) — DONE 2026-08-29
 
-Three of the portfolio's sources publish street names in capitals: Quinte West
-("ANNA COURT", found 2026-08-15 and the reason TODO §9 was written), Brant
-("GRAND RIVER STREET NORTH"), and Oakville, whose 1,646-of-1,647 all-caps
-`SNAME` column made this the named blocker on the import checklist a friend of
-the user is working from.
+Three of the portfolio's sources raised this: Quinte West ("ANNA COURT", found
+2026-08-15 and the reason TODO §9 was written), Brant ("GRAND RIVER STREET
+NORTH"), and Oakville, whose 1,646-of-1,647 all-caps `SNAME` column made it the
+named blocker on the import checklist a friend of the user is working from.
+
+**It is eleven, not three.** A census over every scaffolded checkout — distinct
+street strings, projected through each city's own `street_from`, not sampled —
+put barrie, cambridge, cornwall, kingston, kitchener, ottawa, thunder-bay and
+waterloo in the same bucket. The split is bimodal with nothing in between: the
+mixed-case sources (Toronto, Hamilton, Guelph, Huron, Greater Sudbury, Lambton,
+Sarnia) are 0.0% all-caps and the rest are 99.6%+. Each of those eight configs
+had recorded it at scaffold time and each said "TODO §9 gates upload", so
+nothing was missed at probe time — the gate simply outlived its cause by a
+fortnight in eight places at once. All eleven now declare `street_case =
+"title"`, verified by loading each config and by sweeping each city's whole
+street vocabulary: no all-caps word survives the step in any of them.
+
+Two things that sweep found, neither of them a casing bug:
+
+- **Ottawa's French names are inverted and unaccented** — 157 of 8,618, written
+  "ARBRES, RUE DES" and "BAIE-DES-CASTORS, RUE DE LA". Title-casing makes them
+  "Arbres, Rue Des", which is tidier and still not the name OSM wants ("rue des
+  Arbres", accents included). The scaffolding note had cleared Ottawa of the
+  French-suffix concern because only 347 rows *lead* with RUE/CHEMIN — true,
+  and it missed these because they do not lead with it. Recorded in that
+  checkout as the real gate on those rows; Ottawa is an observer city, so
+  nothing is waiting on it.
+- **Brant welds a parenthesised unit tail to the street** — 1,464 of 18,253
+  distinct `FULL_ADDRESS` values end "(Unit: A1)", which number-length
+  stripping leaves in place. Sarnia's " Unit <n>" tail in miniature, and the
+  same open question for `09`'s deferred half. Noted in Brant's config.
+
+One limit found the same way and left alone deliberately: Kingston's source
+itself writes "McDONALD AVE". A word arriving with any lowercase letter is
+returned untouched — that is what makes the step idempotent — so it comes out
+"McDONALD Avenue", and the fix is a `[streets] overrides` entry, which its
+config now says.
 
 **Only the upload was wrong.** `normalize_street` uppercases both sides, so
 every baseline these cities produced is correct and none of them moves.
