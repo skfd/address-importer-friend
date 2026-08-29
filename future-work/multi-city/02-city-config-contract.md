@@ -3,6 +3,12 @@
 Status: **Tiers 1, 2 and 4 implemented** (see DONE.md); Tier 3 (street
 conventions, `01`) open. Captured 2026-08-10.
 
+The contract has since grown two sections this document does not describe, both
+in DONE.md: **`[streets] overrides`** (2026-08-28, the per-city half of the
+street normalizer) and **`[links]`** (2026-08-29, the operator-facing chrome).
+`config.example.toml` is the current, worked contract and the thing actually
+copied when scaffolding a city — read it rather than this file's field lists.
+
 ## Motivation
 
 Toronto-specific values are scattered across `config.toml`, module constants,

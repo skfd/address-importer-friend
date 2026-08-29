@@ -95,6 +95,13 @@ address_class = "props:ADDRESS_CLASS_DESC" # Land Entrance skip + Land dedup
 # this city. Everything is optional: omit the section and the pages fall back
 # to the engine's own repo and licence and show no city credit, rather than
 # another city's (before 2026-08-29 the chrome was Toronto's for every city).
+#
+# SCAFFOLDING A NEW CITY: replace every value below or delete the whole
+# section. Unlike [city] slug/name, nothing here fails loudly on a stale copy —
+# a config that keeps these lines silently shows your operator Toronto's repo,
+# Toronto's forum thread and Toronto's licence, which is exactly the bug this
+# section was added to fix. Declare only links that exist; an omitted key is
+# hidden, and an unannounced city having no forum link is correct.
 [links]
 # This city checkout's repo. Footer "GitHub", and the static export's "Run the
 # live tool" link.
