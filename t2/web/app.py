@@ -170,6 +170,40 @@ STATS_FILTERS = {
 }
 
 
+def _josm_import_endpoint(run_id: int, cs_tags: dict[str, str]) -> str:
+    """JOSM Remote Control /import URL, everything except the `url=` param.
+
+    JOSM listens on http://127.0.0.1:8111 when Remote Control is enabled
+    (Preferences → Remote Control). Every changeset tag rides in
+    `changeset_tags` as pipe-separated `key=value` pairs, comment and
+    source included. That is not a style choice: `/import` accepts no
+    other changeset parameter, and `changeset_comment` / `changeset_source`
+    — which do work on `/load_and_zoom` — are dropped here with nothing
+    but a line in JOSM's log, which is why the comment field used to come
+    up blank.
+
+    The page appends `&url=<the .osm>` at click time, resolved against its
+    own location so the same markup serves the live app and the published
+    static export. It has to stay last: JOSM's /import handler appends any
+    trailing query text to the URL it fetches, so a parameter after `url=`
+    lands inside the path it tries to download.
+    """
+    from urllib.parse import urlencode
+    # JOSM splits the list on an *unescaped* pipe (AddTagsDialog
+    # .parseUrlTagsToKeyValues), so a pipe inside a value has to carry a
+    # backslash to survive as one.
+    # (Kept out of the f-string: a backslash in an f-string expression
+    # only parses on Python 3.12+.)
+    escaped = {k: v.replace("|", '\\|') for k, v in cs_tags.items()}
+    tags = "|".join(f"{k}={v}" for k, v in escaped.items())
+    params = [
+        ("new_layer", "true"),
+        ("layer_name", f"run_{run_id}"),
+        ("changeset_tags", tags),
+    ]
+    return "http://127.0.0.1:8111/import?" + urlencode(params)
+
+
 def _area_label(cfg) -> str:
     """What this city's tiles roll up into. A city with no polygon layer has
     its tiles split straight off the bbox, so 'neighbourhoods' would be a
@@ -637,7 +671,11 @@ def create_app() -> Flask:
         upload_items = osm_export.items_for_view(run_id)
         cs_tags = osm_export.changeset_tags(run_id) if counts.get("APPROVED", 0) or run.get("upload_status") else {}
         cs_tags_tsv = "\n".join(f"{k}\t{v}" for k, v in cs_tags.items())
-        josm_url = _josm_remote_url(run_id, cs_tags) if cs_tags else ""
+        josm_url = _josm_import_endpoint(run_id, cs_tags) if cs_tags else ""
+        # Absolute app path, not `_external`: static_export rewrites it to the
+        # exported `assets/upload_run_<id>.osm`, and the page resolves whatever
+        # it ends up as against its own location before handing it to JOSM.
+        josm_osm_url = url_for("run_export_get", run_id=run_id) if cs_tags else ""
         tile, tile_index, tile_total = _tile_for_run(run)
         status = pipeline.stage_status(run_id)
         from datetime import datetime
@@ -655,7 +693,8 @@ def create_app() -> Flask:
                                new_run_name=new_run_name,
                                missing_sample_every_nth=missing_sample_every_nth,
                                upload_items=upload_items, cs_tags=cs_tags,
-                               cs_tags_tsv=cs_tags_tsv, josm_url=josm_url)
+                               cs_tags_tsv=cs_tags_tsv, josm_url=josm_url,
+                               josm_osm_url=josm_osm_url)
 
     @app.get("/runs/<int:run_id>/neighbor")
     def run_neighbor(run_id: int):
@@ -1494,34 +1533,6 @@ def create_app() -> Flask:
         )
 
     # ---- Upload (per run) ----
-
-    def _josm_remote_url(run_id: int, cs_tags: dict[str, str]) -> str:
-        """JOSM Remote Control /import URL: load the .osm file and pre-fill changeset tags.
-
-        JOSM listens on http://127.0.0.1:8111 when Remote Control is enabled
-        (Preferences -> Remote Control). `comment` and `source` go in their
-        own dedicated params; everything else rides in `changeset_tags` as
-        pipe-separated `key=value` pairs.
-
-        IMPORTANT: `url=` MUST be the last parameter. JOSM's /import handler
-        does not strictly parse `url=` as a single query value — it appends
-        any subsequent query-string text to the URL it fetches, producing
-        a malformed request (path ends up like `.../export.osm&new_layer=true`).
-        Putting `url=` last ensures nothing follows it.
-        """
-        from urllib.parse import urlencode
-        data_url = url_for("run_export_get", run_id=run_id, _external=True)
-        extra = {k: v for k, v in cs_tags.items() if k not in ("comment", "source")}
-        # Order matters: url must come last (see docstring).
-        params = [
-            ("new_layer", "true"),
-            ("layer_name", f"run_{run_id}"),
-            ("changeset_comment", cs_tags.get("comment", "")),
-            ("changeset_source", cs_tags.get("source", "")),
-            ("changeset_tags", "|".join(f"{k}={v}" for k, v in extra.items())),
-            ("url", data_url),
-        ]
-        return "http://127.0.0.1:8111/import?" + urlencode(params)
 
     def _send_run_osm(run_id: int, as_attachment: bool):
         path = osm_export.write_xml(run_id)

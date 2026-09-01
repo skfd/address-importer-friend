@@ -133,7 +133,7 @@ def _output_paths(run_id: int, candidates: list[dict], tile_id: str | None) -> l
     return pairs
 
 
-_ATTR_RE = re.compile(r'''(\b(?:href|action|hx-get|hx-post|src)\s*=\s*)(["'])([^"']*)\2''')
+_ATTR_RE = re.compile(r'''(\b(?:href|action|hx-get|hx-post|src|data-josm-osm)\s*=\s*)(["'])([^"']*)\2''')
 _SIBLINGS_FETCH_RE = re.compile(
     r"fetch\(`/runs/\$\{runId\}/siblings\?[^`]*`,\s*\{signal: el\._sibFetch\.signal\}\)"
 )
@@ -350,6 +350,10 @@ def main(argv: list[str] | None = None) -> int:
     # /static/<file> links resolve to the exported asset path.
     for src, dst in _STATIC_BUNDLES:
         url_to_path[f"/static/{src}"] = f"assets/{dst}"
+    # The run page's "Open in JOSM" button carries the .osm as an app path;
+    # point it at the copy that ships in assets/ so the button works on the
+    # published site, where the Flask route does not exist.
+    url_to_path[f"/runs/{args.run}/export.osm"] = f"assets/upload_run_{args.run}.osm"
 
     rendered = 0
     skipped_404 = 0
@@ -398,10 +402,15 @@ def main(argv: list[str] | None = None) -> int:
     if osm_snap.exists():
         shutil.copyfile(osm_snap, out / "assets" / "osm.json")
         copied.append("osm.json")
-    upload_osm = cfg.data_dir / f"upload_run_{args.run}.osm"
-    if upload_osm.exists():
-        shutil.copyfile(upload_osm, out / "assets" / upload_osm.name)
-        copied.append(upload_osm.name)
+    # Rebuilt rather than copied from whatever sits on disk: the run page's
+    # JOSM button points at this file, so a stale copy — or none at all, if
+    # nobody pressed Download since the last review pass — would quietly hand
+    # the reviewer the wrong nodes. write_xml is what the app's own export
+    # route calls, and its dedup passes are idempotent.
+    from . import osm_export as _osm_export
+    upload_osm = _osm_export.write_xml(args.run)
+    shutil.copyfile(upload_osm, out / "assets" / upload_osm.name)
+    copied.append(upload_osm.name)
     tiles_json = cfg.data_dir / "tiles.json"
     if tiles_json.exists():
         shutil.copyfile(tiles_json, out / "assets" / "tiles.json")

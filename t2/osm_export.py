@@ -395,9 +395,21 @@ def build_tags(it: dict) -> dict[str, str]:
     return {k: v for k, v in tags.items() if v}
 
 
-def _osm_change_xml(items: list[dict]) -> bytes:
-    """Build an <osm version=0.6> element with one <node> per item."""
+def _osm_change_xml(items: list[dict], cs_tags: dict[str, str] | None = None) -> bytes:
+    """Build an <osm version=0.6> element with one <node> per item.
+
+    `cs_tags` becomes a `<changeset>` child, which JOSM reads into the layer
+    and uses to pre-fill the Upload dialog — see `write_xml`.
+    """
     root = ET.Element("osm", version="0.6", generator="t2-address-import")
+    if cs_tags:
+        # No `id` attribute: JOSM accepts the element only when its id equals
+        # the root's `upload-changeset` attribute, and null == null is the
+        # match a hand-built file wants. An id here would make JOSM skip the
+        # whole element without a word.
+        cs = ET.SubElement(root, "changeset")
+        for k, v in cs_tags.items():
+            ET.SubElement(cs, "tag", k=k, v=v)
     for it in items:
         lat, lon = it["lat"], it["lon"]
         if lat is None or lon is None:
@@ -419,23 +431,17 @@ def write_xml(run_id: int) -> Path:
     skip_cross_run_duplicates(run_id)
     skip_intra_run_duplicates(run_id)
     items = _assign_local_node_ids(run_id, _load_upload_items(run_id))
-    raw = _osm_change_xml(items)
+    # The changeset tags ride in a real `<changeset>` element, not a comment.
+    # JOSM's OsmReader parses it into the layer (AbstractReader.prepareDataSet
+    # -> ds.addChangeSetTag) and UploadDialog.initLifeCycle copies those over
+    # the history-based prefill, so opening this file fills in the comment,
+    # source and the rest by itself. Only the `.osm` reader does this —
+    # OsmChangeReader ignores anything that is not create/modify/delete, so the
+    # same tags in an `.osc` would go nowhere.
+    raw = _osm_change_xml(items, changeset_tags(run_id))
     pretty = minidom.parseString(raw).toprettyxml(indent="  ", encoding="utf-8")
-
-    # Embed the changeset-level tags as a header comment. JOSM does not
-    # auto-apply these — the operator must paste them into the Upload dialog —
-    # but having them in the file means the operator can recover them from a
-    # text editor or JOSM's raw view if the run page isn't handy.
-    cs_tags = changeset_tags(run_id)
-    header_lines = ["<!-- Changeset tags (paste into JOSM upload dialog):"]
-    for k, v in cs_tags.items():
-        header_lines.append(f"     {k} = {v}")
-    header_lines.append("-->")
-    header = ("\n".join(header_lines) + "\n").encode("utf-8")
-
-    decl, _, body = pretty.partition(b"\n")
     out = _CONFIG.data_dir / f"upload_run_{run_id}.osm"
-    out.write_bytes(decl + b"\n" + header + body)
+    out.write_bytes(pretty)
     return out
 
 

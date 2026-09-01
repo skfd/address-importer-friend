@@ -111,7 +111,8 @@
     </form>
     {% if josm_url %}
     <button type="button" class="secondary" id="josm-open-btn"
-            data-josm-url="{{ josm_url }}"
+            data-josm-endpoint="{{ josm_url }}"
+            data-josm-osm="{{ josm_osm_url }}"
             {% if approved_avail == 0 %}disabled{% endif %}
             title="Loads the .osm into JOSM via Remote Control (Preferences → Remote Control must be enabled in JOSM) and pre-fills the changeset comment, source, and tags. Stays on this page.">Open in JOSM</button>
     <span id="josm-open-status" class="muted" style="margin-left:.4rem;"></span>
@@ -130,19 +131,29 @@
       const status = document.getElementById('josm-open-status');
       if (!btn) return;
       btn.addEventListener('click', () => {
-        const original = btn.textContent;
         btn.disabled = true;
         status.textContent = 'Sending to JOSM…';
-        // mode:'no-cors' lets the request leave the browser even though
-        // 127.0.0.1:8111 doesn't send CORS headers. The response is opaque,
-        // but resolution = JOSM accepted it; rejection = JOSM unreachable.
-        fetch(btn.dataset.josmUrl, { mode: 'no-cors' })
-          .then(() => { status.textContent = 'Sent to JOSM'; })
+        // The .osm path is absolute on the live app and relative on the static
+        // export; resolving against location.href covers both. JOSM fetches
+        // this itself, so on a published site it has to be a public URL.
+        const dataUrl = new URL(btn.dataset.josmOsm, location.href).href;
+        // `url` stays last — JOSM appends whatever follows it to the address
+        // it downloads.
+        const req = btn.dataset.josmEndpoint + '&url=' + encodeURIComponent(dataUrl);
+        // Remote Control answers with `Access-Control-Allow-Origin: *` on every
+        // response, errors included, so a plain CORS fetch can read the status.
+        // The old no-cors call got an opaque result that only said whether JOSM
+        // was listening at all.
+        fetch(req)
+          .then(r => {
+            status.textContent = r.ok
+              ? 'Sent to JOSM'
+              : 'JOSM refused it (HTTP ' + r.status + ') — check Remote Control permissions.';
+          })
           .catch(() => { status.textContent = 'JOSM not reachable. Enable Remote Control (Preferences → Remote Control).'; })
           .finally(() => {
             btn.disabled = false;
-            btn.textContent = original;
-            setTimeout(() => { status.textContent = ''; }, 4000);
+            setTimeout(() => { status.textContent = ''; }, 8000);
           });
       });
     })();
