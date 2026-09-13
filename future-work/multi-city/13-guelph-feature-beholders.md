@@ -37,7 +37,7 @@ classification) rather than being a one-shot backlog.
 |---|---|---|---|
 | **transit** | GTFS + `OD1/33` | `ref` = GTFS `stop_id` | 80 stops with nothing within 100 m; route relations; stale names |
 | **pitches** | `OD1/22` + `OD1/23` | proximity + compatible `sport` | `name` on 15/303, `surface` 86/303, `lit` 51/303 |
-| **swm ponds** | `OD2/10` | polygon overlap | 0 `landuse=basin`; 36 absent, 57 bare water to classify |
+| **swm ponds** | `OD2/10` | polygon overlap | 36 absent; bare water to classify. **Guelph tags basins `natural=water`+`water=basin` (10 today), not `landuse=basin`** — a predicate built on the wrong scheme reports correct ponds as failures |
 | **parks** | `OD1/5` | name + overlap | official names and renamings |
 | **gardens** | `OD1/28` | `CommGardenID` + proximity | small, keyed, stable |
 
