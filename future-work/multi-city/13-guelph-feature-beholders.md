@@ -28,10 +28,17 @@ So: no new imports out of this audit. Watchers.
 
 ## The shortlist
 
-A beholder earns its keep when three things hold: the source is **automatable**
-(a live endpoint, not a zip), an **identity predicate** exists that is not the
-thing being audited, and the gap **recurs** (new stops, renamed parks, drifting
-classification) rather than being a one-shot backlog.
+A beholder earns its keep when **four** things hold: the source is
+**automatable** (a live endpoint, not a zip), an **identity predicate** exists
+that is not the thing being audited, the gap **recurs** (new stops, renamed
+parks, drifting classification) rather than being a one-shot backlog, and —
+added after review — **the diff is bounded**.
+
+Bounded means OSM coverage is already high enough that a run surfaces a queue a
+person could actually work through. A watcher that opens with 35,000 unclearable
+findings does not get used; it gets closed. This is the precondition that
+excludes trees, and it is the one most likely to be forgotten, because a large
+gap looks like a strong reason to build a watcher when it is the opposite.
 
 | dataset | source | identity predicate | what it watches |
 |---|---|---|---|
@@ -48,10 +55,13 @@ having its own, and should wait until the first wave proves the seam.
 
 **Excluded, with reasons**, so nobody re-proposes them:
 
-- **Trees** — 57,485 points whose only predicate is position, against 50,667
-  OSM trees that are armchair-traced canopy centroids. Every run would report
-  tens of thousands of ambiguous near-matches. This is the case that would
-  discredit the tool.
+- **Trees** — **and note the exclusion survived review for a different reason
+  than it was written.** The original reason ("OSM already has 88%") was wrong:
+  the two datasets have near-equal totals but are largely disjoint, and ~35,000
+  city trees sit where OSM has none. That makes trees a *conflation* candidate,
+  which the audit now tiers 4. It still does not make a good watcher: the diff
+  is not bounded, so a tree beholder would open with tens of thousands of
+  findings nobody can clear, which is the failure mode below.
 - **Hydrants** — `MODEL` null on 97.7%, so there is nothing to audit but
   existence, and `LOCATIONID` is an internal grid reference.
 - **Buildings** — 772 missing ≥50 m² is a finite backlog, not a recurring
