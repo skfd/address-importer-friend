@@ -1,182 +1,198 @@
-# Beholders for feature types other than addresses — Guelph first
+# Two products for city data — layers and beholders. Guelph first
 
-Status: **planned 2026-09-12**, following the Guelph open-data audit in
-`C:/Users/kk/Code/guelph-osm-import-audit`. Doc `11` named the second axis and
-deliberately declined to schedule it ("not a mandate to build hydrant
-support"). This document schedules it, because the audit produced concrete
-datasets rather than a hypothetical one.
+Status: **planned 2026-09-12**, revised 2026-09-13 after the Guelph open-data
+audit in `C:/Users/kk/Code/guelph-osm-import-audit` and two independent reviews
+of it. Doc `11` named the feature-type axis and deliberately declined to
+schedule it. This document schedules it — and, in the revision, corrects its own
+assumption that a beholder is the answer for all of it.
 
-Reads on top of `07` (beholder generalization, implemented) and `11` (feature
-types as the second axis). Doc `11`'s guidance stands: L1 stays address-only —
-`ontario-address-changes` does not learn about pitches — and feature-type
-genericity is a property of L2–L4.
+Reads on top of `07` (beholder generalization, implemented), `11` (feature
+types), and `06` (the adjudication layer, which is the "third place" below).
+Doc `11`'s guidance stands: L1 stays address-only.
 
-## Why a beholder rather than an import
+## Why not an import
 
-The audit's finding was that **Guelph OSM is not a blank map**. OSM has more
-buildings than the City publishes, 88% of the trees, more road kilometres, more
-trails, more pitches. Of 46 catalogued layers, none justified a bulk import.
+The audit found that **Guelph OSM is not a blank map**. OSM has more buildings
+than the City publishes, more road kilometres, more trails, more pitches. Of 46
+catalogued layers, none justified a bulk import. What the City has that OSM
+lacks is **attributes**: official names, surfaces, lighting, separation,
+classification.
 
-But a third of them scored **tier 3 `reference`** — useful for validating OSM,
-not for loading into it. A tier 3 verdict is a beholder's job description. The
-data is authoritative and refreshed, the gap is real but small, and the work is
-perpetual rather than a one-time upload. That is exactly the product
-`address-beholder` already is for Guelph addresses, pointed at a different
-layer.
+So the deliverables are ongoing comparisons, not uploads.
 
-So: no new imports out of this audit. Watchers.
+## The two products — and the line between them
 
-## The shortlist
+The family already contains both, and they are not the same tool:
 
-A beholder earns its keep when **four** things hold: the source is
-**automatable** (a live endpoint, not a zip), an **identity predicate** exists
-that is not the thing being audited, the gap **recurs** (new stops, renamed
-parks, drifting classification) rather than being a one-shot backlog, and —
-added after review — **the diff is bounded**.
+**The layer** (`toronto-parks-layer`, `toronto-addresses-layer`,
+`toronto-streets-layer`). A `download → slim → compare → tiles → site →
+publish` pipeline. It renders the City data as MVT + PNG tiles a mapper adds to
+**JOSM or iD as a reference overlay**, and publishes a **gap page** —
+`missing` / `mismatch` / `unnamed` — from spatial overlap against Overpass.
+Stateless, rebuilt weekly, no login, no database.
 
-Bounded means OSM coverage is already high enough that a run surfaces a queue a
-person could actually work through. A watcher that opens with 35,000 unclearable
-findings does not get used; it gets closed. This is the precondition that
-excludes trees, and it is the one most likely to be forgotten, because a large
-gap looks like a strong reason to build a watcher when it is the opposite.
+**The beholder** (`address-beholder`). Tracks every *source record* over time
+with an append-only history, a correctness audit, and notes from allowlisted
+mappers. It has a **third place**: somewhere to record a judgment that belongs
+to neither dataset — *this City point is a placeholder*, *this one is
+demolished*, *this address does not exist*. `notes.py`'s preset vocabulary is
+that place today; doc `06` is where it grows up.
 
-| dataset | source | identity predicate | what it watches |
+### The discriminator is not "is the City data correct"
+
+It is tempting to say the layer assumes the City is right and the beholder
+handles a City that is wrong. That is not quite it — **`toronto-parks-layer`
+already handles bad City data**. `INCLUDE_AREA_CLASSES` drops traffic islands,
+road slivers, boulevards and hydro corridors; the numbered TRCA parcels are kept
+out of the tiles and given their own gap category.
+
+The real line:
+
+> **Categorical defects want a layer. Per-record defects want a beholder.**
+
+A categorical defect is fixed *once*, with a filter rule, usually keyed on a
+field the source already carries. A per-record defect needs a **human judgment
+per row, and that judgment has to persist across rebuilds** — which is exactly
+what a stateless weekly rebuild cannot hold, and exactly what the third place is
+for.
+
+That is why addresses need the full beholder: "this is a placeholder point",
+"this building was demolished", "this unit was never built" are per-record
+verdicts, tens of thousands of them, and re-deriving them every week is not
+possible.
+
+## Which Guelph datasets fall where
+
+The audit classified every layer's defects. **Almost all are categorical**, and
+live in a field:
+
+| dataset | the defect | the rule |
+|---|---|---|
+| swm ponds | 38 of 152 are swales, not basins | filter on `TYPE` |
+| donation bins | 9 bins, 13 thrift counters, 8 consignment shops | filter on `LocationType` |
+| fire / EMS | spans 8 municipalities; EMS republishes the fire rows | filter on the municipality field |
+| restrooms | 63 of 80 are seasonal portables | filter on `RestroomType` |
+| guelph areas | 3 of 23 are "Non-Residential - A/B/C" tabulation units | filter on `AREA_NAME` |
+| gardens | the point and polygon layers disagree on type | use layer 28, the later vocabulary |
+| pitches | 3 cricket rows are the wicket strip; 2 disc golf rows are whole courses | filter on area + `Type` |
+
+Every one is a slim rule. **They are layers.**
+
+### Layer products
+
+| dataset | source | gap page keys on | what the overlay gives a mapper |
 |---|---|---|---|
-| **transit** | GTFS + `OD1/33` | `ref` = GTFS `stop_id` | 80 stops with nothing within 100 m; route relations; stale names |
-| **pitches** | `OD1/22` + `OD1/23` | proximity + compatible `sport` | `name` on 15/303, `surface` 86/303, `lit` 51/303 |
-| **swm ponds** | `OD2/10` | polygon overlap | 36 absent; bare water to classify. **Guelph tags basins `natural=water`+`water=basin` (10 today), not `landuse=basin`** — a predicate built on the wrong scheme reports correct ponds as failures |
-| **parks** | `OD1/5` | name + overlap | official names and renamings |
-| **gardens** | `OD1/28` | `CommGardenID` + proximity | small, keyed, stable |
+| **parks** | `OD1/5` (126) | overlap + name | official names, incl. Anishinaabemowin renamings |
+| **pitches** | `OD1/22` + `OD1/23` (191) | overlap + sport; name/surface/lit | the 162 official names to type in |
+| **transit stops** | GTFS (618) | `ref` = `stop_id` | the 80 stops with nothing within 100 m |
+| **swm ponds** | `OD2/10` (114 after filter) | polygon overlap | 36 absent basins; classification for the rest |
+| **bike facilities** | `OD2/1` (1,462) | overlap on the street | separation and buffer type |
+| **truck routes** | `OD1/1` field (322) | overlap on the street | a truck network OSM does not have at all |
+| **trails** | `OD1/21` (2,118) | overlap | surface and winter service |
+| **gardens** | `OD1/28` (42) | overlap + name | small, keyed, stable |
 
-**Second wave.** AEDs are valuable (1 in OSM vs 173) but every row is an
-address-point geocode, so their identity predicate is *"resolve `ADDID` to the
-address, then to the building"* — it reuses the address identity rather than
-having its own, and should wait until the first wave proves the seam.
+**Guelph tags stormwater basins `natural=water` + `water=basin` (10 today), not
+`landuse=basin`.** A predicate built on the wrong scheme reports correct ponds
+as failures. Follow the local scheme; do not retag into the other one.
 
-**Excluded, with reasons**, so nobody re-proposes them:
+### Beholder products
 
-- **Trees** — **and note the exclusion survived review for a different reason
-  than it was written.** The original reason ("OSM already has 88%") was wrong:
-  the two datasets have near-equal totals but are largely disjoint, and ~35,000
-  city trees sit where OSM has none. That makes trees a *conflation* candidate,
-  which the audit now tiers 4. It still does not make a good watcher: the diff
-  is not bounded, so a tree beholder would open with tens of thousands of
-  findings nobody can clear, which is the failure mode below.
-- **Hydrants** — `MODEL` null on 97.7%, so there is nothing to audit but
-  existence, and `LOCATIONID` is an internal grid reference.
-- **Buildings** — 772 missing ≥50 m² is a finite backlog, not a recurring
-  drift. Do it once with MapRoulette.
-- **Addresses** — already beheld by `guelph-beholder`.
+| dataset | why it needs the third place |
+|---|---|
+| **addresses** ✔ | already live as `guelph-beholder`. Placeholder, stale and demolished points are per-record verdicts that must persist |
+| **AEDs** | 262 devices geocoded onto 170 coordinates, 14 on one node, 18 rows are vehicles or loaner spares. Untangling which device is where is one human judgment per device, and it has to stick |
 
-### Everything unlicensed is excluded until the licence lands
+AEDs are second wave: their identity predicate resolves `ADDID` → address →
+building, so it reuses the address identity and should wait until that is
+proven.
 
-The audit's best two datasets — the **heritage register** (2,307 rows, 573
-designated, zero `heritage=*` in OSM) and **stop signs** (2,108 with facing
-direction) — are not in the open data catalog. They are anonymously readable
-with `licenseInfo: null`, as are ~75 other services.
+### Neither
 
-A beholder is not a read: it **ingests a source and republishes a derived view
-of it**, durably, with history. That is a use the Open Data Licence would cover
-and an empty licence field does not. Do not stand one up against an
-uncatalogued service, and especially not against one named `_Temp`.
+**Trees.** The original exclusion here was written on a wrong reason ("OSM
+already has 88%") — the two datasets have near-equal totals but are largely
+disjoint, and ~35,000 city trees sit where OSM has none, which is why the audit
+now tiers trees 4 / conflate. It still fails precondition (4) below: a gap page
+would open with ~35,000 unclearable findings. An **overlay with no gap page**
+would still help a mapper adding trees by hand; that is the only form worth
+offering.
 
-The unblocking action is the audit's top recommendation — one email to
-`opengov@guelph.ca` asking the City to catalog the layers it already serves.
-Heritage is the single highest-value beholder in Guelph the day that clears.
+## The four preconditions for a gap page
 
-## The engine seam
+Either product, when it compares against OSM:
 
-`run.py review()` already has exactly the four seams this needs:
+1. the source is **automatable** — a live endpoint, not a zip;
+2. an **identity predicate** exists that is **not the thing being audited**;
+3. the gap **recurs** rather than being a one-shot backlog;
+4. the diff is **bounded** — a run surfaces a queue a person could work through.
 
-```
-iter_active_points(cfg, bbox)      -> source load
-fetch_addr_elements(url, ...)      -> OSM fetch     (hardcodes addr:housenumber)
-conflate_points(pts, els, r, ...)  -> predicate + audit
-record_review(...)                 -> history       (already generic)
-```
+On (2): pitches prove it. OSM has `name` on 15 of 303 pitches and those missing
+names *are the product*, so keying on name would report them as missing features
+and hide exactly what matters. Pitches key on proximity plus compatible sport.
+Transit is the inverse and easy: `ref` is already right on 528 of 618 stops.
 
-Only the middle two know what an address is.
+On (4): a large gap looks like a strong reason to build a watcher and is the
+opposite. A tool that opens with 35,000 findings gets closed, not worked. Added
+after review, and the precondition most likely to be forgotten.
 
-**The identity predicate is the plug point**, as doc `11` said. Add to the
-dataset config:
+## Licence — and an obligation only the layer carries
 
-```toml
-[identity]
-predicate = "housenumber+street"   # addresses, the existing behaviour
-# predicate = "ref"                # key_field on the source, ref_tag in OSM
-# predicate = "proximity+type"     # radius, plus a compatible type mapping
-# predicate = "overlap"            # polygon IoU
-```
+The catalogued layers are clear: the OSMF LWG approved the Guelph Open Data
+Licence 2.0 on 2024-09-09, listed `compatible`.
 
-### The rule that shapes every predicate
+**But a published tile layer is a redistribution, which the beholder never
+does.** Every layer site must carry the licence's required attribution:
 
-**The key must never be the thing you are auditing.** Pitches are the case that
-proves it: OSM has `name` on 15 of 303 pitches, and the missing names are the
-whole point of the dataset — so matching on name would report the gap as
-"missing feature" instead of "unnamed feature", and would silently exclude every
-object worth flagging. Pitches key on *proximity plus compatible sport*, and
-audit name, surface and lit.
+> Contains information licensed under the Open Government Licence – City of Guelph.
 
-Transit is the inverse and the easy case: `ref` is already correct on 528 of 618
-stops, so it is a sound key, and shelter/bench/name are the audited fields.
+The audit's two best datasets — the **heritage register** and **stop signs** —
+are *not* in the catalog and carry `licenseInfo: null`. Do not build either
+product on them, least of all the one that republishes tiles to a public URL.
+The unblocking action is one email to `opengov@guelph.ca`.
 
-### What the domain pack carries (L3)
+## The engine seam — done
 
-Per doc `11`: the OSM filter tags for the Overpass query, the field→tag mapping,
-and the checks. `addresses` is the existing pack, unchanged. Each new dataset
-declares its pack rather than the engine growing a branch per layer.
+Implemented 2026-09-12 in `address-beholder`: `run.py review()` dispatches
+through **domain packs** (`beholder/packs/`); a dataset declares
+`[dataset] feature_type` and `[identity] predicate`, and a mismatch between them
+stops the run. `packs/addresses.py` is an adapter, not a rewrite.
 
-### Non-negotiable regression gate
-
-Doc `07` guardrail #3. Baseline captured 2026-09-12 **before** any change:
+Regression gate (doc `07` guardrail 3) held exactly, with **0 change events**:
 
 | dataset | PRESENT | MISSING |
 |---|--:|--:|
 | guelph-beholder | 45,397 | 8,449 |
 | toronto-import-beholder | 523,380 | 466 |
 
-with Guelph's issue table at `deprecated_addr_province` 44,820 · `duplicate_osm`
-782 · `postcode_missing` 704 · `city_missing` 354 · `far_match` 265 ·
-`civic_on_unit_object` 236 · `postcode_mismatch` 44 · `postcode_format` 28 ·
-`street_spelling` 5 · `city_mismatch` 1, and Toronto's at `duplicate_osm`
-95,636 · `far_match` 869 · `street_spelling` 67.
+Tests 65 → 92.
 
-A change that moves any of these is a regression, not a discovery.
-
-## L1 — where the source comes from
-
-Doc `11` rules out the tracker, and is right: these are not addresses and
-`ontario-address-changes` keeps its scope. But `address-vault` already has
-`addressvault/fetch/arcgis.py`, and every Guelph layer in the shortlist is an
-ArcGIS FeatureServer. **Check whether the vault's ArcGIS fetcher can be pointed
-at an arbitrary layer URL before writing a new one** — the audit's
-`guelph-osm-import-audit/inventory.py` already has the pagination and the
-`?f=json` shape if it cannot.
-
-The per-dataset store wants: stable source id, geometry, a props blob,
-first-seen/last-seen. That is the vault's snapshot shape, which is why it is
-worth checking first.
+**`guelph-pitches-beholder` was built as the exemplar, and on this revision it
+is the wrong product for pitches.** Pitches has no per-record source defects,
+and what its mappers need is the editor overlay a beholder cannot produce. Its
+findings are sound — 177/191 present, `name_missing` 162, and the structural
+discovery that 35 city rows resolve to 13 OSM objects because OSM maps the court
+*block* where the City inventories the courts inside it. Keep it as the proof
+that the pack seam works; move pitches to a layer.
 
 ## Deployment
 
-Per-dataset repos, following `guelph-beholder`'s thin-dir convention:
-`guelph-transit-beholder`, `guelph-pitches-beholder`, and so on. Decided
-2026-09-12; doc `07` had left single-set vs multi-set open. Multi-set remains
-available if a "how is Guelph doing" dashboard is ever wanted, and the configs
-should stay uniform enough that one could read them all without migration.
+Per-dataset repos. Beholders follow `guelph-beholder`'s thin-dir convention;
+layers follow `toronto-parks-layer`'s own-repo-plus-GitHub-Pages convention.
+Decided 2026-09-12.
 
-Known cost, inherited: the OSM OAuth2 app and its
-`http://127.0.0.1:5000/auth/callback` redirect are shared, so only one dataset
-can be *served* at a time. Reviews are unaffected. Registering an app per
-dataset, or moving to distinct ports, is the fix when it starts to bite.
+Known costs, inherited: the OSM OAuth2 app and its
+`http://127.0.0.1:5000/auth/callback` redirect are shared between beholders, so
+only one can be *served* at a time (reviews are unaffected). The layer template
+needs tippecanoe under WSL2 (`wsl-setup.md`) and depends on `addressvault.net`
+for its fetching.
 
 ## Order of work
 
-1. Cut the seam, with the addresses path byte-identical and the regression gate
-   green. — *first*
-2. **pitches** as the exemplar: hardest predicate, and the attribute audit is
-   the whole value. If the seam is right, this is a config plus a fetcher.
-3. **transit** next: trivial once the seam exists, and the highest-confidence
-   gap in the audit.
-4. swm ponds, parks, gardens as a batch.
-5. Heritage the day the licence clears.
+1. **`guelph-parks-layer`** — clone `toronto-parks-layer`, point `download` at
+   `OD1/5`, everything downstream unchanged. Proves the template survives a new
+   source and a new city. — *first, decided 2026-09-13*
+2. **`guelph-pitches-layer`** — needs `compare.py` extended from
+   `missing/mismatch/unnamed` to diff `surface` and `lit` too. The first real
+   change to the layer template.
+3. transit, ponds, bike facilities, truck routes, trails, gardens.
+4. AED beholder, once the address identity is proven reusable.
+5. Heritage — either product — the day the licence clears.
