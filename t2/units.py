@@ -42,6 +42,7 @@ Pure functions over rows — no database, no config. The policy that calls this
 lives in `candidates`, and the group it must be handed is the whole civic
 group city-wide, not the part of it inside the current tile.
 """
+import hashlib
 import re
 from collections import defaultdict
 
@@ -67,6 +68,15 @@ COLLAPSE = "collapse"
 NODES = "nodes"
 REVIEW = "review"
 NO_UNITS = "no-units"
+
+# What an operator may overrule the rule with, at /units/shapes. These are
+# shapes, not classifier verdicts: `review` is deliberately absent because it
+# is collapse plus a reason to look, and an operator who has looked has no
+# reason left to record. `skip` is the one shape the rule can never reach on
+# its own -- it is for 252 Stone Road West, whose 140 "units" are storefronts
+# and where both a civic node and forty front doors would assert something
+# false.
+OVERRIDES = ("nodes", "collapse", "civic-only", "skip")
 
 # prefix letters, digits, suffix letters — "101", "D101", "101A", "1001".
 _UNIT = re.compile(r"([A-Z]*)(\d+)([A-Z]*)")
@@ -299,3 +309,95 @@ def classify(rows) -> tuple[str, str]:
     if spacing < DOOR_SPACING_M:
         return REVIEW, f"sequential but {spacing:.1f} m apart, under a door's width"
     return NODES, f"sequential, {spacing:.1f} m apart"
+
+
+# --- the decision both the emitter and the audit page make -----------------
+
+
+def unit_sort_key(unit: str):
+    """Order unit designators the way a person reads them, so a door group
+    lists `1;2;3` rather than the `1;10;100` a string sort gives. Unparseable
+    designators sort last, where they do not interrupt a run.
+    """
+    parsed = parse_unit(unit)
+    if parsed is None:
+        return (1, "", 0, unit)
+    prefix, num, suffix = parsed
+    return (0, prefix, num, suffix)
+
+
+def listed_units(designators) -> list[str]:
+    """The distinct unit designators of a group, stripped and in reading
+    order. This is the one normalized form: `flats_tag` renders it, the audit
+    page shows it, and `unit_hash` covers it, so the emitter and the page must
+    build it the same way or a verdict recorded on one will not be recognised
+    by the other.
+    """
+    return sorted(
+        {str(u).strip() for u in designators if (u or "").strip()},
+        key=unit_sort_key,
+    )
+
+
+def unit_hash(listed: list[str]) -> str:
+    """Fingerprint of the unit set a verdict was made against.
+
+    Designators only -- never coordinates. Geocoding jitter between source
+    snapshots would otherwise invalidate every verdict on every refresh. Its
+    job is narrow: a building that gains a floor must re-surface on the audit
+    page rather than silently inherit a decision made about a different
+    building. Upper-cased so a source that re-cases `ll01` to `LL01` is not
+    read as a new building either.
+    """
+    return hashlib.sha1(";".join(u.upper() for u in listed).encode("utf-8")).hexdigest()[:16]
+
+
+def resolve(
+    verdict: str, reason: str, listed: list[str], override: str | None = None
+) -> tuple[str, str, str | None]:
+    """What a civic group becomes, given the rule's verdict and any operator
+    override. Returns (shape, reason, flats).
+
+    The shape vocabulary is the audit page's, one wider than the rule's:
+
+        nodes       one node per door, each carrying addr:unit
+        collapse    one node for the building, carrying addr:flats
+        civic-only  one node for the building and no listing
+        review      collapsed, but the rule was not confident
+        skip        nothing at all
+
+    `candidates._emit_group` and `unit_shapes._outcome` both go through here,
+    so they cannot drift: if the page says a building collapses, that is what
+    ingest will do with it. The order of operations is fixed -- decide first,
+    render the listing second -- because an over-long listing downgrades a
+    confident collapse to something a human has to see.
+
+    An override changes the branch, never the facts. It cannot make a
+    421-character listing fit inside a 255-character tag, so `collapse` on
+    such a group falls through to `civic-only` and the reason says why,
+    rather than the emitter writing a truncated tag that asserts the building
+    stops wherever the cut landed.
+    """
+    if override is None:
+        if verdict in (NODES, NO_UNITS):
+            return "nodes", reason, None
+        flats, too_long = flats_tag(listed)
+        if too_long:
+            # The node is still right; only the listing is lost. That is its
+            # own outcome, not a failed collapse -- the building arrives
+            # correct and less informative, and the reviewer is told which.
+            return "civic-only", too_long, None
+        return ("review" if verdict == REVIEW else "collapse"), reason, flats
+
+    if override not in OVERRIDES:
+        raise ValueError(f"unknown unit-shape override {override!r}")
+    # Keep the rule's opinion in the reason, or the audit trail is gone: a
+    # candidate that says only "nodes" cannot tell a reviewer that the rule
+    # wanted to collapse it and a person disagreed.
+    said = f"override: rule said {verdict} ({reason})"
+    if override == "collapse":
+        flats, too_long = flats_tag(listed)
+        if too_long:
+            return "civic-only", f"override to collapse cannot fit: {too_long}", None
+        return "collapse", said, flats
+    return override, said, None

@@ -7,7 +7,7 @@ from pathlib import Path
 
 from flask import Flask, abort, flash, g, jsonify, redirect, render_template, request, send_file, send_from_directory, url_for
 
-from .. import audit, campaign_stats as _campaign_stats, candidates, config as _config, db as _db, maintenance as _maintenance, maintenance_report as _maintenance_report, multi_addresses as _multi_addresses, multi_fixes as _multi_fixes, osm_client, osm_export, osm_refresh, pipeline, ranges as _ranges, reverse_sweep as _reverse_sweep, review, run_for_all, source_db, source_multi as _source_multi, streets as _streets, tag_diff, tiles_build, unit_shapes as _unit_shapes, wiki_sync as _wiki_sync
+from .. import audit, campaign_stats as _campaign_stats, candidates, config as _config, db as _db, maintenance as _maintenance, maintenance_report as _maintenance_report, multi_addresses as _multi_addresses, multi_fixes as _multi_fixes, osm_client, osm_export, osm_refresh, pipeline, ranges as _ranges, reverse_sweep as _reverse_sweep, review, run_for_all, source_db, source_multi as _source_multi, streets as _streets, tag_diff, tiles_build, unit_shapes as _unit_shapes, unit_verdicts as _unit_verdicts, wiki_sync as _wiki_sync
 from ..conflate import _proposed_tags, _is_poi_node, POI_TAG_KEYS, normalize_street
 from ..checks import REGISTRY
 from .glossary import GLOSSARY
@@ -1682,12 +1682,51 @@ def create_app() -> Flask:
         if shape not in dict(_unit_shapes.SHAPES):
             shape = ""
         rows = [r for r in data["rows"] if not shape or r["shape"] == shape]
+        # A candidate's back-link names its group; land on that row even if
+        # the shape filter would have hidden it.
+        focus = data["by_key"].get(request.args.get("focus", ""))
+        if focus is not None and shape and focus["shape"] != shape:
+            shape = ""
+            rows = data["rows"]
         return render_template(
             "unit_shapes.html",
             data=data,
             rows=rows,
             active_shape=shape,
             shapes=_unit_shapes.SHAPES,
+            choices=_unit_shapes.CHOICES,
+            focus=focus,
+        )
+
+    @app.post("/units/shapes/verdict")
+    def unit_shapes_verdict():
+        """One chip click: record the operator's verdict on one civic group
+        and hand back that row, plus the count tiles out-of-band. A frozen
+        group re-renders as frozen instead of silently keeping the old value.
+        """
+        if not source_db.PER_DOOR:
+            abort(404)
+        key = request.form.get("civic_key", "")
+        choice = request.form.get("choice", "")
+        if choice not in ("rule", *_unit_verdicts.VERDICTS):
+            abort(400, description=f"unknown verdict {choice!r}")
+        shape = request.form.get("shape", "")
+        if shape not in dict(_unit_shapes.SHAPES):
+            shape = ""
+        refused = False
+        try:
+            row = _unit_shapes.decide(key, choice, request.form.get("note"))
+        except KeyError:
+            abort(404, description="no such civic group")
+        except _unit_verdicts.Frozen:
+            refused = True
+            row = _unit_shapes.collect()["by_key"][key]
+        return render_template(
+            "_unit_shape_row.html", r=row, choices=_unit_shapes.CHOICES,
+            active_shape=shape, refused=refused,
+        ) + render_template(
+            "_unit_shape_tiles.html", data=_unit_shapes.collect(),
+            active_shape=shape, shapes=_unit_shapes.SHAPES, oob=True,
         )
 
     @app.get("/source/multi/partials")

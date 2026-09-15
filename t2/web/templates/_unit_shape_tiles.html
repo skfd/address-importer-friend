@@ -1,0 +1,26 @@
+<div id="shape-tiles" {% if oob %}hx-swap-oob="true"{% endif %}>
+<div class="tiles">
+  <a class="tile {% if not active_shape %}on{% endif %}" href="/units/shapes">
+    <div class="n">{{ data.group_total }}</div>
+    <div class="k">All groups</div>
+    <div class="d">{{ '{:,}'.format(data.unit_total) }} units</div>
+  </a>
+  {% for shape, blurb in shapes %}
+  <a class="tile tile-{{ shape }} {% if active_shape == shape %}on{% endif %}"
+     href="/units/shapes?shape={{ shape }}">
+    <div class="n">{{ data.counts[shape] }}</div>
+    <div class="k">{{ shape }}</div>
+    <div class="d">{{ blurb }}</div>
+  </a>
+  {% endfor %}
+</div>
+
+<p class="muted" style="font-size:.84rem">
+  Together these create <strong>{{ '{:,}'.format(data.nodes_created) }} nodes</strong>,
+  {{ '{:,}'.format(data.door_nodes) }} of them doors.
+  {% if data.overridden %}<strong>{{ data.overridden }}</strong> group{{ 's' if data.overridden != 1 }} decided by hand{% if data.stale %}, {{ data.stale }} of the saved verdicts stale{% endif %}{% if data.frozen %}, {{ data.frozen }} frozen in OSM{% endif %}.{% elif data.frozen %}{{ data.frozen }} group{{ 's' if data.frozen != 1 }} frozen in OSM.{% endif %}
+  A further {{ '{:,}'.format(data.no_unit_groups) }} civic groups hold no unit rows at
+  all — several rows sharing one address is an intra-source duplicate, not a unit
+  question, so they are counted here and reviewed elsewhere.
+</p>
+</div>

@@ -502,6 +502,19 @@ def civic_key(row: dict) -> tuple:
     )
 
 
+def civic_key_text(key: tuple) -> str:
+    """The civic key as one string, for storing and for URLs: `number|street|
+    municipality`, each part stripped and upper-cased, a missing part empty.
+
+    This is what `unit_shape_verdicts.civic_key` and `candidates.civic_key`
+    hold, and the only form the two are ever joined on. Do not try to rebuild
+    it from `candidates.street_raw`: that column is the expanded, override-
+    applied street and this key is the raw `linear_name_full`, and the two
+    do not round-trip.
+    """
+    return "|".join(str(p if p is not None else "").strip().upper() for p in key)
+
+
 def fetch_civic_groups(keys, snapshot_id: int) -> dict[tuple, list[dict]]:
     """Gather every active row for each wanted civic key, in one scan.
 

@@ -2,7 +2,7 @@
 import json
 from datetime import datetime, timezone
 
-from . import audit, config as _config, db as _db, source_db, units
+from . import audit, config as _config, db as _db, source_db, unit_verdicts, units
 
 _SOURCE_FIELDS = _config.load().source_fields
 
@@ -38,6 +38,7 @@ def _candidate_values(
     flats: str | None = None,
     shape: str | None = None,
     shape_reason: str | None = None,
+    civic_key: str | None = None,
 ) -> tuple | None:
     """Map one source row to a candidates INSERT tuple, or None to skip it.
 
@@ -47,7 +48,9 @@ def _candidate_values(
 
     `unit` and `flats` are what the row became under per-door-or-collapse —
     one front door, or one building standing for all of them. They are never
-    both set, and both stay None under every other policy.
+    both set, and both stay None under every other policy. `civic_key` is the
+    group the row was decided in (source_db.civic_key_text), kept so a shape
+    verdict can find the runs its group landed in; also None off the policy.
     """
     from .conflate import apply_street_override, expand_street_name, normalize_street
 
@@ -89,6 +92,7 @@ def _candidate_values(
         flats,
         shape,
         shape_reason,
+        civic_key,
         "INGESTED",
         now,
     )
@@ -99,8 +103,8 @@ _INSERT_SQL = """
       (run_id, candidate_id, address_full, housenumber, street_raw, street_norm,
        lat, lon, lo_num, lo_num_suf, hi_num, hi_num_suf, extra_json,
        address_class, municipality_name, unit, flats, unit_shape,
-       unit_shape_reason, stage, stage_updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       unit_shape_reason, civic_key, stage, stage_updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 """
 
 
@@ -120,7 +124,7 @@ def _elect(group: list[dict]) -> dict:
     )[0]
 
 
-def _emit_group(group: list[dict], in_tile):
+def _emit_group(group: list[dict], in_tile, override: str | None = None):
     """Yield (source_row, unit, flats, shape, reason) for one civic group under
     per-door-or-collapse.
 
@@ -129,6 +133,17 @@ def _emit_group(group: list[dict], in_tile):
     tile that contains it and no tile emits a neighbour's. A collapsed group
     has exactly one representative point, so it is created once however many
     tiles its units sprawl across.
+
+    `override` is the operator's verdict from /units/shapes, already checked
+    against the group's current unit set by the caller; None lets the rule
+    decide. The decision itself is `units.resolve`, shared with the page, so
+    what the page says a building becomes is what this does with it.
+
+    The `shape` yielded is what `candidates.unit_shape` records, and it is the
+    page's vocabulary with one deliberate exception: a listing dropped for
+    length that nobody chose is labelled `review`, not `civic-only`, because
+    the label means "a human should look" and the unit_shape_ambiguous check
+    keys on it. An operator who chose civic-only has looked.
     """
     verdict, reason = units.classify(
         [
@@ -136,32 +151,33 @@ def _emit_group(group: list[dict], in_tile):
             for r in group
         ]
     )
-    if verdict in (units.NODES, units.NO_UNITS):
+    listed = units.listed_units(r.get("unit_name") for r in group)
+    shape, reason, flats = units.resolve(verdict, reason, listed, override)
+    if shape == "skip":
+        return
+    if shape == "nodes":
         # Every row is its own address, the unit-less civic row included: the
         # City publishes it as a distinct point, and under unit-aware matching
         # it is a distinct object from the doors rather than a duplicate of one.
         for row in group:
             if in_tile(row):
-                yield row, (row.get("unit_name") or "").strip() or None, None, verdict, reason
+                yield row, (row.get("unit_name") or "").strip() or None, None, shape, reason
         return
-    # COLLAPSE and REVIEW alike become one node for the building. Review is not
-    # a third outcome here — it is the same node plus a reason for a human to
-    # look, because collapsing is right either way while exploding a group the
-    # rule is unsure about uploads front doors that may not exist.
+    # COLLAPSE, REVIEW and CIVIC-ONLY alike become one node for the building.
+    # Review is not a third outcome here — it is the same node plus a reason
+    # for a human to look, because collapsing is right either way while
+    # exploding a group the rule is unsure about uploads front doors that may
+    # not exist.
     rep = _elect(group)
     if not in_tile(rep):
         return
-    listed = [r["unit_name"] for r in group if (r.get("unit_name") or "").strip()]
-    flats, too_long = units.flats_tag(listed)
-    if too_long:
-        # The node is still right; only the listing is missing. Route it to a
-        # human rather than letting a building quietly arrive with no units.
-        verdict, reason = units.REVIEW, too_long
-    yield rep, None, flats, verdict, reason
+    label = "review" if shape == "civic-only" and override != "civic-only" else shape
+    yield rep, None, flats, label, reason
 
 
 def _iter_emissions(bbox, snapshot_id: int, polygon, point_cls, in_tile):
-    """Yield (source_row, unit, flats, shape, reason) for what this run creates.
+    """Yield (source_row, unit, flats, shape, reason, civic_key) for what this
+    run creates.
 
     Off the per-door policy this is the loop it replaces, unchanged: the bbox
     query already applies the city's collapse, and the polygon clips it.
@@ -179,7 +195,7 @@ def _iter_emissions(bbox, snapshot_id: int, polygon, point_cls, in_tile):
                 lat, lon = row.get("latitude"), row.get("longitude")
                 if lat is None or lon is None or not polygon.contains(point_cls(lon, lat)):
                     continue
-            yield row, None, None, None, None
+            yield row, None, None, None, None, None
         return
 
     keys = {
@@ -187,8 +203,18 @@ def _iter_emissions(bbox, snapshot_id: int, polygon, point_cls, in_tile):
         for row in source_db.iter_active_addresses_in_bbox(bbox, snapshot_id)
         if in_tile(row)
     }
-    for group in source_db.fetch_civic_groups(keys, snapshot_id).values():
-        yield from _emit_group(group, in_tile)
+    # Operator verdicts, read once per ingest. A verdict is honoured only if
+    # the group's unit set still matches the one it was made against; a stale
+    # one is ignored here and re-asked on the page.
+    verdicts = unit_verdicts.load_all()
+    for key, group in source_db.fetch_civic_groups(keys, snapshot_id).items():
+        key_text = source_db.civic_key_text(key)
+        override = unit_verdicts.effective(
+            verdicts.get(key_text),
+            units.unit_hash(units.listed_units(r.get("unit_name") for r in group)),
+        )
+        for row, unit, flats, shape, reason in _emit_group(group, in_tile, override):
+            yield row, unit, flats, shape, reason, key_text
 
 
 def ingest_rows(run_id: int, rows) -> int:
@@ -277,10 +303,10 @@ def ingest(
     conn = _db.connect()
     try:
         conn.execute("BEGIN IMMEDIATE")
-        for row, unit, flats, shape, reason in _iter_emissions(
+        for row, unit, flats, shape, reason, civic_key in _iter_emissions(
             bbox, snapshot_id, polygon, point_cls, in_tile
         ):
-            values = _candidate_values(run_id, row, now, unit, flats, shape, reason)
+            values = _candidate_values(run_id, row, now, unit, flats, shape, reason, civic_key)
             if values is None:
                 continue
             cur = conn.execute(_INSERT_SQL, values)

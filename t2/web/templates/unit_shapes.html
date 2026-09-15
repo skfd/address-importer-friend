@@ -8,7 +8,10 @@
   .shp-tbl th { text-align: left; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
   .shp-tbl td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .shp-tbl tbody tr:nth-child(odd) { background: #fafafa; }
+  .shp-tbl tbody tr.focus { background: #fef9c3; }
+  .shp-tbl tbody tr.frozen td { color: #6b7280; }
   .shp-tbl .addr { font-weight: 600; white-space: nowrap; }
+  .shp-tbl td.decide { min-width: 22rem; }
   .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .82rem;
           word-break: break-all; }
   .tiles { display: flex; gap: .6rem; flex-wrap: wrap; margin: 0 0 .2rem; }
@@ -25,42 +28,49 @@
   .tile-collapse   { border-left-color: #16a34a; }
   .tile-civic-only { border-left-color: #f59e0b; }
   .tile-review     { border-left-color: #dc2626; }
+  .tile-skip       { border-left-color: #6b7280; }
   .callout { background: #fffbeb; border-left: 3px solid #f59e0b; padding: .5rem .75rem;
              margin: .6rem 0; font-size: .86rem; }
   .why { color: #6b7280; font-size: .82rem; }
+  .pill.off { background: #e5e7eb; color: #374151; }
+  .by-hand { font-size: .72rem; color: #7c3aed; border: 1px solid #c4b5fd; border-radius: 3px;
+             padding: 0 .3rem; margin-left: .2rem; white-space: nowrap; }
+  .stale { background: #fef2f2; border-left: 3px solid #dc2626; padding: .25rem .5rem;
+           margin-top: .3rem; font-size: .8rem; }
+
+  .verdicts { display: flex; flex-wrap: wrap; gap: .25rem; }
+  .v-opt { display: inline-flex; align-items: center; gap: .2rem;
+           padding: .1rem .4rem; border: 1px solid #d1d5db; border-radius: 3px;
+           background: #fff; cursor: pointer; font-size: .78rem; user-select: none; }
+  .v-opt input { margin: 0; }
+  .v-opt:hover { background: #f3f4f6; }
+  .v-opt:has(input:checked) { background: #1e3a8a; color: #fff; border-color: #1e3a8a; }
+  .v-opt.v-rule:has(input:checked) { background: #e5e7eb; color: #111827; border-color: #d1d5db; }
+  .v-opt.v-nodes:has(input:checked) { background: #2563eb; border-color: #2563eb; }
+  .v-opt.v-collapse:has(input:checked) { background: #16a34a; border-color: #16a34a; }
+  .v-opt.v-civic-only:has(input:checked) { background: #d97706; border-color: #d97706; }
+  .v-opt.v-skip:has(input:checked) { background: #6b7280; border-color: #6b7280; }
+  .decide .note { margin-top: .3rem; width: 100%; box-sizing: border-box; font-size: .78rem;
+                  padding: .15rem .35rem; border: 1px solid #e5e7eb; border-radius: 3px; }
 </style>
 
 <h2 style="margin-bottom:.2rem">Unit shapes</h2>
 <p class="muted" style="margin-top:0">
-  Every multi-unit civic address in {{ cfg.city_name }} and the shape it would take
+  Every multi-unit civic address in {{ cfg.city_name }} and the shape it will take
   under <code>[units] policy = "per-door-or-collapse"</code> — one node per front
   door, or one node for the building with its units listed. Read from source
   snapshot {{ data.snapshot_id }} directly, so it does not wait on a run.
 </p>
 
-<div class="tiles">
-  <a class="tile {% if not active_shape %}on{% endif %}" href="/units/shapes">
-    <div class="n">{{ data.group_total }}</div>
-    <div class="k">All groups</div>
-    <div class="d">{{ '{:,}'.format(data.unit_total) }} units</div>
-  </a>
-  {% for shape, blurb in shapes %}
-  <a class="tile tile-{{ shape }} {% if active_shape == shape %}on{% endif %}"
-     href="/units/shapes?shape={{ shape }}">
-    <div class="n">{{ data.counts[shape] }}</div>
-    <div class="k">{{ shape }}</div>
-    <div class="d">{{ blurb }}</div>
-  </a>
-  {% endfor %}
-</div>
+{% include "_unit_shape_tiles.html" %}
 
-<p class="muted" style="font-size:.84rem">
-  Together these create <strong>{{ '{:,}'.format(data.nodes_created) }} nodes</strong>,
-  {{ '{:,}'.format(data.door_nodes) }} of them doors.
-  A further {{ '{:,}'.format(data.no_unit_groups) }} civic groups hold no unit rows at
-  all — several rows sharing one address is an intra-source duplicate, not a unit
-  question, so they are counted here and reviewed elsewhere.
-</p>
+<div class="callout" style="background:#eef2ff;border-left-color:#6366f1">
+  <strong>Pick a shape to overrule the rule.</strong> It saves on click and applies
+  at the next ingest of any run touching the group — the rule runs before a
+  candidate exists, so a verdict cannot reshape rows already in a run. Once any
+  candidate of a group is uploaded the group freezes: from then on either flip is a
+  mutation, and this import only creates.
+</div>
 
 {% if active_shape == 'review' %}
 <div class="callout">
@@ -68,7 +78,8 @@
   right upload whether the units turn out to be suites or front doors, while
   exploding a group the rule doubts uploads doors that may not exist. What the
   flag buys is that somebody looked — the mall at 252 Stone Road West and a
-  14-storey tower both arrive here as one node with a long listing.
+  14-storey tower both arrive here as one node with a long listing. A verdict
+  here is what "looked" means: pick <em>collapse</em> to say the rule was right.
 </div>
 {% elif active_shape == 'civic-only' %}
 <div class="callout">
@@ -76,7 +87,15 @@
   <code>addr:flats</code> values are over OSM's 255-character tag limit, and a
   truncated listing would assert the building stops at whatever unit the cut
   landed on. Nothing compresses a suffixed or stepped sequence, so the listing is
-  dropped and the building is uploaded without it.
+  dropped and the building is uploaded without it. A <em>collapse</em> verdict
+  cannot make it fit; picking <em>civic-only</em> records that you agree.
+</div>
+{% elif active_shape == 'skip' %}
+<div class="callout">
+  <strong>Nothing is created for these.</strong> An operator decided both shapes
+  would assert something false — a civic node with 140 <code>addr:flats</code>
+  for a mall, or 140 front doors for its storefronts. The source rows stay where
+  they are; no check reads a skipped group as a gap.
 </div>
 {% endif %}
 
@@ -88,55 +107,35 @@
       <th class="num">Units</th>
       <th>Shape</th>
       <th class="num">Creates</th>
-      <th>Why the rule says so</th>
+      <th>Why</th>
       <th>What gets uploaded</th>
+      <th>Your verdict</th>
     </tr>
   </thead>
   <tbody>
     {% for r in rows %}
-    <tr>
-      <td class="addr">
-        {% if r.lat and r.lon %}
-        <a href="https://www.openstreetmap.org/#map=19/{{ r.lat }}/{{ r.lon }}"
-           target="_blank" rel="noopener">{{ r.number }} {{ r.street }}</a>
-        {% else %}{{ r.number }} {{ r.street }}{% endif %}
-        {% if r.municipality and r.municipality != cfg.city_name %}
-          <span class="pill">{{ r.municipality }}</span>
-        {% endif %}
-      </td>
-      <td class="num">{{ r.unit_count }}</td>
-      <td>
-        <span class="pill {% if r.shape == 'collapse' %}ok{% elif r.shape == 'review' %}bad{% elif r.shape == 'civic-only' %}warn{% endif %}">{{ r.shape }}</span>
-      </td>
-      <td class="num">{{ r.nodes_created }}</td>
-      <td class="why">{{ r.reason }}</td>
-      <td>
-        {% if r.flats %}
-          <code class="mono">addr:flats={{ r.flats }}</code>
-        {% elif r.shape == 'nodes' %}
-          <span class="why">{{ r.nodes_created }} nodes, each with
-            <code>addr:unit</code> —
-            <span class="mono">{{ r.units[:8] | join(';') }}{% if r.units | length > 8 %};…{% endif %}</span>
-          </span>
-        {% else %}
-          <span class="why">no <code>addr:unit</code> or <code>addr:flats</code> —
-            <span class="mono">{{ r.units[:8] | join(';') }}{% if r.units | length > 8 %};…{% endif %}</span>
-          </span>
-        {% endif %}
-      </td>
-    </tr>
+      {% include "_unit_shape_row.html" %}
     {% else %}
-    <tr><td colspan="6" class="muted">No civic groups in this shape.</td></tr>
+    <tr><td colspan="7" class="muted">No civic groups in this shape.</td></tr>
     {% endfor %}
   </tbody>
 </table>
 </div>
 
 <p class="muted" style="font-size:.82rem">
-  Read-only for now. Overriding a group's shape changes how many candidates exist
-  — one node becomes fifty-two — so the verdict has to reach ingest rather than
-  export, and that wiring lands next along with what OSM already holds at each
-  address.
+  What OSM already holds at each address is not shown yet: the 89 groups where OSM
+  carries only the hyphenated <code>714-30</code> form are per-door structure
+  somebody already mapped, and that column needs the OSM extract loaded and
+  mechanical edit #2 run before it stops lying.
 </p>
+
+{% if focus %}
+<script>
+  (function () {
+    var row = document.getElementById('g-{{ focus.dom }}');
+    if (row) row.scrollIntoView({ block: 'center' });
+  })();
+</script>
+{% endif %}
 
 {% endblock %}

@@ -1,0 +1,69 @@
+<tr id="g-{{ r.dom }}" class="{% if r.frozen %}frozen{% endif %}{% if focus and focus.key == r.key %} focus{% endif %}">
+  <td class="addr">
+    {% if r.lat and r.lon %}
+    <a href="https://www.openstreetmap.org/#map=19/{{ r.lat }}/{{ r.lon }}"
+       target="_blank" rel="noopener">{{ r.number }} {{ r.street }}</a>
+    {% else %}{{ r.number }} {{ r.street }}{% endif %}
+    {% if r.municipality and r.municipality != cfg.city_name %}
+      <span class="pill">{{ r.municipality }}</span>
+    {% endif %}
+  </td>
+  <td class="num">{{ r.unit_count }}</td>
+  <td>
+    <span class="pill {% if r.shape == 'collapse' %}ok{% elif r.shape == 'review' %}bad{% elif r.shape == 'civic-only' %}warn{% elif r.shape == 'skip' %}off{% endif %}">{{ r.shape }}</span>
+    {% if r.override %}<span class="by-hand" title="the rule said {{ r.verdict }}">by hand</span>{% endif %}
+  </td>
+  <td class="num">{{ r.nodes_created }}</td>
+  <td class="why">{{ r.reason }}</td>
+  <td>
+    {% if r.flats %}
+      <code class="mono">addr:flats={{ r.flats }}</code>
+    {% elif r.shape == 'nodes' %}
+      <span class="why">{{ r.nodes_created }} nodes, each with
+        <code>addr:unit</code> —
+        <span class="mono">{{ r.units[:8] | join(';') }}{% if r.units | length > 8 %};…{% endif %}</span>
+      </span>
+    {% elif r.shape == 'skip' %}
+      <span class="why">nothing —
+        <span class="mono">{{ r.units[:8] | join(';') }}{% if r.units | length > 8 %};…{% endif %}</span>
+        stay in the source only</span>
+    {% else %}
+      <span class="why">no <code>addr:unit</code> or <code>addr:flats</code> —
+        <span class="mono">{{ r.units[:8] | join(';') }}{% if r.units | length > 8 %};…{% endif %}</span>
+      </span>
+    {% endif %}
+  </td>
+  <td class="decide">
+    {% if r.frozen %}
+      <span class="pill" title="A candidate of this group has been uploaded. Both flips are now mutations, and this import only creates.">frozen — in OSM</span>
+      {% if r.saved %}<span class="why">decided {{ r.saved.verdict }}{% if r.saved.note %}: {{ r.saved.note }}{% endif %}</span>{% endif %}
+      {% if refused %}<div class="stale">Not saved: this group's shape is already in OSM. Disagreement from here is a QA finding, not an override.</div>{% endif %}
+    {% else %}
+      <form hx-post="/units/shapes/verdict" hx-target="closest tr" hx-swap="outerHTML"
+            hx-trigger="change" onsubmit="return false">
+        <input type="hidden" name="civic_key" value="{{ r.key }}">
+        <input type="hidden" name="shape" value="{{ active_shape }}">
+        <div class="verdicts">
+          {% set picked = r.saved.verdict if r.saved else 'rule' %}
+          {% for value, label in choices %}
+          <label class="v-opt v-{{ value }}" title="{{ label }}">
+            <input type="radio" name="choice" value="{{ value }}" {% if picked == value %}checked{% endif %}>
+            <span>{{ value }}</span>
+          </label>
+          {% endfor %}
+        </div>
+        <input type="text" name="note" class="note" value="{{ r.saved.note or '' if r.saved else '' }}"
+               placeholder="why (saved with the verdict)">
+      </form>
+      {% if r.stale %}
+        <div class="stale">Units changed since this was decided
+          ({{ r.saved.verdict }}, {{ r.saved.updated_at[:10] }}). The rule decides until you pick again.</div>
+      {% endif %}
+      {% if r.ingested_runs %}
+        <div class="why">Already ingested in run{{ 's' if r.ingested_runs | length != 1 }}
+          {% for run_id in r.ingested_runs %}<a href="/runs/{{ run_id }}">{{ run_id }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
+          with the shape it had then; a verdict applies to runs ingested after it.</div>
+      {% endif %}
+    {% endif %}
+  </td>
+</tr>
