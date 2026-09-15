@@ -25,6 +25,11 @@ at the date they were written.
 - [postcode-enrichment.md](postcode-enrichment.md) — fill `addr:postcode` on
   matched OSM nodes that lack one, sourced from same-address POI nodes.
   First mutation flow in an otherwise create-only pipeline.
+- [listing-aware-conflation.md](listing-aware-conflation.md) -- **proposed
+  2026-09-15, blocks any per-door upload.** Guelph's towers are in OSM as one
+  building way listing every unit under addr:unit; _same_address demands unit
+  equality, so 176 groups read MISSING and would be duplicated. Containment
+  match plus a MATCH_LISTED verdict.
 - [unit-shape-overrides.md](unit-shape-overrides.md) — **designed and built
   2026-09-15.** The OSM column it ends with found that 338 of Guelph's 409
   multi-unit groups already have a shape in OSM, which is a conflation problem
