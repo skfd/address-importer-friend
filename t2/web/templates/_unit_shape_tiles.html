@@ -1,3 +1,7 @@
+{# When sent out-of-band behind a <tr>, the fragment is parsed inside a
+   synthetic table by htmx 1.x and a bare <div> would be foster-parented out
+   of it; <template> is the documented way to keep it whole. #}
+{% if oob %}<template>{% endif %}
 <div id="shape-tiles" {% if oob %}hx-swap-oob="true"{% endif %}>
 <div class="tiles">
   <a class="tile {% if not active_shape %}on{% endif %}" href="/units/shapes">
@@ -24,3 +28,4 @@
   question, so they are counted here and reviewed elsewhere.
 </p>
 </div>
+{% if oob %}</template>{% endif %}

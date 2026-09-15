@@ -38,21 +38,21 @@ Mirrors `candidates._emit_group` step for step. If the two ever disagree this
 page is lying, so the decision is one shared function (`units.resolve`) rather
 than two copies of it.
 
-Two caches, because two things change at different rates. The classifier's
-answer for a group depends only on the source snapshot, and a full scan of the
-city is not free, so that is computed once per snapshot. Verdicts change on
-every click, and overlaying them is cheap, so that happens per request keyed
-on `unit_verdicts.version()`.
+One cache, at the expensive layer only. The classifier's answer for a group
+depends on nothing but the source snapshot, and a full scan of the city is not
+free, so that is computed once per snapshot. Everything layered on it --
+verdicts, which change on every click; freeze and "already ingested", which
+change on every upload and ingest -- is cheap and is recomputed per request,
+because a cached overlay would keep showing live chips on a group that had
+just been uploaded.
 """
 import hashlib
 
 from . import source_db, unit_verdicts, units
 
 # Classifier base per snapshot: the answer cannot change without the snapshot
-# changing. Holds no verdict state.
+# changing. Holds no verdict or run state.
 _BASE_CACHE: dict[int, dict] = {}
-# Base + verdict overlay, keyed on (snapshot, verdict version).
-_CACHE: dict[tuple, dict] = {}
 
 # What each outcome creates, in the reviewer's terms rather than the rule's.
 SHAPES = (
@@ -208,11 +208,12 @@ def collect(snapshot_id: int | None = None) -> dict:
     under the rule and the operator's verdicts together."""
     if snapshot_id is None:
         snapshot_id = source_db.latest_snapshot_id()
-    stamp = unit_verdicts.version()
-    cached = _CACHE.get((snapshot_id, stamp))
-    if cached is not None:
-        return cached
-
+    # No cache on the overlay, on purpose. `frozen` and `ingested_runs` come
+    # from the candidates table and move on every upload and ingest, which no
+    # verdict stamp would notice; a stale overlay would show live chips on a
+    # group that had just been uploaded and let the click revert in silence.
+    # The overlay is three small queries and a few hundred `resolve` calls,
+    # and the expensive part -- the city scan -- is cached in `_base`.
     base = _base(snapshot_id)
     saved = unit_verdicts.load_all()
     frozen = unit_verdicts.frozen_keys()
@@ -239,9 +240,6 @@ def collect(snapshot_id: int | None = None) -> dict:
         "stale": sum(1 for r in rows if r["stale"]),
         "frozen": sum(1 for r in rows if r["frozen"]),
     }
-    # One overlay per verdict version is enough to keep; older ones are dead.
-    _CACHE.clear()
-    _CACHE[(snapshot_id, stamp)] = data
     return data
 
 

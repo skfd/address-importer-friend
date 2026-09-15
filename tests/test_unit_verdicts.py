@@ -250,6 +250,52 @@ def test_ingested_runs_names_where_a_group_already_landed(tool_db):
     assert unit_verdicts.ingested_runs({KEY}) == {KEY: [3, 5]}
 
 
+# --- the page sees a freeze that happened after it was first drawn --------------
+
+
+def _synthetic_base(monkeypatch):
+    from t2 import unit_shapes
+
+    group = _tower()
+    listed = units.listed_units(r["unit_name"] for r in group)
+    row = {
+        "key": KEY, "dom": "abc", "number": "7", "street": "Test Street",
+        "municipality": "Guelph", "unit_count": len(listed), "row_count": len(group),
+        "lat": 43.54, "lon": -80.25, "verdict": units.COLLAPSE, "rule_reason": "floor-coded",
+        "units": listed, "unit_hash": units.unit_hash(listed),
+    }
+    monkeypatch.setattr(unit_shapes, "_base", lambda snap: {"snapshot_id": snap, "rows": [row], "no_unit_groups": 0})
+    monkeypatch.setattr(source_db, "latest_snapshot_id", lambda conn=None: 1)
+    return unit_shapes
+
+
+def test_the_page_reflects_an_upload_made_after_it_was_drawn(tool_db, monkeypatch):
+    """`collect()` must not cache the overlay: freeze comes from the candidates
+    table, which moves on every upload without any verdict changing."""
+    unit_shapes = _synthetic_base(monkeypatch)
+    first = unit_shapes.collect()["by_key"][KEY]
+    assert first["frozen"] is False and first["ingested_runs"] == []
+    unit_shapes.decide(KEY, "nodes", "walkup")
+    assert unit_shapes.collect()["by_key"][KEY]["override"] == "nodes"
+    with _db.tx() as conn:
+        _candidate(conn, 4, 100, "UPLOADED", KEY)
+    again = unit_shapes.collect()["by_key"][KEY]
+    assert again["frozen"] is True
+    assert again["ingested_runs"] == [4]
+    with pytest.raises(unit_verdicts.Frozen):
+        unit_shapes.decide(KEY, "collapse")
+    assert unit_shapes.collect()["by_key"][KEY]["shape"] == "nodes"
+
+
+def test_decide_hashes_the_group_as_the_page_sees_it(tool_db, monkeypatch):
+    unit_shapes = _synthetic_base(monkeypatch)
+    row = unit_shapes.decide(KEY, "skip")
+    assert row["shape"] == "skip" and row["nodes_created"] == 0
+    assert unit_verdicts.load_all()[KEY]["unit_hash"] == row["unit_hash"]
+    row = unit_shapes.decide(KEY, "rule")
+    assert row["override"] is None and row["shape"] == "collapse"
+
+
 # --- end to end: a verdict reaches ingest, a stale one does not ----------------
 
 
