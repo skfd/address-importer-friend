@@ -31,7 +31,13 @@ def _build_polygon(polygon_latlon: list):
 
 
 def _candidate_values(
-    run_id: int, row: dict, now: str, unit: str | None = None, flats: str | None = None
+    run_id: int,
+    row: dict,
+    now: str,
+    unit: str | None = None,
+    flats: str | None = None,
+    shape: str | None = None,
+    shape_reason: str | None = None,
 ) -> tuple | None:
     """Map one source row to a candidates INSERT tuple, or None to skip it.
 
@@ -81,6 +87,8 @@ def _candidate_values(
         row.get("municipality_name"),
         unit,
         flats,
+        shape,
+        shape_reason,
         "INGESTED",
         now,
     )
@@ -90,8 +98,9 @@ _INSERT_SQL = """
     INSERT OR IGNORE INTO candidates
       (run_id, candidate_id, address_full, housenumber, street_raw, street_norm,
        lat, lon, lo_num, lo_num_suf, hi_num, hi_num_suf, extra_json,
-       address_class, municipality_name, unit, flats, stage, stage_updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       address_class, municipality_name, unit, flats, unit_shape,
+       unit_shape_reason, stage, stage_updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 """
 
 
@@ -112,7 +121,7 @@ def _elect(group: list[dict]) -> dict:
 
 
 def _emit_group(group: list[dict], in_tile):
-    """Yield (source_row, unit, flats) for one civic group under
+    """Yield (source_row, unit, flats, shape, reason) for one civic group under
     per-door-or-collapse.
 
     `group` is the whole group city-wide; `in_tile` decides what belongs to the
@@ -121,7 +130,7 @@ def _emit_group(group: list[dict], in_tile):
     has exactly one representative point, so it is created once however many
     tiles its units sprawl across.
     """
-    verdict, _reason = units.classify(
+    verdict, reason = units.classify(
         [
             {"unit": r.get("unit_name"), "lat": r.get("latitude"), "lon": r.get("longitude")}
             for r in group
@@ -133,7 +142,7 @@ def _emit_group(group: list[dict], in_tile):
         # it is a distinct object from the doors rather than a duplicate of one.
         for row in group:
             if in_tile(row):
-                yield row, (row.get("unit_name") or "").strip() or None, None
+                yield row, (row.get("unit_name") or "").strip() or None, None, verdict, reason
         return
     # COLLAPSE and REVIEW alike become one node for the building. Review is not
     # a third outcome here — it is the same node plus a reason for a human to
@@ -143,11 +152,16 @@ def _emit_group(group: list[dict], in_tile):
     if not in_tile(rep):
         return
     listed = [r["unit_name"] for r in group if (r.get("unit_name") or "").strip()]
-    yield rep, None, (units.compress_flats(listed) or None)
+    flats, too_long = units.flats_tag(listed)
+    if too_long:
+        # The node is still right; only the listing is missing. Route it to a
+        # human rather than letting a building quietly arrive with no units.
+        verdict, reason = units.REVIEW, too_long
+    yield rep, None, flats, verdict, reason
 
 
 def _iter_emissions(bbox, snapshot_id: int, polygon, point_cls, in_tile):
-    """Yield (source_row, unit, flats) for everything this run should create.
+    """Yield (source_row, unit, flats, shape, reason) for what this run creates.
 
     Off the per-door policy this is the loop it replaces, unchanged: the bbox
     query already applies the city's collapse, and the polygon clips it.
@@ -165,7 +179,7 @@ def _iter_emissions(bbox, snapshot_id: int, polygon, point_cls, in_tile):
                 lat, lon = row.get("latitude"), row.get("longitude")
                 if lat is None or lon is None or not polygon.contains(point_cls(lon, lat)):
                     continue
-            yield row, None, None
+            yield row, None, None, None, None
         return
 
     keys = {
@@ -183,7 +197,23 @@ def ingest_rows(run_id: int, rows) -> int:
     The selection axis is the caller's — used by the monthly maintenance job,
     which ingests just the points that first appeared since its watermark
     rather than everything inside a tile. Returns count inserted this call.
+
+    Refuses to run under per-door-or-collapse. That policy turns the SQL
+    collapse off, so `iter_new_since` hands over every unit row, and this path
+    has no notion of a civic group to classify them in: a tower that gained one
+    unit would arrive as 142 bare civic candidates for one building. Closing it
+    properly needs a mutation path — a new unit at a collapsed tower means
+    editing addr:flats on a node that already exists — and this import only
+    creates. Until that exists the policy runs from the tile path only.
     """
+    if source_db.PER_DOOR:
+        raise RuntimeError(
+            "ingest_rows is not available under [units] policy = "
+            '"per-door-or-collapse": the maintenance path cannot group source '
+            "rows into civic addresses, and a new unit at a collapsed building "
+            "needs addr:flats modified rather than a node created. Run the "
+            "tile path, and route source deltas to a QA finding."
+        )
     inserted = 0
     now = datetime.now(timezone.utc).isoformat()
     conn = _db.connect()
@@ -247,8 +277,10 @@ def ingest(
     conn = _db.connect()
     try:
         conn.execute("BEGIN IMMEDIATE")
-        for row, unit, flats in _iter_emissions(bbox, snapshot_id, polygon, point_cls, in_tile):
-            values = _candidate_values(run_id, row, now, unit, flats)
+        for row, unit, flats, shape, reason in _iter_emissions(
+            bbox, snapshot_id, polygon, point_cls, in_tile
+        ):
+            values = _candidate_values(run_id, row, now, unit, flats, shape, reason)
             if values is None:
                 continue
             cur = conn.execute(_INSERT_SQL, values)

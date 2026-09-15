@@ -99,20 +99,38 @@ def test_a_door_does_not_match_the_buildings_civic_node(monkeypatch):
     assert _same_address(_el(unit=""), "714", "willow road", "30") is False
 
 
-def test_the_split_campaign_no_longer_has_to_run_in_any_order(monkeypatch):
+def test_a_civic_candidate_is_proposed_either_side_of_the_split(monkeypatch):
     """The 89 Guelph groups where OSM holds only the double-encoded form.
 
-    Before the split, OSM has `714-30` and nothing answers to `714`, so the
-    civic candidate is MISSING and gets created. After the split, OSM has
-    `714` + addr:unit=30 — still not the building — so the civic candidate is
-    *still* MISSING and still gets created. Same outcome either way, which is
-    what retires the ordering constraint between gap-fill and the cleanup.
+    For the *building's own* node the split is neutral: `714-30` does not
+    answer to `714`, and neither does `714` + addr:unit=30, so the civic
+    candidate is MISSING and gets created either way.
     """
     monkeypatch.setattr(conflate, "_UNIT_AWARE", True)
     before = _el(number="714-30", unit="30")
     after = _el(number="714", unit="30")
     assert _same_address(before, "714", "willow road", "") is False
     assert _same_address(after, "714", "willow road", "") is False
+
+
+def test_a_door_does_not_recognise_its_own_double_encoded_self(monkeypatch):
+    """...but for a *door* the split is a hard prerequisite, not a neutral.
+
+    A door candidate is (714, unit 30). Before the split OSM holds that same
+    address as housenumber `714-30`, which fails the housenumber compare, so
+    the door reads MISSING and conflation proposes a second node beside the
+    badly-encoded one. Nothing downstream catches it — nearby_street_mismatch
+    compares housenumbers too.
+
+    So mechanical edit #2 has to run before conflation does, exactly as
+    planned. This test exists to fail loudly if anyone decides otherwise.
+    """
+    monkeypatch.setattr(conflate, "_UNIT_AWARE", True)
+    assert _same_address(_el(number="714-30", unit="30"),
+                         "714", "willow road", "30") is False
+    # After the split the same door matches and is correctly skipped.
+    assert _same_address(_el(number="714", unit="30"),
+                         "714", "willow road", "30") is True
 
 
 def test_both_sides_are_normalized_before_they_are_compared():

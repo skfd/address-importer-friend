@@ -8,6 +8,7 @@ from .missing_sample import MissingSampleCheck
 from .nearby_street_mismatch import NearbyStreetMismatchCheck
 from .potential_amenity import PotentialAmenityCheck
 from .suffix_range import SuffixRangeCheck
+from .unit_shape_ambiguous import UnitShapeAmbiguousCheck
 
 REGISTRY: dict[str, Check] = {
     c.id: c
@@ -20,6 +21,7 @@ REGISTRY: dict[str, Check] = {
         NearbyStreetMismatchCheck(),
         MatchNumberDriftCheck(),
         PotentialAmenityCheck(),
+        UnitShapeAmbiguousCheck(),
     )
 }
 

@@ -32,6 +32,11 @@ class Candidate:
     dup_sibling_candidate_id: int | str | None = None
     dup_sibling_dist_m: float | None = None
     dup_group_all_match: int | None = None  # 1 when every same-address Land sibling MATCHed OSM
+    # per-door-or-collapse only: what units.classify made of this candidate's
+    # civic group, and why. NULL under every other policy.
+    unit_shape: str | None = None
+    unit_shape_reason: str | None = None
+    flats: str | None = None
 
 
 @dataclass

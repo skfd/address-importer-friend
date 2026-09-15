@@ -142,10 +142,14 @@ def test_parse_roundtrips_toronto_and_hamilton():
 
 
 def test_unavailable_checks_per_city():
-    assert unavailable_checks(TORONTO) == {}
+    # Neither city declares a unit field, so unit_shape_ambiguous cannot run
+    # for either — and says so, rather than passing everything silently. That
+    # is the point of gating: "could not run" must not read as "found nothing".
+    assert unavailable_checks(TORONTO) == {"unit_shape_ambiguous": "unit"}
     assert unavailable_checks(HAMILTON) == {
         "suffix_range": "lo_num, hi_num",
         "intra_source_duplicate": "address_class",
+        "unit_shape_ambiguous": "unit",
     }
 
 

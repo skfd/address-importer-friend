@@ -236,6 +236,7 @@ def run_checks(run_id: int) -> dict[str, int]:
             SELECT c.run_id, c.candidate_id, c.address_full, c.housenumber,
                    c.street_raw, c.street_norm, c.lat, c.lon,
                    c.lo_num, c.lo_num_suf, c.hi_num, c.hi_num_suf,
+                   c.unit_shape, c.unit_shape_reason, c.flats,
                    cf.verdict, cf.nearest_osm_id, cf.nearest_osm_type, cf.nearest_dist_m,
                    cf.matched_osm_tags_json,
                    cf.dup_sibling_candidate_id, cf.dup_sibling_dist_m,
@@ -268,6 +269,9 @@ def run_checks(run_id: int) -> dict[str, int]:
                 dup_sibling_candidate_id=r["dup_sibling_candidate_id"],
                 dup_sibling_dist_m=r["dup_sibling_dist_m"],
                 dup_group_all_match=r["dup_group_all_match"],
+                unit_shape=r["unit_shape"],
+                unit_shape_reason=r["unit_shape_reason"],
+                flats=r["flats"],
             )
             # Ranges were skipped during conflation — auto-skip in checks too
             if cand.verdict == "SKIPPED":

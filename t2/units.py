@@ -51,6 +51,12 @@ DOOR_SPACING_M = 4.5
 # location to map even if the units really are doors.
 NO_LOCATION_M = 2.0
 
+# OSM refuses a tag value longer than this, so a listing that does not fit
+# cannot be uploaded at all. Guelph has three: 85 Mullin Drive (110 units
+# numbered 1A;1B;2A;2B...) and two like it, where every unit carries a letter
+# suffix or the numbering steps by two, and nothing range-compresses.
+OSM_TAG_VALUE_MAX = 255
+
 COLLAPSE = "collapse"
 NODES = "nodes"
 REVIEW = "review"
@@ -112,11 +118,16 @@ def compress_flats(units) -> str:
     """Render a set of unit designators as an `addr:flats` value: semicolon-
     separated runs, broken wherever the numbering actually skips.
 
-    Guelph's collapsed buildings are floor-coded, so a single span would be a
-    lie — 19 Woodlawn Road East runs 101..915 and holds 142 units, and only 2
-    of its 46 all-numeric peers are contiguous. Per-floor runs say the same
-    thing truthfully and stay far inside OSM's 255-character value ceiling
-    (measured over all of Guelph's collapsed groups: median 31, max 135).
+    Guelph's collapsed buildings are mostly floor-coded, so a single span would
+    be a lie — 19 Woodlawn Road East runs 101..915 and holds 142 units, and
+    only 2 of its 46 all-numeric peers are contiguous. Per-floor runs say the
+    same thing truthfully, and over Guelph's 167 collapsed groups they come out
+    at a median of 23 characters against OSM's 255-character ceiling.
+
+    Three do not fit, and `flats_tag` is what refuses them. Compression only
+    helps where the numbering is dense and unsuffixed: 85 Mullin Drive's
+    1A;1B;2A;2B... cannot form runs at all, and 176 Janefield Avenue steps by
+    two, which no range syntax expresses.
 
     Runs only ever form within one prefix and among units with no letter
     suffix, so `101A` cannot be swallowed into `101-102`. It sorts next to its
@@ -154,6 +165,27 @@ def compress_flats(units) -> str:
     parts.extend(singles)
     parts.sort(key=lambda p: (p[0], p[1], p[2]))
     return ";".join([p[3] for p in parts] + sorted(unparsed))
+
+
+def flats_tag(units) -> tuple[str | None, str | None]:
+    """The addr:flats value for a collapsed group, or (None, reason).
+
+    A listing too long for an OSM tag is dropped rather than truncated. A
+    truncated one would assert that the building stops at whatever unit the
+    cut landed on, which is worse than saying nothing: the civic node is still
+    correct and complete without it, just less informative. The reason travels
+    with the candidate so a reviewer is told the listing was lost, rather than
+    finding a building with no units and assuming it has none.
+    """
+    value = compress_flats(units)
+    if not value:
+        return None, None
+    if len(value) > OSM_TAG_VALUE_MAX:
+        return None, (
+            f"unit listing is {len(value)} characters, over OSM's "
+            f"{OSM_TAG_VALUE_MAX}-character tag limit, so it is not written"
+        )
+    return value, None
 
 
 def _run(prefix: str, start: int, end: int) -> str:

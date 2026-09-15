@@ -10,6 +10,7 @@ the spacing between units — and a row of real lat/lons buries that.
 """
 from t2.units import (
     COLLAPSE,
+    flats_tag,
     NO_UNITS,
     NODES,
     REVIEW,
@@ -192,3 +193,26 @@ def test_a_lone_unit_with_nothing_to_compare_against_goes_to_review():
     verdict, reason = classify([_row("2", 0)])
     assert verdict == REVIEW
     assert "nothing to measure" in reason
+
+
+# --- flats_tag: what will not fit in a tag ----------------------------------
+
+
+def test_a_listing_that_fits_is_returned_with_no_complaint():
+    value, reason = flats_tag(["101", "102", "103"])
+    assert value == "101-103"
+    assert reason is None
+
+
+def test_an_over_long_listing_is_dropped_rather_than_truncated():
+    """85 Mullin Drive: 110 units as 1A;1B;2A;2B... — nothing compresses, and
+    the result runs to 421 characters. A truncated listing would assert the
+    building stops where the cut landed."""
+    units = [f"{n}{s}" for n in range(1, 56) for s in ("A", "B")]
+    value, reason = flats_tag(units)
+    assert value is None
+    assert "over OSM's 255-character tag limit" in reason
+
+
+def test_a_group_with_no_units_asks_for_nothing_and_complains_about_nothing():
+    assert flats_tag([]) == (None, None)

@@ -28,7 +28,13 @@ def _none(_row):
 
 
 def _emit(group, in_tile=_all):
-    return [(r["address_point_id"], u, f) for r, u, f in _emit_group(group, in_tile)]
+    return [
+        (r["address_point_id"], u, f) for r, u, f, _shape, _why in _emit_group(group, in_tile)
+    ]
+
+
+def _shapes(group, in_tile=_all):
+    return {shape for _r, _u, _f, shape, _why in _emit_group(group, in_tile)}
 
 
 # --- election ---------------------------------------------------------------
@@ -133,3 +139,27 @@ def test_a_group_of_civic_duplicates_passes_every_row_through():
     out = _emit(group)
     assert len(out) == 2
     assert all(u is None and f is None for _pid, u, f in out)
+
+
+# --- the verdict reaches the reviewer ---------------------------------------
+
+
+def test_a_confident_collapse_is_labelled_collapse():
+    group = [
+        _src(f"u{f}{n}", f"{f}{n:02d}", index=0)
+        for f in range(1, 5)
+        for n in range(1, 4)
+    ]
+    assert _shapes(group) == {"collapse"}
+
+
+def test_an_ambiguous_collapse_is_labelled_review():
+    """Same node, same addr:flats — the label is the only thing telling a
+    reviewer that 252 Stone Road West is not a tower."""
+    group = [_src(f"u{i}", str(i), index=i, spacing_m=3.0) for i in range(1, 20)]
+    assert _shapes(group) == {"review"}
+
+
+def test_doors_are_labelled_nodes():
+    group = [_src(f"d{i}", str(40 + i), index=i) for i in range(1, 13)]
+    assert _shapes(group) == {"nodes"}

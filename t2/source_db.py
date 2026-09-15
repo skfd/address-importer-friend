@@ -2,6 +2,7 @@
 toronto.db)."""
 import re
 import sqlite3
+from collections import defaultdict
 from datetime import datetime, timezone
 
 from . import config as _config
@@ -461,27 +462,27 @@ def build_civic_group_query(
     sf: _config.SourceFields,
     active_status: tuple[str, ...] | None = None,
 ) -> str:
-    """Every active row sharing one civic key. Params: snap, num, street, muni.
+    """Every active row in the city, with its unit. Params: snap.
 
-    The classifier has to see the whole civic group as the *source* has it, not
-    the part of it inside the tile being ingested. A tower split across a tile
-    boundary would otherwise show one floor's worth of units on each side and
-    read as sequential doors in both.
+    Deliberately unfiltered by civic key. The classifier has to see each group
+    as the *source* has it rather than as the tile cuts it — a tower split
+    across a tile boundary shows one floor's worth of units on each side and
+    reads as sequential doors in both — and the cheap way to guarantee that is
+    to read the city once and group in Python.
+
+    Per-key queries were the obvious shape and the wrong one: the tracker
+    indexes neither the number nor the street (and the municipality is a
+    json_extract), so each key cost a full scan. Downtown Guelph alone took
+    29 s for ~1,400 keys; one scan of all 53,846 rows is a fraction of that
+    and does not grow with the size of the tile.
 
     Carries the unit, which `build_address_cols` deliberately does not: that
     projection is pinned byte-for-byte to Toronto's pre-Tier-2 form, and a
     column appended to it would break the guardrail for every city to serve
-    one. `IS` rather than `=` throughout so a NULL municipality — every city
-    that declares none — still matches itself.
+    one.
     """
     cols = build_address_cols(sf) + f", {field_sql(sf, 'unit')} AS unit_name"
-    clauses = [
-        _active_at("", ":snap"),
-        f"{field_sql(sf, 'number', '')} IS :num",
-        f"{field_sql(sf, 'street', '')} IS :street",
-        f"{field_sql(sf, 'municipality', '')} IS :muni",
-    ]
-    where = "\n              AND ".join(clauses) + _status_filter(sf, active_status, "")
+    where = _active_at("", ":snap") + _status_filter(sf, active_status, "")
     return f"""
             SELECT {cols}
             FROM addresses a
@@ -502,27 +503,25 @@ def civic_key(row: dict) -> tuple:
 
 
 def fetch_civic_groups(keys, snapshot_id: int) -> dict[tuple, list[dict]]:
-    """Gather every active row for each civic key, over one connection.
+    """Gather every active row for each wanted civic key, in one scan.
 
-    Returns key -> rows. Keys that match nothing are absent rather than empty,
-    which only happens if the snapshot moved underneath the caller.
+    Returns key -> rows, containing only the keys asked for. Keys that match
+    nothing are absent rather than empty, which happens only if the snapshot
+    moved underneath the caller.
     """
-    out: dict[tuple, list[dict]] = {}
+    wanted = set(keys)
+    out: dict[tuple, list[dict]] = defaultdict(list)
     conn = connect_readonly()
     try:
         q = build_civic_group_query(_CONFIG.source_fields, _CONFIG.status_active_values)
-        for num, street, muni in keys:
-            rows = [
-                dict(r)
-                for r in conn.execute(
-                    q, {"snap": snapshot_id, "num": num, "street": street, "muni": muni}
-                )
-            ]
-            if rows:
-                out[(num, street, muni)] = rows
+        for r in conn.execute(q, {"snap": snapshot_id}):
+            row = dict(r)
+            key = civic_key(row)
+            if key in wanted:
+                out[key].append(row)
     finally:
         conn.close()
-    return out
+    return dict(out)
 
 
 def iter_active_addresses_in_bbox(bbox: tuple[float, float, float, float], snapshot_id: int):
