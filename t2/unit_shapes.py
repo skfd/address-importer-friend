@@ -248,7 +248,15 @@ def _osm_summaries(elements: list[dict]) -> dict[tuple[str, str], dict]:
         m = _HYPHEN_UNIT.match(hn)
         if m and (not unit or unit == m.group(2)):
             # 714-30: the double-encoded door. The unit is the tail whether or
-            # not addr:unit repeats it.
+            # not addr:unit repeats it. Reading the uncorroborated ones (no
+            # addr:unit) is a choice: a genuine range like 380-400 would land
+            # as housenumber 380 with a phantom unit. Measured 2026-09-15:
+            # the extract has 17 such objects, the same 17 mechanical edit #2
+            # sends to hand work, and the only group any of them touches is
+            # 37 Bond Court -- twelve ways 37-1..37-12 that are exactly the
+            # townhouse row the source has there. Requiring corroboration
+            # would unfreeze it and let a collapse put a flats node beside
+            # twelve door ways, so they stay in.
             s = slot(street, m.group(1))
             s["hyphenated"].add(m.group(2))
             s["ids"].append(ref)
@@ -300,6 +308,11 @@ def _osm_at(index: dict | None, base_row: dict) -> dict | None:
         return None
     from .conflate import apply_street_override, expand_street_name, normalize_street
 
+    # Keyed on (street, number) only. The civic key also carries the
+    # municipality because an amalgamated city reuses street names across its
+    # former municipalities, but OSM has no such field to join on. Right for
+    # Guelph, a single municipality; the next per-door city that is
+    # amalgamated will need the OSM side keyed by proximity instead.
     street = normalize_street(expand_street_name(apply_street_override(base_row["street"])))
     number = str(base_row["number"] or "").strip().upper()
     s = index.get((street, number))
