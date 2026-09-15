@@ -7,7 +7,7 @@ from pathlib import Path
 
 from flask import Flask, abort, flash, g, jsonify, redirect, render_template, request, send_file, send_from_directory, url_for
 
-from .. import audit, campaign_stats as _campaign_stats, candidates, config as _config, db as _db, maintenance as _maintenance, maintenance_report as _maintenance_report, multi_addresses as _multi_addresses, multi_fixes as _multi_fixes, osm_client, osm_export, osm_refresh, pipeline, ranges as _ranges, reverse_sweep as _reverse_sweep, review, run_for_all, source_db, source_multi as _source_multi, streets as _streets, tag_diff, tiles_build, wiki_sync as _wiki_sync
+from .. import audit, campaign_stats as _campaign_stats, candidates, config as _config, db as _db, maintenance as _maintenance, maintenance_report as _maintenance_report, multi_addresses as _multi_addresses, multi_fixes as _multi_fixes, osm_client, osm_export, osm_refresh, pipeline, ranges as _ranges, reverse_sweep as _reverse_sweep, review, run_for_all, source_db, source_multi as _source_multi, streets as _streets, tag_diff, tiles_build, unit_shapes as _unit_shapes, wiki_sync as _wiki_sync
 from ..conflate import _proposed_tags, _is_poi_node, POI_TAG_KEYS, normalize_street
 from ..checks import REGISTRY
 from .glossary import GLOSSARY
@@ -1665,6 +1665,30 @@ def create_app() -> Flask:
     def source_multi_view():
         stats = _source_multi.collect()
         return render_template("source_multi.html", stats=stats)
+
+    @app.get("/units/shapes")
+    def unit_shapes_view():
+        # Only per-door-or-collapse has a shape to decide. Under every other
+        # policy units are collapsed by SQL before a candidate exists, so the
+        # page would describe a decision nobody is making -- 404 rather than an
+        # empty table, which would read as "no multi-unit addresses here".
+        if not source_db.PER_DOOR:
+            abort(404, description=(
+                "The unit-shape review exists only under [units] policy = "
+                '"per-door-or-collapse".'
+            ))
+        data = _unit_shapes.collect()
+        shape = request.args.get("shape", "")
+        if shape not in dict(_unit_shapes.SHAPES):
+            shape = ""
+        rows = [r for r in data["rows"] if not shape or r["shape"] == shape]
+        return render_template(
+            "unit_shapes.html",
+            data=data,
+            rows=rows,
+            active_shape=shape,
+            shapes=_unit_shapes.SHAPES,
+        )
 
     @app.get("/source/multi/partials")
     def source_multi_partials_view():

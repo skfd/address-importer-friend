@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}Unit shapes · {{ cfg.city_name }}{% endblock %}
+{% block content %}
+
+<style>
+  .shp-tbl { width: 100%; border-collapse: collapse; }
+  .shp-tbl td, .shp-tbl th { font-size: .88rem; padding: .35rem .5rem; vertical-align: top; }
+  .shp-tbl th { text-align: left; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
+  .shp-tbl td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .shp-tbl tbody tr:nth-child(odd) { background: #fafafa; }
+  .shp-tbl .addr { font-weight: 600; white-space: nowrap; }
+  .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .82rem;
+          word-break: break-all; }
+  .tiles { display: flex; gap: .6rem; flex-wrap: wrap; margin: 0 0 .2rem; }
+  .tile { flex: 1 1 0; min-width: 140px; border: 1px solid #e5e7eb; border-radius: 6px;
+          padding: .55rem .7rem; background: #fff; text-decoration: none; color: inherit;
+          border-left-width: 4px; }
+  .tile:hover { background: #f8fafc; }
+  .tile.on { background: #eef2ff; border-color: #6366f1; border-left-color: #6366f1; }
+  .tile .n { font-size: 1.5rem; font-weight: 600; font-variant-numeric: tabular-nums;
+             line-height: 1.1; }
+  .tile .k { font-size: .82rem; font-weight: 600; }
+  .tile .d { font-size: .76rem; color: #6b7280; }
+  .tile-nodes      { border-left-color: #2563eb; }
+  .tile-collapse   { border-left-color: #16a34a; }
+  .tile-civic-only { border-left-color: #f59e0b; }
+  .tile-review     { border-left-color: #dc2626; }
+  .callout { background: #fffbeb; border-left: 3px solid #f59e0b; padding: .5rem .75rem;
+             margin: .6rem 0; font-size: .86rem; }
+  .why { color: #6b7280; font-size: .82rem; }
+</style>
+
+<h2 style="margin-bottom:.2rem">Unit shapes</h2>
+<p class="muted" style="margin-top:0">
+  Every multi-unit civic address in {{ cfg.city_name }} and the shape it would take
+  under <code>[units] policy = "per-door-or-collapse"</code> — one node per front
+  door, or one node for the building with its units listed. Read from source
+  snapshot {{ data.snapshot_id }} directly, so it does not wait on a run.
+</p>
+
+<div class="tiles">
+  <a class="tile {% if not active_shape %}on{% endif %}" href="/units/shapes">
+    <div class="n">{{ data.group_total }}</div>
+    <div class="k">All groups</div>
+    <div class="d">{{ '{:,}'.format(data.unit_total) }} units</div>
+  </a>
+  {% for shape, blurb in shapes %}
+  <a class="tile tile-{{ shape }} {% if active_shape == shape %}on{% endif %}"
+     href="/units/shapes?shape={{ shape }}">
+    <div class="n">{{ data.counts[shape] }}</div>
+    <div class="k">{{ shape }}</div>
+    <div class="d">{{ blurb }}</div>
+  </a>
+  {% endfor %}
+</div>
+
+<p class="muted" style="font-size:.84rem">
+  Together these create <strong>{{ '{:,}'.format(data.nodes_created) }} nodes</strong>,
+  {{ '{:,}'.format(data.door_nodes) }} of them doors.
+  A further {{ '{:,}'.format(data.no_unit_groups) }} civic groups hold no unit rows at
+  all — several rows sharing one address is an intra-source duplicate, not a unit
+  question, so they are counted here and reviewed elsewhere.
+</p>
+
+{% if active_shape == 'review' %}
+<div class="callout">
+  <strong>These are emitted collapsed, not held back.</strong> Collapsing is the
+  right upload whether the units turn out to be suites or front doors, while
+  exploding a group the rule doubts uploads doors that may not exist. What the
+  flag buys is that somebody looked — the mall at 252 Stone Road West and a
+  14-storey tower both arrive here as one node with a long listing.
+</div>
+{% elif active_shape == 'civic-only' %}
+<div class="callout">
+  <strong>The node is right; only the listing is missing.</strong> These
+  <code>addr:flats</code> values are over OSM's 255-character tag limit, and a
+  truncated listing would assert the building stops at whatever unit the cut
+  landed on. Nothing compresses a suffixed or stepped sequence, so the listing is
+  dropped and the building is uploaded without it.
+</div>
+{% endif %}
+
+<div class="card" style="padding:.5rem">
+<table class="shp-tbl">
+  <thead>
+    <tr>
+      <th>Civic address</th>
+      <th class="num">Units</th>
+      <th>Shape</th>
+      <th class="num">Creates</th>
+      <th>Why the rule says so</th>
+      <th>What gets uploaded</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+    <tr>
+      <td class="addr">
+        {% if r.lat and r.lon %}
+        <a href="https://www.openstreetmap.org/#map=19/{{ r.lat }}/{{ r.lon }}"
+           target="_blank" rel="noopener">{{ r.number }} {{ r.street }}</a>
+        {% else %}{{ r.number }} {{ r.street }}{% endif %}
+        {% if r.municipality and r.municipality != cfg.city_name %}
+          <span class="pill">{{ r.municipality }}</span>
+        {% endif %}
+      </td>
+      <td class="num">{{ r.unit_count }}</td>
+      <td>
+        <span class="pill {% if r.shape == 'collapse' %}ok{% elif r.shape == 'review' %}bad{% elif r.shape == 'civic-only' %}warn{% endif %}">{{ r.shape }}</span>
+      </td>
+      <td class="num">{{ r.nodes_created }}</td>
+      <td class="why">{{ r.reason }}</td>
+      <td>
+        {% if r.flats %}
+          <code class="mono">addr:flats={{ r.flats }}</code>
+        {% elif r.shape == 'nodes' %}
+          <span class="why">{{ r.nodes_created }} nodes, each with
+            <code>addr:unit</code> —
+            <span class="mono">{{ r.units[:8] | join(';') }}{% if r.units | length > 8 %};…{% endif %}</span>
+          </span>
+        {% else %}
+          <span class="why">no <code>addr:unit</code> or <code>addr:flats</code> —
+            <span class="mono">{{ r.units[:8] | join(';') }}{% if r.units | length > 8 %};…{% endif %}</span>
+          </span>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="muted">No civic groups in this shape.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<p class="muted" style="font-size:.82rem">
+  Read-only for now. Overriding a group's shape changes how many candidates exist
+  — one node becomes fifty-two — so the verdict has to reach ingest rather than
+  export, and that wiring lands next along with what OSM already holds at each
+  address.
+</p>
+
+{% endblock %}

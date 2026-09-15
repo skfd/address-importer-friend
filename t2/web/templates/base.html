@@ -39,6 +39,7 @@
       <a href="/osm">OSM extract</a>
       <a href="/streets">Streets</a>
       {% if cfg.source_fields.has_ranges %}<a href="/source/multi">{{ cfg.city_name }} Open Data ranges</a>{% endif %}
+      {% if cfg.units_policy == "per-door-or-collapse" %}<a href="/units/shapes">Unit shapes</a>{% endif %}
       <a href="/osm/multi">Multi-addresses</a>
       <a href="/osm/multi/corners">Corners</a>
       <a href="/osm/orphans">OSM not in source</a>
