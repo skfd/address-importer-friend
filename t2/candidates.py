@@ -2,7 +2,7 @@
 import json
 from datetime import datetime, timezone
 
-from . import audit, config as _config, db as _db, source_db
+from . import audit, config as _config, db as _db, source_db, units
 
 _SOURCE_FIELDS = _config.load().source_fields
 
@@ -30,12 +30,18 @@ def _build_polygon(polygon_latlon: list):
     return Polygon(shell)
 
 
-def _candidate_values(run_id: int, row: dict, now: str) -> tuple | None:
+def _candidate_values(
+    run_id: int, row: dict, now: str, unit: str | None = None, flats: str | None = None
+) -> tuple | None:
     """Map one source row to a candidates INSERT tuple, or None to skip it.
 
     Shared by the bbox/polygon ingest and the maintenance row-list ingest so
     street normalization, class extraction, and the Land Entrance skip stay
     identical across both paths.
+
+    `unit` and `flats` are what the row became under per-door-or-collapse —
+    one front door, or one building standing for all of them. They are never
+    both set, and both stay None under every other policy.
     """
     from .conflate import apply_street_override, expand_street_name, normalize_street
 
@@ -73,6 +79,8 @@ def _candidate_values(run_id: int, row: dict, now: str) -> tuple | None:
         extra_raw,
         address_class,
         row.get("municipality_name"),
+        unit,
+        flats,
         "INGESTED",
         now,
     )
@@ -82,9 +90,91 @@ _INSERT_SQL = """
     INSERT OR IGNORE INTO candidates
       (run_id, candidate_id, address_full, housenumber, street_raw, street_norm,
        lat, lon, lo_num, lo_num_suf, hi_num, hi_num_suf, extra_json,
-       address_class, municipality_name, stage, stage_updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       address_class, municipality_name, unit, flats, stage, stage_updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 """
+
+
+def _elect(group: list[dict]) -> dict:
+    """The row that stands for a whole collapsed group.
+
+    Mirrors `_unit_rank`'s ORDER BY exactly — the unit-less row first, because
+    it is the parcel's own civic point, then the lowest identity_key so the
+    choice is the same on every run.
+    """
+    return sorted(
+        group,
+        key=lambda r: (
+            bool((r.get("unit_name") or "").strip()),
+            str(r.get("address_point_id")),
+        ),
+    )[0]
+
+
+def _emit_group(group: list[dict], in_tile):
+    """Yield (source_row, unit, flats) for one civic group under
+    per-door-or-collapse.
+
+    `group` is the whole group city-wide; `in_tile` decides what belongs to the
+    run being ingested. Doors are placed individually, so each lands in the
+    tile that contains it and no tile emits a neighbour's. A collapsed group
+    has exactly one representative point, so it is created once however many
+    tiles its units sprawl across.
+    """
+    verdict, _reason = units.classify(
+        [
+            {"unit": r.get("unit_name"), "lat": r.get("latitude"), "lon": r.get("longitude")}
+            for r in group
+        ]
+    )
+    if verdict in (units.NODES, units.NO_UNITS):
+        # Every row is its own address, the unit-less civic row included: the
+        # City publishes it as a distinct point, and under unit-aware matching
+        # it is a distinct object from the doors rather than a duplicate of one.
+        for row in group:
+            if in_tile(row):
+                yield row, (row.get("unit_name") or "").strip() or None, None
+        return
+    # COLLAPSE and REVIEW alike become one node for the building. Review is not
+    # a third outcome here — it is the same node plus a reason for a human to
+    # look, because collapsing is right either way while exploding a group the
+    # rule is unsure about uploads front doors that may not exist.
+    rep = _elect(group)
+    if not in_tile(rep):
+        return
+    listed = [r["unit_name"] for r in group if (r.get("unit_name") or "").strip()]
+    yield rep, None, (units.compress_flats(listed) or None)
+
+
+def _iter_emissions(bbox, snapshot_id: int, polygon, point_cls, in_tile):
+    """Yield (source_row, unit, flats) for everything this run should create.
+
+    Off the per-door policy this is the loop it replaces, unchanged: the bbox
+    query already applies the city's collapse, and the polygon clips it.
+
+    Under per-door-or-collapse the tile query stops being the thing that
+    decides what to create, and only says which civic groups this tile touches.
+    Each of those is then fetched whole — city-wide, not tile-clipped — because
+    the classifier reads the numbering across the entire group, and a tower cut
+    by a tile boundary would otherwise show one floor's worth of units on each
+    side and read as a row of doors in both.
+    """
+    if not source_db.PER_DOOR:
+        for row in source_db.iter_active_addresses_in_bbox(bbox, snapshot_id):
+            if polygon is not None:
+                lat, lon = row.get("latitude"), row.get("longitude")
+                if lat is None or lon is None or not polygon.contains(point_cls(lon, lat)):
+                    continue
+            yield row, None, None
+        return
+
+    keys = {
+        source_db.civic_key(row)
+        for row in source_db.iter_active_addresses_in_bbox(bbox, snapshot_id)
+        if in_tile(row)
+    }
+    for group in source_db.fetch_civic_groups(keys, snapshot_id).values():
+        yield from _emit_group(group, in_tile)
 
 
 def ingest_rows(run_id: int, rows) -> int:
@@ -142,17 +232,23 @@ def ingest(
     if polygon is not None:
         from shapely.geometry import Point as point_cls  # noqa: N813
 
+    min_lat, min_lon, max_lat, max_lon = bbox
+
+    def in_tile(row: dict) -> bool:
+        lat, lon = row.get("latitude"), row.get("longitude")
+        if lat is None or lon is None:
+            return False
+        if polygon is not None:
+            return polygon.contains(point_cls(lon, lat))
+        return min_lat <= lat <= max_lat and min_lon <= lon <= max_lon
+
     inserted = 0
     now = datetime.now(timezone.utc).isoformat()
     conn = _db.connect()
     try:
         conn.execute("BEGIN IMMEDIATE")
-        for row in source_db.iter_active_addresses_in_bbox(bbox, snapshot_id):
-            if polygon is not None:
-                lat, lon = row.get("latitude"), row.get("longitude")
-                if lat is None or lon is None or not polygon.contains(point_cls(lon, lat)):
-                    continue
-            values = _candidate_values(run_id, row, now)
+        for row, unit, flats in _iter_emissions(bbox, snapshot_id, polygon, point_cls, in_tile):
+            values = _candidate_values(run_id, row, now, unit, flats)
             if values is None:
                 continue
             cur = conn.execute(_INSERT_SQL, values)

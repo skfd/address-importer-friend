@@ -448,6 +448,82 @@ def build_retired_since_query(
 
 _COLLAPSE = _CONFIG.units_policy == "collapse-to-civic"
 
+# per-door-or-collapse does NOT collapse in SQL. Which shape a civic group
+# takes depends on its unit numbering and the spacing of its points, neither of
+# which a window function can see, so the queries emit every unit row and
+# candidates.ingest decides per group. That makes this path's query shape
+# identical to the no-policy one — the same guardrail Toronto relies on, read
+# from the other end.
+PER_DOOR = _CONFIG.units_policy == "per-door-or-collapse"
+
+
+def build_civic_group_query(
+    sf: _config.SourceFields,
+    active_status: tuple[str, ...] | None = None,
+) -> str:
+    """Every active row sharing one civic key. Params: snap, num, street, muni.
+
+    The classifier has to see the whole civic group as the *source* has it, not
+    the part of it inside the tile being ingested. A tower split across a tile
+    boundary would otherwise show one floor's worth of units on each side and
+    read as sequential doors in both.
+
+    Carries the unit, which `build_address_cols` deliberately does not: that
+    projection is pinned byte-for-byte to Toronto's pre-Tier-2 form, and a
+    column appended to it would break the guardrail for every city to serve
+    one. `IS` rather than `=` throughout so a NULL municipality — every city
+    that declares none — still matches itself.
+    """
+    cols = build_address_cols(sf) + f", {field_sql(sf, 'unit')} AS unit_name"
+    clauses = [
+        _active_at("", ":snap"),
+        f"{field_sql(sf, 'number', '')} IS :num",
+        f"{field_sql(sf, 'street', '')} IS :street",
+        f"{field_sql(sf, 'municipality', '')} IS :muni",
+    ]
+    where = "\n              AND ".join(clauses) + _status_filter(sf, active_status, "")
+    return f"""
+            SELECT {cols}
+            FROM addresses a
+            WHERE {where}
+        """
+
+
+def civic_key(row: dict) -> tuple:
+    """The key a civic group is gathered on — the same (number, street,
+    municipality) triple `_unit_rank` partitions by. Municipality is
+    load-bearing: an amalgamated city reuses street names across its former
+    municipalities."""
+    return (
+        row.get("address_number"),
+        row.get("linear_name_full"),
+        row.get("municipality_name"),
+    )
+
+
+def fetch_civic_groups(keys, snapshot_id: int) -> dict[tuple, list[dict]]:
+    """Gather every active row for each civic key, over one connection.
+
+    Returns key -> rows. Keys that match nothing are absent rather than empty,
+    which only happens if the snapshot moved underneath the caller.
+    """
+    out: dict[tuple, list[dict]] = {}
+    conn = connect_readonly()
+    try:
+        q = build_civic_group_query(_CONFIG.source_fields, _CONFIG.status_active_values)
+        for num, street, muni in keys:
+            rows = [
+                dict(r)
+                for r in conn.execute(
+                    q, {"snap": snapshot_id, "num": num, "street": street, "muni": muni}
+                )
+            ]
+            if rows:
+                out[(num, street, muni)] = rows
+    finally:
+        conn.close()
+    return out
+
 
 def iter_active_addresses_in_bbox(bbox: tuple[float, float, float, float], snapshot_id: int):
     """Yield rows from the source addresses table active at snapshot_id and inside bbox."""
