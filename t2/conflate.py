@@ -34,6 +34,15 @@ from . import audit, config as _config, db as _db, osm_export, osm_fetch
 # hardcoded here. Toronto declares thirteen; Guelph and Hamilton declare none.
 _STREET_PROFILE = StreetProfile(_config.load().street_overrides)
 
+# Unit-aware matching is opt-in per city, because turning it on changes what
+# an existing city's candidates match. Under collapse-to-civic a bare civic
+# candidate deliberately MATCHes an OSM node that carries addr:unit — that is
+# what stops Toronto proposing a second node at an address already mapped as a
+# suite. Under per-door-or-collapse the same leniency would be wrong: the
+# whole point is that the building's civic node and its units are different
+# objects. So the strict rule lands only where the policy asks for it.
+_UNIT_AWARE = _config.load().units_policy == "per-door-or-collapse"
+
 #: This city's declared overrides, source spelling -> OSM-canonical spelling.
 STREET_NAME_OVERRIDES: dict[str, str] = dict(_STREET_PROFILE.overrides)
 
@@ -166,9 +175,30 @@ def build_osm_index(elements: list[dict]) -> tuple[GridIndex, GridIndex]:
             continue
         el["_norm_street"] = normalize_street(tags.get("addr:street", ""))
         el["_norm_number"] = str(tags.get("addr:housenumber", "")).upper()
+        el["_norm_unit"] = str(tags.get("addr:unit", "")).strip().upper()
         target = poi_idx if _is_poi_node(el) else match_idx
         target.add(el, float(lat), float(lon))
     return match_idx, poi_idx
+
+
+def _same_address(el: dict, c_num: str, c_street_norm: str, c_unit: str) -> bool:
+    """Is this OSM element the same address as the candidate?
+
+    Housenumber and street always have to agree. The unit only participates
+    under per-door-or-collapse, and then it has to agree *exactly*, empty
+    included: a candidate for the building itself matches only an element that
+    is also the building, and a candidate for unit 30 matches only unit 30.
+
+    That exactness is what makes the Guelph cleanup campaigns order-independent.
+    Splitting `714-30` into `714` + `addr:unit=30` leaves a node that no longer
+    answers to a bare `714`, so gap-fill still proposes the civic node it
+    should, whether the split has run yet or not.
+    """
+    if el["_norm_number"] != c_num or el["_norm_street"] != c_street_norm:
+        return False
+    if not _UNIT_AWARE:
+        return True
+    return el.get("_norm_unit", "") == c_unit
 
 
 def _classify(
@@ -191,6 +221,7 @@ def _classify(
 
     c_num = (cand_row.get("housenumber") or "").upper()
     c_street_norm = cand_row.get("street_norm") or ""
+    c_unit = (cand_row.get("unit") or "").strip().upper()
 
     # Tiebreak on osm_id when distances are equal so equidistant candidates
     # pick deterministically — GridIndex.query order depends on dict insertion
@@ -200,10 +231,11 @@ def _classify(
         dist = haversine(c_lat, c_lon, o_lat, o_lon)
         if dist > match_radius_m:
             continue
-        if osm["_norm_number"] == c_num and osm["_norm_street"] == c_street_norm:
-            oid = osm.get("id") or 0
-            if best_match is None or (dist, oid) < (best_match[0], best_match[1]):
-                best_match = (dist, oid, osm)
+        if not _same_address(osm, c_num, c_street_norm, c_unit):
+            continue
+        oid = osm.get("id") or 0
+        if best_match is None or (dist, oid) < (best_match[0], best_match[1]):
+            best_match = (dist, oid, osm)
 
     if best_match is not None:
         dist, _oid, el = best_match
@@ -215,10 +247,11 @@ def _classify(
         dist = haversine(c_lat, c_lon, o_lat, o_lon)
         if dist > match_radius_m:
             continue
-        if poi["_norm_number"] == c_num and poi["_norm_street"] == c_street_norm:
-            pid = poi.get("id") or 0
-            if best_poi is None or (dist, pid) < (best_poi[0], best_poi[1]):
-                best_poi = (dist, pid, poi)
+        if not _same_address(poi, c_num, c_street_norm, c_unit):
+            continue
+        pid = poi.get("id") or 0
+        if best_poi is None or (dist, pid) < (best_poi[0], best_poi[1]):
+            best_poi = (dist, pid, poi)
 
     poi_el = best_poi[2] if best_poi else None
     return "MISSING", None, None, None, None, poi_el

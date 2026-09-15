@@ -391,6 +391,16 @@ def build_tags(it: dict) -> dict[str, str]:
     postcode = (it.get("proposed_postcode") or "").strip()
     if postcode:
         tags["addr:postcode"] = postcode
+    # addr:unit and addr:flats differ in kind, not in spelling: the first says
+    # this node *is* that unit, the second says it *serves* those units. A
+    # candidate is one or the other and never both — units.classify decides
+    # which, and both stay empty under every policy but per-door-or-collapse.
+    unit = (it.get("unit") or "").strip()
+    if unit:
+        tags["addr:unit"] = unit
+    flats = (it.get("flats") or "").strip()
+    if flats:
+        tags["addr:flats"] = flats
     tags.update(_CONFIG.export_node_tags)
     return {k: v for k, v in tags.items() if v}
 

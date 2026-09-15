@@ -178,7 +178,15 @@ def parse_source_fields(section: dict, origin: str = "config.toml") -> SourceFie
     )
 
 
-UNIT_POLICIES = ("collapse-to-civic",)
+# "collapse-to-civic": one candidate per civic address, units discarded.
+# "per-door-or-collapse": each civic group is classified by its unit numbering
+#   (t2/units.py) and becomes either one node per front door carrying
+#   addr:unit, or one node for the building carrying addr:flats. Opt-in per
+#   city — Guelph's source geocodes every unit and its townhouse rows are real
+#   doors; Toronto and Hamilton stack units on the parcel point and stay on
+#   collapse-to-civic. Every query, match and dedup path gates on this value
+#   so those cities remain byte-identical.
+UNIT_POLICIES = ("collapse-to-civic", "per-door-or-collapse")
 
 
 def parse_units_policy(
@@ -559,8 +567,10 @@ class Config:
     city_neighbourhood_parent_field: str
     source_sqlite_path: str
     source_fields: SourceFields
-    # None (no unit field) or "collapse-to-civic": one candidate per
-    # (number, street, municipality), unit-less row elected representative.
+    # None (no unit field), "collapse-to-civic" (one candidate per
+    # (number, street, municipality), unit-less row elected representative) or
+    # "per-door-or-collapse" (per-door nodes where the source shows doors, one
+    # addr:flats node where it shows stacked suites). See UNIT_POLICIES.
     units_policy: str | None
     # None (no status field) or the tuple of status values whose rows are
     # importable reality; everything else is filtered from every source query.
