@@ -1034,6 +1034,12 @@ def create_app() -> Flask:
         else:
             geom_label = None
         review_state = review.get_review_state(run_id, candidate_id)
+        # The other candidates this civic group produced, across every run.
+        # Doors scatter across tiles, so the per-run queue cannot show a
+        # reviewer that this node is 1 of 12 at one address; this can.
+        unit_group = (
+            _unit_verdicts.group_candidates(cand["civic_key"]) if cand.get("civic_key") else []
+        )
         return {
             "candidate": cand,
             "results": results,
@@ -1043,6 +1049,7 @@ def create_app() -> Flask:
             "nearby_osm": nearby_osm,
             "review_state": review_state,
             "registry": REGISTRY,
+            "unit_group": unit_group,
         }
 
     @app.get("/runs/<int:run_id>/review/<int:candidate_id>")

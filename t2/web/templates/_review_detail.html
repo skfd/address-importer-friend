@@ -33,7 +33,42 @@
   · <a href="/runs/{{ run_id }}/{{ view }}/{{ candidate.dup_sibling_candidate_id }}"
        class="pill" data-tip="{{ tip('pill.intra_source_duplicate') }}">↔ same-address Land sibling #{{ candidate.dup_sibling_candidate_id }}{% if candidate.dup_sibling_dist_m is not none %} ({{ '%.1f' % candidate.dup_sibling_dist_m }} m){% endif %}</a>
   {% endif %}
+  {% if candidate.unit_shape %}
+  · <a href="/units/shapes?focus={{ candidate.civic_key | urlencode }}"
+       class="pill {% if candidate.unit_shape == 'review' %}bad{% elif candidate.unit_shape == 'collapse' %}ok{% elif candidate.unit_shape == 'civic-only' %}warn{% endif %}"
+       data-tip="{{ tip('pill.unit_shape.' ~ candidate.unit_shape) }}">unit shape: {{ candidate.unit_shape }} ↗</a>
+  {% if candidate.unit %}· <span class="pill" data-tip="{{ tip('pill.unit') }}">addr:unit={{ candidate.unit }}</span>{% endif %}
+  {% if candidate.flats %}· <span class="pill" data-tip="{{ tip('pill.flats') }}">addr:flats={{ candidate.flats }}</span>{% endif %}
+  {% endif %}
 </p>
+{% if unit_group and unit_group | length > 1 %}
+{% set doors = unit_group | selectattr('unit') | list %}
+<p class="muted" style="border-left:3px solid #6366f1;padding:.4rem .6rem;background:#eef2ff">
+  <strong>{% if candidate.unit %}Door {{ candidate.unit }}, 1 of {{ doors | length }} at this address.{% else %}The civic point of a group with {{ doors | length }} door{{ 's' if doors | length != 1 }}.{% endif %}</strong>
+  {% if candidate.unit_shape_reason %}<span class="muted">{{ candidate.unit_shape_reason }}.</span>{% endif %}
+  Every door is its own node; a wrong shape is fixed for the whole group at
+  <a href="/units/shapes?focus={{ candidate.civic_key | urlencode }}">unit shapes</a>, not one door at a time.
+  <br/>
+  {% for s in unit_group %}
+    {% if s.candidate_id == candidate.candidate_id and s.run_id == run_id %}
+      <strong>{{ s.unit or 'civic' }}</strong>
+    {% else %}
+      <a href="/runs/{{ s.run_id }}/{{ view }}/{{ s.candidate_id }}"
+         title="run {{ s.run_id }} · {{ s.stage }}{% if s.verdict %} · {{ s.verdict }}{% endif %}"
+         {% if s.run_id != run_id %}style="opacity:.7"{% endif %}>{{ s.unit or 'civic' }}</a>
+    {% endif %}
+    {%- if not loop.last %} · {% endif %}
+  {% endfor %}
+  {% set other_runs = unit_group | map(attribute='run_id') | reject('equalto', run_id) | unique | list %}
+  {% if other_runs %}<br/><span class="muted">Faded doors sit in other runs ({{ other_runs | join(', ') }}) — the group straddles a tile boundary.</span>{% endif %}
+</p>
+{% elif candidate.unit_shape and candidate.unit_shape != 'nodes' and candidate.unit_shape_reason %}
+<p class="muted" style="border-left:3px solid #6366f1;padding:.4rem .6rem;background:#eef2ff">
+  <strong>One node for the whole building.</strong> {{ candidate.unit_shape_reason }}.
+  To explode it into doors instead, decide it for the group at
+  <a href="/units/shapes?focus={{ candidate.civic_key | urlencode }}">unit shapes</a>.
+</p>
+{% endif %}
 {% if candidate.verdict == 'MATCH_FAR' %}
 <p style="border-left:3px solid #e0a81c;padding:.4rem .6rem;background:#fff8e6">
   <strong>A node with this housenumber already exists{% if candidate.nearest_dist_m %} {{ '%.0f' % candidate.nearest_dist_m }} m away{% endif %}</strong>

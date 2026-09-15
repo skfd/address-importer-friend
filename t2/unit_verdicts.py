@@ -119,6 +119,27 @@ def ingested_runs(keys=None) -> dict[str, list[int]]:
     return out
 
 
+def group_candidates(civic_key: str) -> list[dict]:
+    """Every candidate the group produced, across all runs, doors first in
+    reading order. Door groups scatter across runs -- each door lands in the
+    tile that contains it -- so this is the only view that shows a reviewer
+    that the node in front of them is 1 of 12 doors at one address."""
+    conn = _db.connect()
+    try:
+        rows = conn.execute(
+            """SELECT c.run_id, c.candidate_id, c.unit, c.flats, c.unit_shape, c.stage,
+                      c.address_full, cf.verdict
+               FROM candidates c LEFT JOIN conflation cf USING (run_id, candidate_id)
+               WHERE c.civic_key = ?""",
+            (civic_key,),
+        ).fetchall()
+    finally:
+        conn.close()
+    out = [dict(r) for r in rows]
+    out.sort(key=lambda r: (r["unit"] is not None, units.unit_sort_key(r["unit"] or ""), r["run_id"]))
+    return out
+
+
 class Frozen(Exception):
     """The group's shape is already in OSM; changing it would be a mutation."""
 

@@ -68,6 +68,13 @@ GLOSSARY: dict[str, str] = {
     "pill.entrance": "Structure Entrance row — source models this as a building door rather than the parcel. Uploaded as a pure address node (no entrance=yes tag).",
     "filter.door_only": "Show only Structure Entrance rows (door candidates) — hides Land/Structure parcel rows.",
     "pill.intra_source_duplicate": "Another Land row in the source has the exact same address_full + municipality. Click to jump to the sibling.",
+    "pill.unit_shape.nodes": "One of several front doors at this civic address. Each door is its own node with addr:unit; click to see the whole group at /units/shapes.",
+    "pill.unit_shape.collapse": "One node standing for a whole multi-unit building, carrying its units in addr:flats. Click to see the group at /units/shapes.",
+    "pill.unit_shape.civic-only": "One node standing for a multi-unit building with no unit listing — chosen by an operator. Click to see the group at /units/shapes.",
+    "pill.unit_shape.review": "Collapsed to one node, but the rule was not confident or the unit listing was dropped for length. Click to see the group at /units/shapes.",
+    "pill.unit_shape.skip": "The operator chose to create nothing for this group.",
+    "pill.unit": "The addr:unit this door node will carry.",
+    "pill.flats": "The addr:flats listing this building node will carry.",
     "pill.municipality": "This address_full also exists in another former municipality in this run — the municipality badge disambiguates the two rows.",
 
     # range coverage pills (ranges list)

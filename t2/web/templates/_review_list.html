@@ -46,6 +46,12 @@
            class="pill" data-tip="{{ tip('pill.intra_source_duplicate') }}"
            onclick="event.stopPropagation()">↔ #{{ it.dup_sibling_candidate_id }}{% if it.dup_sibling_dist_m is not none %} ({{ '%.1f' % it.dup_sibling_dist_m }}m){% endif %}</a>
       {% endif %}
+      {% if it.unit_shape %}
+        <a href="/units/shapes?focus={{ it.civic_key | urlencode }}"
+           class="pill {% if it.unit_shape == 'review' %}bad{% elif it.unit_shape == 'collapse' %}ok{% elif it.unit_shape == 'civic-only' %}warn{% endif %}"
+           data-tip="{{ tip('pill.unit_shape.' ~ it.unit_shape) }}"
+           onclick="event.stopPropagation()">{% if it.unit %}door {{ it.unit }}{% else %}{{ it.unit_shape }}{% endif %}</a>
+      {% endif %}
     </div>
   {% else %}
     <p class="muted">No items match the current filter.</p>
