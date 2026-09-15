@@ -25,6 +25,16 @@ at the date they were written.
 - [postcode-enrichment.md](postcode-enrichment.md) — fill `addr:postcode` on
   matched OSM nodes that lack one, sourced from same-address POI nodes.
   First mutation flow in an otherwise create-only pipeline.
+- [unit-shape-overrides.md](unit-shape-overrides.md) — **designed 2026-09-15.**
+  Let an operator overrule the collapse-vs-nodes decision at `/units/shapes`,
+  which is read-only today. Unlike every other override in the engine this
+  changes how many candidates exist — one node becomes fifty-two — so the
+  verdict has to reach `_emit_group` before ingest rather than transform tags
+  on export, and it must freeze once the group's shape reaches OSM. Phased so
+  phase A (record verdicts, nothing reads them) ships alone. The read-only page
+  (`f967749e`) and the classifier fix it exposed (`caae7333`) are landed;
+  mechanical edit #2, which the OSM column depends on, is prepared in
+  `guelph-address-import/mechanical-edits/unit-split/` but not run.
 - [maplibre.md](maplibre.md) — swap the review UI's Leaflet maps for
   MapLibre GL JS (vector tiles, richer styling).
 - [no-anchor-osm-buildings.md](no-anchor-osm-buildings.md) — post-import
