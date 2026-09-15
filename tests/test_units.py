@@ -88,7 +88,38 @@ def test_one_stem_alone_is_not_evidence_of_coding():
 
 
 def test_a_unit_that_does_not_parse_blocks_coding():
+    # REAR is a coach house with its own front door, not a level, and nothing
+    # tells it apart from PH. A designator that does not parse keeps its veto.
     assert is_coded(["101", "201", "REAR"]) is False
+
+
+def test_108_summit_ridge_drive_is_a_walkup_with_a_lower_level():
+    # 101-112;201-212;301-312;401-412;LL01-LL04 — four storeys over a lower
+    # level. Requiring a stem on every unit let LL01..LL04 veto the other 48
+    # and called the building 52 front doors: the one group in Guelph this
+    # defect actually exploded.
+    units = _floor_coded(range(1, 5), 12) + [f"LL{n:02d}" for n in range(1, 5)]
+    assert is_coded(units) is True
+
+
+def test_12_sunset_road_is_a_townhouse_block_lettered_by_building():
+    # A1..A7;B1..B5;C1..C2, and four more Guelph groups in that shape. Every
+    # unit is letter-prefixed and none is floor-coded, so the letters name
+    # buildings rather than storeys. Absorbing them collapsed five townhouse
+    # blocks — the regression that killed the first version of this fix.
+    units = (
+        [f"A{n}" for n in range(1, 8)]
+        + [f"B{n}" for n in range(1, 6)]
+        + ["C1", "C2"]
+    )
+    assert is_coded(units) is False
+
+
+def test_a_letter_level_counts_only_beside_real_floor_codes():
+    # The same B1..B3 reads one way under 3-digit suites and the other way on
+    # its own. That pairing is the whole rule.
+    assert is_coded(_floor_coded(range(1, 3), 12) + ["B1", "B2", "B3"]) is True
+    assert is_coded(["B1", "B2", "B3"]) is False
 
 
 # --- compress_flats ---------------------------------------------------------
@@ -145,6 +176,16 @@ def test_coded_numbering_collapses_however_far_apart_the_points_are():
     # The whole point of numbering-over-geometry: 93 Arthur Street South's
     # units spread widely, and it is still one building.
     verdict, reason = classify(_row_line(_floor_coded(range(1, 15), 13), spacing_m=40))
+    assert verdict == COLLAPSE
+    assert "coded" in reason
+
+
+def test_a_walkups_lower_level_does_not_make_it_a_row_of_doors():
+    # 108 Summit Ridge Drive at its measured 5.2 m — clear of the 4.5 m door
+    # guard, so nothing but the numbering stands between this building and 52
+    # invented front doors. The group whose upload shape the LL fix changed.
+    units = _floor_coded(range(1, 5), 12) + [f"LL{n:02d}" for n in range(1, 5)]
+    verdict, reason = classify(_row_line(units, spacing_m=5.2))
     assert verdict == COLLAPSE
     assert "coded" in reason
 

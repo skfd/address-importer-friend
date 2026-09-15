@@ -15,6 +15,12 @@ digits off every unit and ask whether what remains takes more than one value:
     71 Bayberry Drive         D101..D409, stems D1-D4 -> building D  -> collapse
     302 College Avenue West   1..214, no stem          -> 214 doors  -> nodes
 
+A floor designator is not always a digit. `LL01`, `B1`, `PH2` name the lower
+level, the basement and the penthouse, and where they sit alongside real
+3-digit floor codes they are read as storeys rather than as doors — see
+`is_coded`, which is where that exception and the two vetoes that survive it
+are argued.
+
 Guelph's numbers were measured against this on 2026-09-15 and the rule has to
 catch 3-digit, 4-digit *and* letter-prefixed codes in one pass: a 3-digit-only
 test reads 93 Arthur Street South as 193 front doors packed into 66 m, and so
@@ -98,19 +104,55 @@ def is_coded(units) -> bool:
     """True when the numbering encodes a floor or building, i.e. the units are
     stacked suites rather than doors in a row.
 
-    Every unit must carry a stem and at least two distinct stems must appear.
-    One stem is not evidence: `101..124` alone is a single floor, and reads
-    just as well as 24 doors numbered from 101.
+    At least two distinct stems must appear. One stem is not evidence:
+    `101..124` alone is a single floor, and reads just as well as 24 doors
+    numbered from 101.
+
+    A unit whose number is too short to carry a stem does not automatically
+    veto — a floor designator does not have to be a digit. `LL01`, `B1`, `AT1`
+    and `PH2` name the lower level, the basement, the attic and the penthouse,
+    which is *positive* evidence the building is stacked, and reading them as
+    doors inverts the strongest signal in the data. 108 Summit Ridge Drive
+    (`101-112;201-212;301-312;401-412;LL01-LL04`) is a four-storey walkup that
+    the plain every-unit-needs-a-stem rule called 52 front doors.
+
+    Two things still veto, and both are load-bearing:
+
+    * A short number with **no letters** is a door. 302 College Avenue West
+      runs `1..214`, so its first 99 units are short — absorbing those would
+      collapse 214 genuine doors on the strength of the units past 99.
+    * A short letter-prefixed number where **nothing else is floor-coded** is a
+      building label, not a level. 12 Sunset Road (`A1..A7;B1..B5;C1..`) and
+      four more Guelph groups are townhouse blocks lettered by building; only
+      in the company of real 3-digit floor codes does `LL01` mean a storey.
+
+    Deliberately still vetoing: designators that do not parse at all — `PH`,
+    a bare `A;B;C`, `BHC-1`, `RR-A1`. They cannot be told apart from `REAR`,
+    which is a coach house with its own front door rather than a level. All
+    four Guelph groups in that shape collapse anyway on the spacing guard, so
+    the blind spot costs nothing today.
     """
-    stems = set()
+    parsed = []
     for unit in units:
-        parsed = parse_unit(unit)
-        if parsed is None:
+        p = parse_unit(unit)
+        if p is None:
             return False
-        stem = _stem(parsed)
-        if stem is None:
+        parsed.append(p)
+
+    # Numbering past 99 is what a floor code looks like; without any, there is
+    # no storey for a short designator to be naming.
+    floor_coded = any(len(str(p[1])) >= 3 for p in parsed)
+
+    stems = set()
+    for p in parsed:
+        stem = _stem(p)
+        if stem is not None:
+            stems.add(stem)
+            continue
+        prefix = p[0]
+        if not prefix or not floor_coded:
             return False
-        stems.add(stem)
+        stems.add(prefix)
     return len(stems) >= 2
 
 
