@@ -47,6 +47,8 @@ because a cached overlay would keep showing live chips on a group that had
 just been uploaded.
 """
 import hashlib
+import json
+import re
 
 from . import source_db, unit_verdicts, units
 
@@ -178,17 +180,175 @@ def _base(snapshot_id: int) -> dict:
     return data
 
 
-def _overlay(base_row: dict, saved: dict | None, frozen: set[str], ingested: dict) -> dict:
+# --- what OSM already holds at each address ---------------------------------
+#
+# The second freeze condition. ARandomThumbtack put ~5,500 hyphenated unit
+# nodes into Guelph in 2025, so "somebody else already mapped these doors"
+# freezes a group as surely as our own upload does: overriding one of those to
+# collapse would put a civic node carrying addr:flats beside thirty existing
+# unit nodes. The mirror holds too -- a node already carrying addr:flats is a
+# collapsed building, and exploding it would put doors beside it.
+#
+# Both encodings of a door count. Before mechanical edit #2 a door sits in OSM
+# as addr:housenumber=714-30; after it, as 714 + addr:unit=30. Conflation only
+# recognises the second form (test_a_door_does_not_recognise_its_own_double_
+# encoded_self), which is why the handoff said this column would lie until the
+# split ran. It does not lie about *whether doors exist*, which is the only
+# question freeze asks, so it is built to read both and to say how many of
+# each it saw.
+#
+# And both encodings of a listing count. Guelph's towers were mapped as one
+# building way carrying every unit under addr:unit -- `101-116;201-215;...` --
+# rather than addr:flats. Measured 2026-09-15 against a fresh extract: 176 of
+# the 409 groups have such a building, 51 of them groups the rule reads as
+# doors. Read literally that is one "unit object"; read as the mapper meant it,
+# it is the collapsed shape already in OSM, and that is how it is counted.
+
+_OSM_CACHE: dict[tuple, dict] = {}
+_HYPHEN_UNIT = re.compile(r"^([0-9]+[A-Z]?)-([0-9A-Z]+)$")
+# An addr:unit value that is a listing rather than one designator: several
+# separated by semicolons, or a numeric range. `PH-2` and `A-1` stay single.
+_UNIT_LISTING = re.compile(r";|^[A-Z]*[0-9]+-[A-Z]*[0-9]+$")
+
+
+def _osm_summaries(elements: list[dict]) -> dict[tuple[str, str], dict]:
+    """(street_norm, housenumber) -> what address objects OSM has there.
+
+    Follows conflate.build_osm_index's notion of an address object: anything
+    with addr:housenumber that is not a POI node and not an endpoint of an
+    addr:interpolation way. Ways and relations count through their centre.
+    """
+    from .conflate import _is_poi_node, normalize_street
+
+    interp: set[int] = set()
+    for el in elements:
+        if el.get("type") == "way" and "addr:interpolation" in (el.get("tags") or {}):
+            interp.update(el.get("nodes") or ())
+
+    out: dict[tuple[str, str], dict] = {}
+
+    def slot(street: str, number: str) -> dict:
+        return out.setdefault(
+            (street, number),
+            {"civic": 0, "units": set(), "hyphenated": set(), "listings": [], "ids": []},
+        )
+
+    for el in elements:
+        tags = el.get("tags") or {}
+        hn = str(tags.get("addr:housenumber") or "").strip().upper()
+        if not hn:
+            continue
+        if el.get("type") == "node" and (el.get("id") in interp or _is_poi_node(el)):
+            continue
+        street = normalize_street(tags.get("addr:street") or "")
+        if not street:
+            continue
+        ref = (el.get("type"), el.get("id"))
+        unit = str(tags.get("addr:unit") or "").strip().upper()
+        m = _HYPHEN_UNIT.match(hn)
+        if m and (not unit or unit == m.group(2)):
+            # 714-30: the double-encoded door. The unit is the tail whether or
+            # not addr:unit repeats it.
+            s = slot(street, m.group(1))
+            s["hyphenated"].add(m.group(2))
+            s["ids"].append(ref)
+            continue
+        s = slot(street, hn)
+        s["ids"].append(ref)
+        if tags.get("addr:flats"):
+            s["listings"].append(str(tags["addr:flats"]).strip())
+        if unit and _UNIT_LISTING.search(unit):
+            s["listings"].append(unit)
+        elif unit:
+            s["units"].add(unit)
+        else:
+            s["civic"] += 1
+    return out
+
+
+def _osm_index() -> dict | None:
+    """The extract's address objects, summarised per (street, number), or None
+    when no extract has been fetched. Cached on the file's identity."""
+    from . import config as _config
+
+    path = _config.load().osm_extract_json
+    if not path.exists():
+        return None
+    st = path.stat()
+    stamp = (str(path), st.st_mtime_ns, st.st_size)
+    cached = _OSM_CACHE.get(stamp)
+    if cached is None:
+        cached = _osm_summaries(json.loads(path.read_text(encoding="utf-8")))
+        _OSM_CACHE.clear()
+        _OSM_CACHE[stamp] = cached
+    return cached
+
+
+def _osm_at(index: dict | None, base_row: dict) -> dict | None:
+    """What OSM holds for one civic group, in the row's terms, or None when
+    there is no extract to ask.
+
+    `shape` is the shape OSM already asserts: "doors" (unit objects, in either
+    encoding), "listing" (a building listing its units, under addr:flats or a
+    multi-valued addr:unit), "civic" (a bare address object and nothing more),
+    or "" for nothing at all. Only the first two freeze. A group can have both
+    doors and a listing -- terrace rows mapped as a few building ways each
+    listing its units, plus stray hyphenated nodes -- and reads as "doors" with
+    the listings counted alongside.
+    """
+    if index is None:
+        return None
+    from .conflate import apply_street_override, expand_street_name, normalize_street
+
+    street = normalize_street(expand_street_name(apply_street_override(base_row["street"])))
+    number = str(base_row["number"] or "").strip().upper()
+    s = index.get((street, number))
+    if s is None:
+        return {"shape": "", "civic": 0, "units": 0, "hyphenated": 0, "doors": 0, "listings": [], "ids": []}
+    doors = len(s["units"] | s["hyphenated"])
+    if doors:
+        shape = "doors"
+    elif s["listings"]:
+        shape = "listing"
+    elif s["civic"]:
+        shape = "civic"
+    else:
+        shape = ""
+    return {
+        "shape": shape,
+        "civic": s["civic"],
+        "units": len(s["units"]),
+        "hyphenated": len(s["hyphenated"]),
+        "doors": doors,
+        "listings": s["listings"],
+        "ids": s["ids"][:3],
+    }
+
+
+def _overlay(
+    base_row: dict, saved: dict | None, frozen: set[str], ingested: dict, osm_index: dict | None
+) -> dict:
     """One page row: the rule's answer with the operator's verdict applied.
 
     A saved verdict whose unit set no longer matches is *stale*: shown, so the
     operator can see what was decided and re-decide, but not applied, because
     the emitter will not apply it either.
+
+    `frozen` carries a reason so the row can say which of the two conditions
+    holds: our upload, or a shape somebody else already put in OSM.
     """
     override = unit_verdicts.effective(saved, base_row["unit_hash"])
     shape, reason, flats = units.resolve(
         base_row["verdict"], base_row["rule_reason"], base_row["units"], override
     )
+    osm = _osm_at(osm_index, base_row)
+    frozen_why = None
+    if base_row["key"] in frozen or bool(saved and saved.get("frozen_at")):
+        frozen_why = "uploaded by this import"
+    elif osm and osm["shape"] == "doors":
+        frozen_why = f"OSM already has {osm['doors']} unit object{'s' if osm['doors'] != 1 else ''} here"
+    elif osm and osm["shape"] == "listing":
+        frozen_why = "OSM already lists the units on a building here"
     return {
         **base_row,
         "shape": shape,
@@ -198,8 +358,10 @@ def _overlay(base_row: dict, saved: dict | None, frozen: set[str], ingested: dic
         "saved": saved,
         "override": override,
         "stale": saved is not None and override is None,
-        "frozen": base_row["key"] in frozen or bool(saved and saved.get("frozen_at")),
+        "frozen": frozen_why is not None,
+        "frozen_why": frozen_why,
         "ingested_runs": ingested.get(base_row["key"], []),
+        "osm": osm,
     }
 
 
@@ -218,7 +380,8 @@ def collect(snapshot_id: int | None = None) -> dict:
     saved = unit_verdicts.load_all()
     frozen = unit_verdicts.frozen_keys()
     ingested = unit_verdicts.ingested_runs()
-    rows = [_overlay(r, saved.get(r["key"]), frozen, ingested) for r in base["rows"]]
+    osm_index = _osm_index()
+    rows = [_overlay(r, saved.get(r["key"]), frozen, ingested, osm_index) for r in base["rows"]]
 
     counts = {shape: 0 for shape, _ in SHAPES}
     nodes_created = 0
@@ -239,6 +402,12 @@ def collect(snapshot_id: int | None = None) -> dict:
         "overridden": sum(1 for r in rows if r["override"]),
         "stale": sum(1 for r in rows if r["stale"]),
         "frozen": sum(1 for r in rows if r["frozen"]),
+        "osm_loaded": osm_index is not None,
+        "osm_shapes": {
+            k: sum(1 for r in rows if r["osm"] and r["osm"]["shape"] == k)
+            for k in ("doors", "listing", "civic", "")
+        },
+        "osm_hyphenated": sum(1 for r in rows if r["osm"] and r["osm"]["hyphenated"]),
     }
     return data
 
@@ -251,6 +420,10 @@ def decide(civic_key: str, choice: str, note: str | None = None) -> dict:
     OSM, and KeyError if the key names no unit-bearing group.
     """
     row = collect()["by_key"][civic_key]
+    if row["frozen"]:
+        # Covers the second freeze condition too, which `unit_verdicts` cannot
+        # see: a shape somebody else already put in OSM.
+        raise unit_verdicts.Frozen(civic_key)
     if choice == "rule":
         unit_verdicts.clear(civic_key)
     else:

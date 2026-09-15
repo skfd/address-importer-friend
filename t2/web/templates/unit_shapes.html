@@ -109,6 +109,7 @@
       <th class="num">Creates</th>
       <th>Why</th>
       <th>What gets uploaded</th>
+      <th>In OSM now</th>
       <th>Your verdict</th>
     </tr>
   </thead>
@@ -116,17 +117,27 @@
     {% for r in rows %}
       {% include "_unit_shape_row.html" %}
     {% else %}
-    <tr><td colspan="7" class="muted">No civic groups in this shape.</td></tr>
+    <tr><td colspan="8" class="muted">No civic groups in this shape.</td></tr>
     {% endfor %}
   </tbody>
 </table>
 </div>
 
 <p class="muted" style="font-size:.82rem">
-  What OSM already holds at each address is not shown yet: the 89 groups where OSM
-  carries only the hyphenated <code>714-30</code> form are per-door structure
-  somebody already mapped, and that column needs the OSM extract loaded and
-  mechanical edit #2 run before it stops lying.
+  {% if data.osm_loaded %}
+  <strong>In OSM now</strong> reads the local extract: {{ data.osm_shapes.doors }} groups already have
+  unit objects ({{ data.osm_hyphenated }} of them still in the double-encoded
+  <code>714-30</code> form that mechanical edit #2 splits), {{ data.osm_shapes.listing }} have a
+  building listing its units (mostly under a multi-valued <code>addr:unit</code> rather than
+  <code>addr:flats</code>), {{ data.osm_shapes.civic }} have a bare civic node, and
+  {{ data.osm_shapes[''] }} have nothing. Groups in the first two states are frozen: their
+  shape is already in OSM, whoever put it there. Both encodings of a door count, so the
+  column does not change when the split runs — only conflation does.
+  {% else %}
+  <strong>In OSM now</strong> is empty because no extract has been fetched. Refresh it at
+  <a href="/osm">OSM extract</a>; until then the only freeze this page can see is our own
+  uploads, and the 89 groups where somebody else already mapped the doors look open.
+  {% endif %}
 </p>
 
 {% if focus %}

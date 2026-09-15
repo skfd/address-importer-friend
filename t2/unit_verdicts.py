@@ -66,18 +66,6 @@ def effective(saved: dict | None, current_hash: str) -> str | None:
     return saved["verdict"]
 
 
-def version() -> str:
-    """Changes whenever any verdict changes; a cheap cache key for the page."""
-    conn = _db.connect()
-    try:
-        row = conn.execute(
-            "SELECT COUNT(*) AS n, MAX(updated_at) AS t FROM unit_shape_verdicts"
-        ).fetchone()
-    finally:
-        conn.close()
-    return f"{row['n']}:{row['t'] or ''}"
-
-
 def frozen_keys() -> set[str]:
     """Civic keys whose shape has reached OSM through this tool.
 

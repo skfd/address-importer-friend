@@ -186,12 +186,6 @@ def test_clearing_a_verdict_hands_the_group_back_to_the_rule(tool_db):
     assert unit_verdicts.clear(KEY) is False
 
 
-def test_version_moves_when_a_verdict_does(tool_db):
-    before = unit_verdicts.version()
-    unit_verdicts.save(KEY, "collapse", "h")
-    assert unit_verdicts.version() != before
-
-
 def _candidate(conn, run_id, cid, stage, civic_key):
     conn.execute(
         "INSERT INTO runs (run_id, name, bbox_min_lat, bbox_min_lon, bbox_max_lat, "
@@ -294,6 +288,107 @@ def test_decide_hashes_the_group_as_the_page_sees_it(tool_db, monkeypatch):
     assert unit_verdicts.load_all()[KEY]["unit_hash"] == row["unit_hash"]
     row = unit_shapes.decide(KEY, "rule")
     assert row["override"] is None and row["shape"] == "collapse"
+
+
+# --- what OSM already holds: the second freeze condition ----------------------
+
+
+def _el(kind, id_, tags, lat=43.54, lon=-80.25, nodes=None):
+    el = {"type": kind, "id": id_, "tags": tags}
+    if kind == "node":
+        el.update(lat=lat, lon=lon)
+    else:
+        el["center"] = {"lat": lat, "lon": lon}
+    if nodes:
+        el["nodes"] = nodes
+    return el
+
+
+def test_osm_summary_reads_both_encodings_of_a_door():
+    from t2.unit_shapes import _osm_summaries
+
+    idx = _osm_summaries([
+        _el("node", 1, {"addr:housenumber": "714", "addr:street": "Test Street"}),
+        _el("node", 2, {"addr:housenumber": "714", "addr:street": "Test Street", "addr:unit": "30"}),
+        _el("node", 3, {"addr:housenumber": "714-31", "addr:street": "Test Street", "addr:unit": "31"}),
+        _el("way", 4, {"addr:housenumber": "714-32", "addr:street": "Test Street"}),
+        # A shop at the address is acknowledged, not an address object.
+        _el("node", 5, {"addr:housenumber": "714", "addr:street": "Test Street", "shop": "bakery"}),
+    ])
+    s = idx[("TEST ST", "714")]
+    assert s["civic"] == 1
+    assert s["units"] == {"30"}
+    assert s["hyphenated"] == {"31", "32"}
+    assert ("node", 5) not in s["ids"]
+
+
+def test_osm_summary_drops_interpolation_endpoints_and_keeps_listings():
+    from t2.unit_shapes import _osm_summaries
+
+    idx = _osm_summaries([
+        _el("way", 9, {"addr:interpolation": "even"}, nodes=[7]),
+        _el("node", 7, {"addr:housenumber": "2", "addr:street": "Test Street"}),
+        _el("node", 8, {"addr:housenumber": "4", "addr:street": "Test Street", "addr:flats": "1-6"}),
+    ])
+    assert ("TEST ST", "2") not in idx
+    assert idx[("TEST ST", "4")]["listings"] == ["1-6"]
+
+
+def test_a_building_listing_its_units_under_addr_unit_is_a_listing_not_a_door():
+    """Guelph's towers: one way, addr:unit=101-116;201-215;... That is the
+    collapsed shape already in OSM, not one unit object."""
+    from t2.unit_shapes import _osm_summaries
+
+    idx = _osm_summaries([
+        _el("way", 1, {"addr:housenumber": "1878", "addr:street": "Gordon Street", "building": "apartments",
+                       "addr:unit": "101-116;201-215;301-314"}),
+        _el("way", 2, {"addr:housenumber": "1880", "addr:street": "Gordon Street", "addr:unit": "1-10"}),
+        _el("node", 3, {"addr:housenumber": "1882", "addr:street": "Gordon Street", "addr:unit": "PH-2"}),
+    ])
+    assert idx[("GORDON ST", "1878")]["listings"] == ["101-116;201-215;301-314"]
+    assert idx[("GORDON ST", "1878")]["units"] == set()
+    assert idx[("GORDON ST", "1880")]["listings"] == ["1-10"]
+    assert idx[("GORDON ST", "1882")]["units"] == {"PH-2"}
+
+
+def test_a_group_somebody_else_mapped_as_doors_is_frozen(tool_db, monkeypatch):
+    unit_shapes = _synthetic_base(monkeypatch)
+    doors = {("TEST ST", "7"): {"civic": 1, "units": {"1", "2"}, "hyphenated": {"3"}, "listings": [], "ids": [("node", 1)]}}
+    monkeypatch.setattr(unit_shapes, "_osm_index", lambda: doors)
+    row = unit_shapes.collect()["by_key"][KEY]
+    assert row["osm"]["shape"] == "doors" and row["osm"]["doors"] == 3 and row["osm"]["hyphenated"] == 1
+    assert row["frozen"] and "3 unit objects" in row["frozen_why"]
+    with pytest.raises(unit_verdicts.Frozen):
+        unit_shapes.decide(KEY, "collapse")
+    assert KEY not in unit_verdicts.load_all()
+
+
+def test_a_bare_civic_node_in_osm_does_not_freeze(tool_db, monkeypatch):
+    unit_shapes = _synthetic_base(monkeypatch)
+    civic = {("TEST ST", "7"): {"civic": 1, "units": set(), "hyphenated": set(), "listings": [], "ids": []}}
+    monkeypatch.setattr(unit_shapes, "_osm_index", lambda: civic)
+    row = unit_shapes.collect()["by_key"][KEY]
+    assert row["osm"]["shape"] == "civic" and not row["frozen"]
+    assert unit_shapes.decide(KEY, "nodes")["override"] == "nodes"
+
+
+def test_a_building_already_listing_its_units_freezes_the_group(tool_db, monkeypatch):
+    unit_shapes = _synthetic_base(monkeypatch)
+    listing = {("TEST ST", "7"): {"civic": 0, "units": set(), "hyphenated": set(), "listings": ["101-112"], "ids": [("way", 1)]}}
+    monkeypatch.setattr(unit_shapes, "_osm_index", lambda: listing)
+    row = unit_shapes.collect()["by_key"][KEY]
+    assert row["osm"]["shape"] == "listing" and row["frozen"]
+    assert "lists the units" in row["frozen_why"]
+    with pytest.raises(unit_verdicts.Frozen):
+        unit_shapes.decide(KEY, "nodes")
+
+
+def test_without_an_extract_the_column_is_absent_not_empty(tool_db, monkeypatch):
+    unit_shapes = _synthetic_base(monkeypatch)
+    monkeypatch.setattr(unit_shapes, "_osm_index", lambda: None)
+    data = unit_shapes.collect()
+    assert data["osm_loaded"] is False
+    assert data["by_key"][KEY]["osm"] is None and not data["by_key"][KEY]["frozen"]
 
 
 # --- end to end: a verdict reaches ingest, a stale one does not ----------------

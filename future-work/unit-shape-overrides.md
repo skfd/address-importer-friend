@@ -1,11 +1,24 @@
 # Unit-shape overrides — making `/units/shapes` editable
 
-**Designed 2026-09-15; phases A, B and the per-run half of C landed the same
-evening** (`9817b76b`, `391734a5`). What remains is the OSM column — freeze
-condition 2 in §5 — which needs the OSM extract fetched into `data/osm/` and
-mechanical edit #2 run before it stops lying. The rest of this document is
-kept as the design record; where the build departed from it, the departure is
-noted inline in **bold**.
+**Designed 2026-09-15 and built the same evening, all three phases**
+(`9817b76b`, `391734a5`, and the OSM column after the extract was fetched).
+The rest of this document is kept as the design record; where the build
+departed from it, the departure is noted inline in **bold**.
+
+**What the OSM column found, measured against a fresh extract on 2026-09-15:**
+338 of the 409 groups already have their shape in OSM. 176 have one building
+way carrying every unit under a multi-valued `addr:unit`
+(`101-116;201-215;…`) — the collapsed shape under the wrong key — and 162 have
+unit objects, 156 of those groups still in the hyphenated `714-30` form. Only
+71 groups are open to a verdict (41 nodes, 20 review, 10 collapse by the
+rule). The 89 the design quotes was a count of one encoding; the column reads
+both. **The consequence is bigger than this page:** 51 of the listing groups
+are ones the rule reads as doors, and 98 are collapse groups whose collapsed
+candidate `(1878, unit None)` will not match a way whose `_norm_unit` is a
+listing — `_same_address` demands unit equality — so conflation reads them as
+MISSING and proposes a second address object beside the building. That is a
+conflation question, not an override question, and is the next proposal to
+write before any upload under this policy.
 
 Where things live now: `t2/units.resolve` is the one decision both the
 emitter and the page call; `t2/unit_verdicts.py` persists verdicts, computes
@@ -105,7 +118,13 @@ lie. But keep the classifier's opinion — put it in `unit_shape_reason`
 database, and its group is still ours to decide. Freeze is a property of the
 civic key, not of a verdict row — a group uploaded under the rule's own
 decision is as frozen as one uploaded under an override, and a single
-uploaded door freezes its whole group. **Condition 2 is not built.**
+uploaded door freezes its whole group. **Condition 2 is built in
+`unit_shapes._osm_summaries`, and freezes on two OSM states, not one:** unit
+objects in either encoding (`714` + `addr:unit=30`, or `714-30`), and a
+building listing its units under `addr:flats` or a multi-valued `addr:unit`.
+The second was not in the design and is the larger of the two in Guelph. A
+bare civic node freezes nothing. The extract lives at
+`data/osm/guelph-addresses.json`; `python -m t2.osm_refresh` rebuilds it.
 
 Once a group's shape is in OSM, **both flips are mutations**: `nodes→collapse`
 means deleting fifty-two nodes and creating one. This import only creates. So a
@@ -122,10 +141,10 @@ frozen verdict is not editable, and later disagreement routes to a QA finding.
    why the "what OSM has" column is **not cosmetic** — it is the second freeze
    condition.
 
-The OSM column needs the OSM extract, which is absent from `data/` locally, so
-phase C cannot be built or tested without fetching it first.
-
-**Sequencing caveat:** that column lies until mechanical edit #2 runs. The
+**Sequencing caveat, now moot for this column:** the design expected it to lie
+until mechanical edit #2 runs. It reads both encodings of a door, so the split
+changes the per-row "N still as `714-…`" note and nothing else. Conflation
+still cares about the split; this page does not. The
 batches are prepared in `guelph-address-import/mechanical-edits/unit-split/`
 (36 JOSM batches over 5,521 objects) but had not been run as of 2026-09-15.
 Before the split, a door candidate `(714, unit 30)` fails the housenumber
