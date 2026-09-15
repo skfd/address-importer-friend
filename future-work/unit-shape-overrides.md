@@ -1,7 +1,16 @@
 # Unit-shape overrides — making `/units/shapes` editable
 
-**Designed 2026-09-15. Not implemented.** The read-only page is landed
-(`f967749e`); this is the wiring that lets an operator disagree with it.
+**Designed 2026-09-15; phases A, B and the per-run half of C landed the same
+evening** (`9817b76b`, `391734a5`). What remains is the OSM column — freeze
+condition 2 in §5 — which needs the OSM extract fetched into `data/osm/` and
+mechanical edit #2 run before it stops lying. The rest of this document is
+kept as the design record; where the build departed from it, the departure is
+noted inline in **bold**.
+
+Where things live now: `t2/units.resolve` is the one decision both the
+emitter and the page call; `t2/unit_verdicts.py` persists verdicts, computes
+freeze, and documents the skip audit; `tests/test_unit_verdicts.py` pins every
+branch. The chips post to `/units/shapes/verdict` per row over htmx.
 
 Read [`t2/unit_shapes.py`](../t2/unit_shapes.py) and the `[units]` block of
 `guelph-address-import/config.toml` (the decision log — the UI design is at
@@ -41,6 +50,9 @@ That forces the page to be city-wide and run-independent:
   representative's tile. No per-run view can hold a group whole.
 
 ## 3. Data model
+
+**Built as written, plus `candidates.civic_key` in the same migration** — the
+cleanest of the two options §6 offers.
 
 Mirror `multi_address_verdicts` (`migrations/010`, `011`), which is the
 engine's existing "operator overrules a classifier, decision persists across
@@ -88,6 +100,13 @@ lie. But keep the classifier's opinion — put it in `unit_shape_reason`
 
 ## 5. Freeze — there are two conditions, not one
 
+**Condition 1 was built on `candidates.stage = 'UPLOADED'` rather than
+`runs.upload_status`**: a REJECTED candidate in an uploaded run never left the
+database, and its group is still ours to decide. Freeze is a property of the
+civic key, not of a verdict row — a group uploaded under the rule's own
+decision is as frozen as one uploaded under an override, and a single
+uploaded door freezes its whole group. **Condition 2 is not built.**
+
 Once a group's shape is in OSM, **both flips are mutations**: `nodes→collapse`
 means deleting fifty-two nodes and creating one. This import only creates. So a
 frozen verdict is not editable, and later disagreement routes to a QA finding.
@@ -134,6 +153,12 @@ the group is already in hand) or apply the identical transform on both sides of
 every query. Do not assume `street_raw` round-trips.
 
 ## 7. Phasing — each phase ships on its own
+
+**A and B landed in `9817b76b`; C minus the OSM column in `391734a5`.** One
+thing the design did not name and the build surfaces: a verdict saved after a
+group was already ingested into a not-yet-uploaded run does nothing to those
+rows, and there is no re-ingest path. The row says which runs hold the group
+so the operator knows where a verdict will and will not show up.
 
 **A. Record verdicts.** Migration 019, a POST route, option chips per row on
 the existing page. Verdicts persist; nothing reads them yet. *Useful alone* —

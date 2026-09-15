@@ -25,9 +25,9 @@ at the date they were written.
 - [postcode-enrichment.md](postcode-enrichment.md) — fill `addr:postcode` on
   matched OSM nodes that lack one, sourced from same-address POI nodes.
   First mutation flow in an otherwise create-only pipeline.
-- [unit-shape-overrides.md](unit-shape-overrides.md) — **designed 2026-09-15.**
-  Let an operator overrule the collapse-vs-nodes decision at `/units/shapes`,
-  which is read-only today. Unlike every other override in the engine this
+- [unit-shape-overrides.md](unit-shape-overrides.md) — **designed and mostly
+  built 2026-09-15; only the OSM column remains.**
+  Let an operator overrule the collapse-vs-nodes decision at `/units/shapes`. Unlike every other override in the engine this
   changes how many candidates exist — one node becomes fifty-two — so the
   verdict has to reach `_emit_group` before ingest rather than transform tags
   on export, and it must freeze once the group's shape reaches OSM. Phased so
