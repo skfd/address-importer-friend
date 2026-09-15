@@ -185,6 +185,14 @@ def skip_intra_run_duplicates(run_id: int) -> list[int]:
     run's rows — no extra index needed. Called after skip_cross_run_
     duplicates on every upload path so the keeper is chosen among rows that
     will actually be uploaded, and SKIPPED rows never enter the changeset.
+
+    The unit is part of the key because under per-door-or-collapse it is the
+    only thing telling two candidates apart: a townhouse row's doors all share
+    one address_full (Guelph synthesizes it from number+street), so without it
+    twelve doors at 19 Burns Drive would be deduped down to one node at upload
+    and the policy would silently do nothing. `IS` rather than `=` so the
+    NULLs every other policy writes still group together, which keeps this
+    byte-identical for Toronto and Hamilton.
     """
     now = datetime.now(timezone.utc).isoformat()
     conn = _db.connect()
@@ -202,6 +210,7 @@ def skip_intra_run_duplicates(run_id: int) -> list[int]:
              AND k.stage = 'APPROVED'
              AND k.address_full = c.address_full
              AND k.municipality_name IS c.municipality_name
+             AND k.unit IS c.unit
             WHERE c.run_id = ? AND c.stage = 'APPROVED'
               AND c.address_full IS NOT NULL
             GROUP BY c.candidate_id

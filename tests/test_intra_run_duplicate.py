@@ -25,12 +25,12 @@ def _run(conn, run_id, name):
     )
 
 
-def _cand(conn, run_id, candidate_id, stage, address_full, municipality=None):
+def _cand(conn, run_id, candidate_id, stage, address_full, municipality=None, unit=None):
     conn.execute(
         "INSERT INTO candidates (run_id, candidate_id, address_full, "
-        "municipality_name, stage, stage_updated_at) "
-        "VALUES (?, ?, ?, ?, ?, '2026-05-15T00:00:00Z')",
-        (run_id, candidate_id, address_full, municipality, stage),
+        "municipality_name, unit, stage, stage_updated_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, '2026-05-15T00:00:00Z')",
+        (run_id, candidate_id, address_full, municipality, unit, stage),
     )
 
 
@@ -135,3 +135,67 @@ def test_null_address_full_not_deduped(tool_db):
         assert _stage(conn, 25, 2) == "APPROVED"
     finally:
         conn.close()
+
+
+def test_doors_at_one_civic_address_are_not_deduped_into_one(tool_db):
+    """A townhouse row under per-door-or-collapse.
+
+    Guelph synthesizes address_full from number+street, so all twelve doors at
+    19 Burns Drive carry the same one. Without the unit in the key this guard
+    would keep a single node and quietly undo the whole policy.
+    """
+    from t2 import osm_export
+
+    conn = _db.connect()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        _run(conn, 30, "tile-30")
+        for i, unit in enumerate(range(41, 53)):
+            _cand(conn, 30, 100 + i, "APPROVED", "19 Burns Drive", "Guelph", str(unit))
+        conn.execute("COMMIT")
+    finally:
+        conn.close()
+
+    assert osm_export.skip_intra_run_duplicates(30) == []
+    conn = _db.connect()
+    try:
+        for i in range(12):
+            assert _stage(conn, 30, 100 + i) == "APPROVED"
+    finally:
+        conn.close()
+
+
+def test_the_same_door_twice_is_still_deduped(tool_db):
+    """The guard has to keep working within a unit, or a tile overlap would
+    upload one door twice."""
+    from t2 import osm_export
+
+    conn = _db.connect()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        _run(conn, 31, "tile-31")
+        _cand(conn, 31, 10, "APPROVED", "19 Burns Drive", "Guelph", "41")
+        _cand(conn, 31, 20, "APPROVED", "19 Burns Drive", "Guelph", "41")
+        conn.execute("COMMIT")
+    finally:
+        conn.close()
+
+    assert osm_export.skip_intra_run_duplicates(31) == [20]
+
+
+def test_a_building_and_its_own_door_are_not_deduped(tool_db):
+    """The collapsed civic node carries no unit; a door at the same address
+    carries one. They are different objects and both survive."""
+    from t2 import osm_export
+
+    conn = _db.connect()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        _run(conn, 32, "tile-32")
+        _cand(conn, 32, 10, "APPROVED", "714 Willow Road", "Guelph", None)
+        _cand(conn, 32, 20, "APPROVED", "714 Willow Road", "Guelph", "30")
+        conn.execute("COMMIT")
+    finally:
+        conn.close()
+
+    assert osm_export.skip_intra_run_duplicates(32) == []
