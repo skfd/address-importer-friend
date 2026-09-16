@@ -1,6 +1,6 @@
 (function () {
   const VERDICT_COLOR = {
-    'MATCH': '#2ca02c', 'MATCH_FAR': '#e0a81c',
+    'MATCH': '#2ca02c', 'MATCH_FAR': '#e0a81c', 'MATCH_LISTED': '#0d9488',
     'MISSING': '#e36c1d', 'SKIPPED': '#888'
   };
   function esc(s) {

@@ -46,7 +46,7 @@ import hashlib
 import re
 from collections import defaultdict
 
-from .conflate import haversine
+from .geo import haversine
 
 # A townhouse's minimum buildable width. Sequential units spaced at least this
 # far apart are separate ground-level entrances; closer than this they are not,
@@ -77,6 +77,17 @@ NO_UNITS = "no-units"
 # and where both a civic node and forty front doors would assert something
 # false.
 OVERRIDES = ("nodes", "collapse", "civic-only", "skip")
+
+# An addr:unit value that is a *listing* rather than one designator: several
+# separated by semicolons, or a numeric range. `PH-2` and `A-1` stay single.
+# Guelph's towers were mapped as one building way carrying every unit this
+# way -- `addr:unit=101-116;201-215;...` -- which is the collapsed shape under
+# the identity key. Conflation, the shapes page and mechanical edit #3 all
+# have to agree on what counts, so the test lives here once.
+UNIT_LISTING = re.compile(r";|^[A-Z]*[0-9]+-[A-Z]*[0-9]+$", re.IGNORECASE)
+# A range wider than this is a typo (`1-1000`), not a building; refuse to
+# expand it rather than allocate a thousand designators.
+MAX_RANGE_WIDTH = 500
 
 # prefix letters, digits, suffix letters — "101", "D101", "101A", "1001".
 _UNIT = re.compile(r"([A-Z]*)(\d+)([A-Z]*)")
@@ -337,6 +348,44 @@ def listed_units(designators) -> list[str]:
         {str(u).strip() for u in designators if (u or "").strip()},
         key=unit_sort_key,
     )
+
+
+def norm_designator(unit: str) -> str:
+    """One designator in the form two sides of a compare can share: upper,
+    stripped, and the numeric part without leading zeros, so the City's `LL01`
+    and a mapper's `LL1` are the same door. Unparseable values are compared
+    as typed."""
+    u = str(unit or "").strip().upper()
+    parsed = parse_unit(u)
+    if parsed is None:
+        return u
+    prefix, num, suffix = parsed
+    return f"{prefix}{num}{suffix}"
+
+
+def expand_listing(value: str) -> set[str]:
+    """The designators a listing names, normalised with `norm_designator`.
+
+    Per part: a numeric range whose two ends share a prefix and suffix expands
+    (`101-116`, `LL1-LL4`); anything else is one value (`1A`, `PH`). A range
+    wider than `MAX_RANGE_WIDTH` is left as a single literal rather than
+    expanded, so a typo cannot allocate.
+    """
+    out: set[str] = set()
+    for part in str(value or "").split(";"):
+        part = part.strip()
+        if not part:
+            continue
+        lo, sep, hi = part.partition("-")
+        a, b = parse_unit(lo.strip().upper()), parse_unit(hi.strip().upper()) if sep else None
+        if (
+            sep and a and b and a[0] == b[0] and a[2] == b[2]
+            and 0 <= b[1] - a[1] <= MAX_RANGE_WIDTH
+        ):
+            out.update(f"{a[0]}{n}{a[2]}" for n in range(a[1], b[1] + 1))
+        else:
+            out.add(norm_designator(part))
+    return out
 
 
 def unit_hash(listed: list[str]) -> str:

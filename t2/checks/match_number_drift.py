@@ -22,7 +22,7 @@ class MatchNumberDriftCheck:
     )
 
     def applies(self, cand: Candidate, ctx: CheckContext) -> bool:
-        if cand.verdict not in ("MATCH", "MATCH_FAR"):
+        if cand.verdict not in ("MATCH", "MATCH_FAR", "MATCH_LISTED"):
             return False
         if cand.lat is None or cand.lon is None:
             return False

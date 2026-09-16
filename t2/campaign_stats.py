@@ -174,7 +174,7 @@ def collect(
     )
     matched = n(
         f"SELECT COUNT(*) FROM conflation WHERE {IN} "
-        "AND verdict IN ('MATCH','MATCH_FAR')"
+        "AND verdict IN ('MATCH','MATCH_FAR','MATCH_LISTED')"
     )
     totals = {
         "ingested": ingested,

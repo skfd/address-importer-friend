@@ -19,7 +19,8 @@ from accordeur import (  # noqa: F401 -- re-exported; see the note below
     normalize_street,
 )
 
-from . import audit, config as _config, db as _db, osm_export, osm_fetch
+from . import audit, config as _config, db as _db, osm_export, osm_fetch, units
+from .geo import haversine  # noqa: F401 -- re-exported; callers import it from here
 
 # Street normalization lives in `accordeur`, the family's shared conflation
 # core: one answer to "are these the same street" for this engine and for
@@ -82,13 +83,6 @@ class GridIndex:
         return out
 
 
-def haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    R = 6_371_000.0
-    phi1, phi2 = math.radians(lat1), math.radians(lat2)
-    dphi = math.radians(lat2 - lat1)
-    dlambda = math.radians(lon2 - lon1)
-    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
-    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
 POI_TAG_KEYS = frozenset((
@@ -176,9 +170,66 @@ def build_osm_index(elements: list[dict]) -> tuple[GridIndex, GridIndex]:
         el["_norm_street"] = normalize_street(tags.get("addr:street", ""))
         el["_norm_number"] = str(tags.get("addr:housenumber", "")).upper()
         el["_norm_unit"] = str(tags.get("addr:unit", "")).strip().upper()
+        if _UNIT_AWARE:
+            _index_listing(el, tags)
         target = poi_idx if _is_poi_node(el) else match_idx
         target.add(el, float(lat), float(lon))
     return match_idx, poi_idx
+
+
+def _index_listing(el: dict, tags: dict) -> None:
+    """Mark an element that *lists* units as the building it is.
+
+    Two encodings count, because Guelph has both: `addr:flats`, the key that
+    means containment, and a multi-valued `addr:unit` (`101-116;201-215;...`),
+    which is how 453 of the city's buildings were mapped before mechanical
+    edit #3. Either way the element is the building, not a unit, so its
+    `_norm_unit` becomes "" and the designators it names go on
+    `_listed_units` for the containment match in `_match_kind`. The raw tags
+    are left alone for the diff.
+    """
+    listed: set[str] = set()
+    flats = tags.get("addr:flats")
+    if flats:
+        listed |= units.expand_listing(flats)
+    unit = tags.get("addr:unit")
+    if unit and units.UNIT_LISTING.search(str(unit).strip()):
+        listed |= units.expand_listing(unit)
+    if listed:
+        el["_listed_units"] = listed
+        el["_norm_unit"] = ""
+
+
+def _match_kind(el: dict, c_num: str, c_street_norm: str, c_unit: str) -> str | None:
+    """How this OSM element answers to the candidate: "exact", "listed", or
+    None.
+
+    "exact" is the compare `_same_address` always made. "listed" is new: a
+    door candidate whose designator appears in the element's unit listing.
+    There is no node for unit 30 in that case -- there is a line on the
+    building that says 30 exists -- and the verdict has to say so.
+    """
+    if el["_norm_number"] != c_num or el["_norm_street"] != c_street_norm:
+        return None
+    if not _UNIT_AWARE:
+        return "exact"
+    if el.get("_norm_unit", "") == c_unit:
+        return "exact"
+    listed = el.get("_listed_units")
+    if c_unit and listed and units.norm_designator(c_unit) in listed:
+        return "listed"
+    return None
+
+
+def _inside_bounds(el: dict, lat: float, lon: float) -> bool:
+    """Is the candidate point inside the element's bounding box? A civic point
+    inside a building's footprint is not "far" from it however big the
+    building is; distance to the centre measures the footprint, not the
+    error. Nodes have no bounds and are always False."""
+    b = el.get("bounds")
+    return bool(
+        b and b["minlat"] <= lat <= b["maxlat"] and b["minlon"] <= lon <= b["maxlon"]
+    )
 
 
 def _same_address(el: dict, c_num: str, c_street_norm: str, c_unit: str) -> bool:
@@ -194,11 +245,7 @@ def _same_address(el: dict, c_num: str, c_street_norm: str, c_unit: str) -> bool
     answers to a bare `714`, so gap-fill still proposes the civic node it
     should, whether the split has run yet or not.
     """
-    if el["_norm_number"] != c_num or el["_norm_street"] != c_street_norm:
-        return False
-    if not _UNIT_AWARE:
-        return True
-    return el.get("_norm_unit", "") == c_unit
+    return _match_kind(el, c_num, c_street_norm, c_unit) is not None
 
 
 def _classify(
@@ -214,6 +261,14 @@ def _classify(
     normalized housenumber + street. Nearest match within match_near_m = MATCH;
     beyond that = MATCH_FAR (operator review). No match → MISSING, plus a
     same-address POI node from poi_idx (if any) attached as acknowledgment.
+
+    Two refinements under per-door-or-collapse. An exact match beats a
+    containment match whatever the distances: a door node for unit 30 is a
+    better answer than a building that lists 30. A containment match within
+    the radius is MATCH_LISTED with no near/far split, because the distance
+    to a building's centre is its footprint, not an error. And for any
+    polygon match, a candidate inside the element's bounds is MATCH however
+    far the centre is, for the same reason.
     """
     c_lat, c_lon = cand_row["lat"], cand_row["lon"]
     if c_lat is None or c_lon is None:
@@ -226,20 +281,28 @@ def _classify(
     # Tiebreak on osm_id when distances are equal so equidistant candidates
     # pick deterministically — GridIndex.query order depends on dict insertion
     # and isn't stable across refactors.
-    best_match: tuple[float, int, dict] | None = None
+    # Sort key (rank, dist, id): exact before listed, then nearest, then a
+    # stable id so equidistant candidates pick deterministically.
+    best_match: tuple[int, float, int, dict] | None = None
     for o_lat, o_lon, osm in match_idx.query(c_lat, c_lon):
         dist = haversine(c_lat, c_lon, o_lat, o_lon)
         if dist > match_radius_m:
             continue
-        if not _same_address(osm, c_num, c_street_norm, c_unit):
+        kind = _match_kind(osm, c_num, c_street_norm, c_unit)
+        if kind is None:
             continue
-        oid = osm.get("id") or 0
-        if best_match is None or (dist, oid) < (best_match[0], best_match[1]):
-            best_match = (dist, oid, osm)
+        key = (0 if kind == "exact" else 1, dist, osm.get("id") or 0)
+        if best_match is None or key < best_match[:3]:
+            best_match = (*key, osm)
 
     if best_match is not None:
-        dist, _oid, el = best_match
-        verdict = "MATCH" if dist <= match_near_m else "MATCH_FAR"
+        rank, dist, _oid, el = best_match
+        if rank == 1:
+            verdict = "MATCH_LISTED"
+        elif dist <= match_near_m or _inside_bounds(el, c_lat, c_lon):
+            verdict = "MATCH"
+        else:
+            verdict = "MATCH_FAR"
         return verdict, el.get("id"), el.get("type"), dist, el, None
 
     best_poi: tuple[float, int, dict] | None = None
@@ -379,7 +442,7 @@ def run(run_id: int, osm_snapshot_hash: str, match_radius_m: float, match_near_m
     match_idx, poi_idx = build_osm_index(elements)
     now = datetime.now(timezone.utc).isoformat()
 
-    counts = {"MATCH": 0, "MATCH_FAR": 0, "MISSING": 0, "SKIPPED": 0}
+    counts = {"MATCH": 0, "MATCH_FAR": 0, "MATCH_LISTED": 0, "MISSING": 0, "SKIPPED": 0}
     verdict_by_cid: dict[int, str] = {}
     conn = _db.connect()
     try:
@@ -387,8 +450,11 @@ def run(run_id: int, osm_snapshot_hash: str, match_radius_m: float, match_near_m
         land_keys = set(land_groups.keys())
 
         rows = conn.execute(
+            # unit and flats are what per-door-or-collapse made of the row;
+            # without them here every door compared as the bare civic point,
+            # MATCHed the building's node and was SKIPPED as already in OSM.
             "SELECT candidate_id, address_full, housenumber, street_raw, street_norm, lat, lon, "
-            "       lo_num, hi_num, address_class, municipality_name "
+            "       lo_num, hi_num, address_class, municipality_name, unit, flats, civic_key "
             "FROM candidates WHERE run_id = ? AND stage = 'INGESTED'",
             (run_id,),
         ).fetchall()
@@ -497,7 +563,7 @@ def run(run_id: int, osm_snapshot_hash: str, match_radius_m: float, match_near_m
         for members in land_groups.values():
             if len(members) < 2:
                 continue
-            if all(verdict_by_cid.get(cid) == "MATCH" for cid, _lat, _lon in members):
+            if all(verdict_by_cid.get(cid) in ("MATCH", "MATCH_LISTED") for cid, _lat, _lon in members):
                 for cid, _lat, _lon in members:
                     conn.execute(
                         "UPDATE conflation SET dup_group_all_match = 1 "

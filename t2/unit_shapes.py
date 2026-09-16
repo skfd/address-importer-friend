@@ -206,9 +206,8 @@ def _base(snapshot_id: int) -> dict:
 
 _OSM_CACHE: dict[tuple, dict] = {}
 _HYPHEN_UNIT = re.compile(r"^([0-9]+[A-Z]?)-([0-9A-Z]+)$")
-# An addr:unit value that is a listing rather than one designator: several
-# separated by semicolons, or a numeric range. `PH-2` and `A-1` stay single.
-_UNIT_LISTING = re.compile(r";|^[A-Z]*[0-9]+-[A-Z]*[0-9]+$")
+# The listing test is shared with conflation: `units.UNIT_LISTING`.
+_UNIT_LISTING = units.UNIT_LISTING
 
 
 def _osm_summaries(elements: list[dict]) -> dict[tuple[str, str], dict]:

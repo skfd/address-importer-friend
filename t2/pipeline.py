@@ -350,9 +350,15 @@ def run_checks(run_id: int) -> dict[str, int]:
                     (now, run_id, cand.candidate_id),
                 )
             else:
-                # Clean MISSING with no flags -> auto-approve; MATCH -> SKIPPED (already in OSM);
-                # MATCH_FAR falls through to CHECKED so it can't auto-clear without a decision.
-                new_stage = "APPROVED" if cand.verdict == "MISSING" else ("SKIPPED" if cand.verdict == "MATCH" else "CHECKED")
+                # Clean MISSING with no flags -> auto-approve; MATCH -> SKIPPED (already in OSM),
+                # and so does MATCH_LISTED: the unit is a line on a building that already
+                # lists it, and there is nothing to create. MATCH_FAR falls through to
+                # CHECKED so it can't auto-clear without a decision.
+                new_stage = (
+                    "APPROVED" if cand.verdict == "MISSING"
+                    else "SKIPPED" if cand.verdict in ("MATCH", "MATCH_LISTED")
+                    else "CHECKED"
+                )
                 conn.execute(
                     "UPDATE candidates SET stage=?, stage_updated_at=? WHERE run_id=? AND candidate_id=?",
                     (new_stage, now, run_id, cand.candidate_id),

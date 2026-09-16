@@ -11,6 +11,7 @@ DEFAULT_KEYS: tuple[str, ...] = (
     "addr:housenumber",
     "addr:street",
     "addr:unit",
+    "addr:flats",
     "addr:postcode",
     "addr:city",
     "addr:country",
@@ -41,6 +42,14 @@ def _equal(tag: str, a: str, b: str) -> bool:
         return normalize_street(a) == normalize_street(b)
     if tag == "addr:housenumber":
         return a.strip().upper() == b.strip().upper()
+    if tag == "addr:flats":
+        # A listing is a set. Ours is sorted and range-compressed; a mapper's
+        # may be neither (`1001-1008;101-104;...`), and after mechanical edit
+        # #3 moves theirs verbatim a string compare would read CHANGE on
+        # every retagged building forever.
+        from .units import expand_listing
+
+        return expand_listing(a) == expand_listing(b)
     return a.strip() == b.strip()
 
 

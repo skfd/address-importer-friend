@@ -829,7 +829,7 @@ def create_app() -> Flask:
     # ---- Review ----
 
     _REVIEW_STATUSES = ("OPEN", "APPROVED", "REJECTED", "DEFERRED")
-    _REVIEW_VERDICTS = ("MATCH", "MATCH_FAR", "MISSING", "SKIPPED")
+    _REVIEW_VERDICTS = ("MATCH", "MATCH_FAR", "MATCH_LISTED", "MISSING", "SKIPPED")
 
     def _parse_csv_arg(name: str, allowed: tuple[str, ...]) -> tuple[str, ...]:
         raw = request.args.get(name)

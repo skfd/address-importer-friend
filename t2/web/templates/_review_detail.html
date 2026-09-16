@@ -69,7 +69,15 @@
   <a href="/units/shapes?focus={{ candidate.civic_key | urlencode }}">unit shapes</a>.
 </p>
 {% endif %}
-{% if candidate.verdict == 'MATCH_FAR' %}
+{% if candidate.verdict == 'MATCH_LISTED' %}
+<p style="border-left:3px solid #0d9488;padding:.4rem .6rem;background:#ecfdf5">
+  <strong>No node for unit {{ candidate.unit }} exists, but a building at this address already lists it</strong>
+  {% if candidate.nearest_osm_type and candidate.nearest_osm_id %}(<a href="https://www.openstreetmap.org/edit?editor=id&{{ candidate.nearest_osm_type }}={{ candidate.nearest_osm_id }}" target="_blank" rel="noopener">{{ candidate.nearest_osm_type }} #{{ candidate.nearest_osm_id }}</a>){% endif %}
+  — as a line in <code>addr:flats</code>, or in a multi-valued <code>addr:unit</code> that mechanical edit #3 moves there.
+  Nothing to create; the candidate is skipped like a MATCH. If the whole group reads this way, the source's door row was mapped as one building — fine as it stands, and
+  {% if candidate.civic_key %}decided for the group at <a href="/units/shapes?focus={{ candidate.civic_key | urlencode }}">unit shapes</a>{% else %}a group decision, not a per-door one{% endif %}.
+</p>
+{% elif candidate.verdict == 'MATCH_FAR' %}
 <p style="border-left:3px solid #e0a81c;padding:.4rem .6rem;background:#fff8e6">
   <strong>A node with this housenumber already exists{% if candidate.nearest_dist_m %} {{ '%.0f' % candidate.nearest_dist_m }} m away{% endif %}</strong>
   (red on the map). <strong>Approving creates a second node for this address.</strong>
@@ -100,6 +108,7 @@
   <span class="muted">Siblings in view —</span>
   <span style="display:inline-block;width:.7em;height:.7em;background:#2ca02c;border-radius:50%;border:1px solid #fff"></span> MATCH
   · <span style="display:inline-block;width:.7em;height:.7em;background:#e0a81c;border-radius:50%;border:1px solid #fff"></span> MATCH_FAR
+  · <span style="display:inline-block;width:.7em;height:.7em;background:#0d9488;border-radius:50%;border:1px solid #fff"></span> MATCH_LISTED
   · <span style="display:inline-block;width:.7em;height:.7em;background:#e36c1d;border-radius:50%;border:1px solid #fff"></span> MISSING
   · <span style="display:inline-block;width:.7em;height:.7em;background:#888;border-radius:50%;border:1px solid #fff"></span> SKIPPED
   · <span style="display:inline-block;width:.7em;height:.7em;border:2px solid #7a3fc2;border-radius:50%;background:#fff"></span> OSM address

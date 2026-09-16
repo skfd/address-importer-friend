@@ -22,7 +22,7 @@ class PotentialAmenityCheck:
     description = "Flags MATCH/MATCH_FAR where the matched OSM node carries non-address, non-metadata tags — hints the POI filter may need to grow."
 
     def applies(self, cand: Candidate, ctx: CheckContext) -> bool:
-        if cand.verdict not in ("MATCH", "MATCH_FAR"):
+        if cand.verdict not in ("MATCH", "MATCH_FAR", "MATCH_LISTED"):
             return False
         return cand.nearest_osm_type == "node" and cand.matched_osm_tags is not None
 
