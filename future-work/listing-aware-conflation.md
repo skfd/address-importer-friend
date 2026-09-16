@@ -120,13 +120,27 @@ Then re-run the Guelph tiles' conflation and expect the 176 groups to leave
 MISSING; the count of MISSING candidates city-wide should drop by roughly
 125 + the door count of the 51 groups.
 
-## 6. What this does not decide
+## 6. What this does and does not decide
 
-**Whether to retag.** 176 buildings say `addr:unit` where the import's own
-argument says `addr:flats`. Conflation matching them is the right thing
-whichever tag they carry; changing the tag is a mechanical edit #3 with its
-own consent question, and ARandomThumbtack — who most likely mapped them —
-holds the standing veto recorded in `config.toml`. Do not fold it into this.
+**The retag is decided (2026-09-16): standardise.** `addr:unit` is identity —
+this address *is* unit 30 — and the wiki allows several values on it only for
+one address spanning adjacent units. `addr:flats` is containment — "the range
+of unit numbers within a larger building or complex", on the building way or
+its entrance, in exactly our `3-7;10;14-18` format. Guelph has both meanings
+on one key today (5,863 single-valued `addr:unit`, 453 list-valued, 1
+`addr:flats`), which is the whole reason conflation had to guess from the
+shape of the value. So the 453 listing objects move to `addr:flats`, key only,
+value verbatim, as **mechanical edit #3** — announcement drafted in
+`guelph-address-import/mechanical-edits/unit-listing-retag/`, wiki section
+written, consent still to be asked. Only the June Avenue pilot of edit #2 has
+been uploaded, so nothing is built on the old form yet.
+
+This changes nothing in §4. Conflation still learns both forms, because the
+extract lags the edit, the retag waits on a 14-day window, and door objects
+keep `addr:unit` regardless. After the retag the listing-shaped `addr:unit`
+branch is a safety net rather than the path. It also means the tag diff on a
+collapsed MATCH — our `addr:flats` against their `addr:unit` — can generate
+the edit #3 batches, the way `multi_fixes` builds its exports.
 
 **Whether a door group mapped as a building should be exploded.** With
 MATCH_LISTED the 51 door groups are simply done. The source's opinion that
