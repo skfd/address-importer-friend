@@ -26,7 +26,7 @@ at the date they were written.
   matched OSM nodes that lack one, sourced from same-address POI nodes.
   First mutation flow in an otherwise create-only pipeline.
 - [listing-aware-conflation.md](listing-aware-conflation.md) -- **proposed
-  2026-09-15, blocks any per-door upload.** Guelph's towers are in OSM as one
+  2026-09-15, built 2026-09-16.** Guelph's towers are in OSM as one
   building way listing every unit under addr:unit; _same_address demands unit
   equality, so 176 groups read MISSING and would be duplicated. Containment
   match plus a MATCH_LISTED verdict.

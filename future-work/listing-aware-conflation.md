@@ -1,6 +1,12 @@
 # Listing-aware conflation — a building that lists its units is the building
 
-**Proposed 2026-09-15. Not implemented.** Found by the OSM column on
+**Proposed 2026-09-15; built 2026-09-16 (`38ea7459`).** Landed as designed, with
+two additions the build surfaced: `conflate.run` had never selected `unit` or
+`flats`, so every door compared as the bare civic point (fixed, with a test
+through `run()` itself), and a civic point inside a matched polygon's bounds
+now reads MATCH rather than MATCH_FAR. Simulated on the fresh extract: the 125
+collapsed candidates go 115 MATCH / 10 MATCH_FAR; the 642 doors of the 51 door
+groups go 597 MATCH_LISTED / 45 MISSING. Kept as the design record. Found by the OSM column on
 `/units/shapes` ([unit-shape-overrides.md](unit-shape-overrides.md)) the
 evening it was built. Blocks any upload under `[units] policy =
 "per-door-or-collapse"`, so it is the next engine change for Guelph, ahead of
