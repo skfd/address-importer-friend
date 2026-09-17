@@ -163,6 +163,35 @@ def test_duplicate_units_collapse():
     assert compress_flats(["101", "101", "102"]) == "101-102"
 
 
+def test_108_summit_ridge_drive_keeps_its_lower_level_padded():
+    # The same building as the is_coded test above, rendered rather than
+    # classified. `parse_unit` goes through int(), so the lower level used to
+    # come back as LL1-LL4 — a designator the building does not sign, and one
+    # that made the mechanical `addr:flats` normaliser fail its own round-trip
+    # test on three live Guelph values for a purely cosmetic reason.
+    units = _floor_coded(range(1, 5), 12) + [f"LL{n:02d}" for n in range(1, 5)]
+    assert compress_flats(units) == "101-112;201-212;301-312;401-412;LL01-LL04"
+
+
+def test_25_kay_crescent_renders_its_lower_level_at_one_width():
+    # LL02;LL04;...;LL14, stepping by two, so nothing compresses and every
+    # designator is emitted on its own. LL02..LL08 are padded and LL10..LL14
+    # are two digits without being padded; the floor is signed at one width
+    # and has to render at one width.
+    units = [f"LL{n:02d}" for n in range(2, 16, 2)]
+    assert compress_flats(units) == "LL02;LL04;LL06;LL08;LL10;LL12;LL14"
+
+
+def test_an_unpadded_two_digit_run_is_not_treated_as_padded():
+    # 245 Southgate Drive. `10` is two digits without being padded, so
+    # claiming a width from it would render 7 as 07 and invent a designator.
+    assert compress_flats(["7", "8", "9", "10", "11", "12"]) == "7-12"
+
+
+def test_padding_never_truncates_a_wider_number():
+    assert compress_flats(["01", "02", "101"]) == "01-02;101"
+
+
 def test_guelphs_largest_group_stays_inside_the_osm_tag_limit():
     # The ceiling that ruled out an explicit list: 19 Woodlawn Road East holds
     # 142 units, which as raw values would run past 255 characters.

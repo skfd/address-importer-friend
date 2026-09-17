@@ -107,6 +107,28 @@ def parse_unit(unit: str) -> tuple[str, int, str] | None:
     return m.group(1), int(m.group(2)), m.group(3)
 
 
+def unit_pad(unit: str) -> int:
+    """The zero-padded digit width of a designator, or 0 when it is not padded.
+
+    `LL01` -> 2, `101` -> 0, `REAR` -> 0. `parse_unit` goes through `int()`,
+    which is what every structural caller wants — `_stem` slices digits,
+    `is_coded` counts them, `compress_flats` needs `n == prev + 1` — but it
+    throws the padding away, and `LL01` is not `LL1`. The lower level of 108
+    Summit Ridge Drive is signed `LL01`; rendering its listing as `LL1-LL4`
+    invents a designator the building does not use, and a mechanical edit that
+    normalises an existing `LL01-LL04` into `LL1-LL4` fails its own round-trip
+    test for a purely cosmetic reason.
+
+    Width is only claimed when the digits *start* with `0`. `10` is two digits
+    but not padded, so a group of `10;11;12` keeps rendering as `10-12`.
+    """
+    m = _UNIT.fullmatch(str(unit).strip().upper())
+    if m is None:
+        return 0
+    digits = m.group(2)
+    return len(digits) if digits.startswith("0") else 0
+
+
 def _stem(parsed: tuple[str, int, str]) -> str | None:
     """The floor or building a coded unit belongs to: everything left after
     the trailing two digits. `101` -> `1`, `1411` -> `14`, `D101` -> `D1`.
@@ -198,6 +220,13 @@ def compress_flats(units) -> str:
     naive "loose values last" pass puts it.
     """
     runs: dict[str, list[int]] = defaultdict(list)
+    # Zero padding is a property of the prefix, not of one designator: a
+    # building signs its lower level `LL01`..`LL08` and then runs on to `LL10`,
+    # which is two digits without being padded. Taking the widest padding seen
+    # under a prefix renders the whole floor at one width, which is how it is
+    # signed. Padding never truncates, so a 3-digit number under a 2-wide
+    # prefix still comes out whole.
+    pads: dict[str, int] = defaultdict(int)
     singles: list[tuple[str, int, str, str]] = []
     unparsed: list[str] = []
     for unit in units:
@@ -210,21 +239,25 @@ def compress_flats(units) -> str:
             continue
         prefix, num, suffix = parsed
         if suffix:
+            # Suffixed designators are carried through verbatim, so their own
+            # padding survives without help.
             singles.append((prefix, num, suffix, text))
         else:
             runs[prefix].append(num)
+            pads[prefix] = max(pads[prefix], unit_pad(text))
 
     parts: list[tuple[str, int, str, str]] = []
     for prefix, nums in runs.items():
+        pad = pads[prefix]
         ordered = sorted(set(nums))
         start = prev = ordered[0]
         for n in ordered[1:]:
             if n == prev + 1:
                 prev = n
                 continue
-            parts.append((prefix, start, "", _run(prefix, start, prev)))
+            parts.append((prefix, start, "", _run(prefix, start, prev, pad)))
             start = prev = n
-        parts.append((prefix, start, "", _run(prefix, start, prev)))
+        parts.append((prefix, start, "", _run(prefix, start, prev, pad)))
     parts.extend(singles)
     parts.sort(key=lambda p: (p[0], p[1], p[2]))
     return ";".join([p[3] for p in parts] + sorted(unparsed))
@@ -251,10 +284,12 @@ def flats_tag(units) -> tuple[str | None, str | None]:
     return value, None
 
 
-def _run(prefix: str, start: int, end: int) -> str:
+def _run(prefix: str, start: int, end: int, pad: int = 0) -> str:
+    lo = f"{start:0{pad}d}" if pad else str(start)
     if start == end:
-        return f"{prefix}{start}"
-    return f"{prefix}{start}-{prefix}{end}"
+        return f"{prefix}{lo}"
+    hi = f"{end:0{pad}d}" if pad else str(end)
+    return f"{prefix}{lo}-{prefix}{hi}"
 
 
 def _median(values: list[float]) -> float:
