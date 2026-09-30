@@ -148,7 +148,22 @@ def test_letter_prefixed_runs_stay_within_their_building():
 def test_a_letter_suffixed_stray_sorts_beside_its_neighbours():
     # 511 Edinburgh Road South. 101A cannot join the 101-102 run, and must not
     # be exiled to the tail either.
-    assert compress_flats(["101", "101A", "102", "201", "202"]) == "101-102;101A;201-202"
+    assert compress_flats(["101", "101A", "102", "103", "201", "202", "203"]) == (
+        "101-103;101A;201-203")
+
+
+def test_a_pair_is_two_units_not_a_range():
+    # `5-6` is no shorter than `5;6` and reads as a span; a range starts at
+    # three. Padding carries through the split.
+    assert compress_flats(["5", "6"]) == "5;6"
+    assert compress_flats(["LL01", "LL02", "101", "102", "103"]) == (
+        "101-103;LL01;LL02")
+
+
+def test_a_suffixed_stray_can_sit_inside_a_split_pair():
+    # 511 Edinburgh Road South: 101A belongs between 101 and 102.
+    assert compress_flats(["101", "101A", "102", "201", "202"]) == (
+        "101;101A;102;201;202")
 
 
 def test_single_units_are_emitted_bare():
@@ -156,11 +171,11 @@ def test_single_units_are_emitted_bare():
 
 
 def test_unparseable_designators_are_carried_through_last():
-    assert compress_flats(["101", "102", "REAR"]) == "101-102;REAR"
+    assert compress_flats(["101", "102", "103", "REAR"]) == "101-103;REAR"
 
 
 def test_duplicate_units_collapse():
-    assert compress_flats(["101", "101", "102"]) == "101-102"
+    assert compress_flats(["101", "101", "102", "103"]) == "101-103"
 
 
 def test_108_summit_ridge_drive_keeps_its_lower_level_padded():
@@ -189,7 +204,7 @@ def test_an_unpadded_two_digit_run_is_not_treated_as_padded():
 
 
 def test_padding_never_truncates_a_wider_number():
-    assert compress_flats(["01", "02", "101"]) == "01-02;101"
+    assert compress_flats(["01", "02", "03", "101"]) == "01-03;101"
 
 
 def test_guelphs_largest_group_stays_inside_the_osm_tag_limit():

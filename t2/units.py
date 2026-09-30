@@ -88,6 +88,9 @@ UNIT_LISTING = re.compile(r";|^[A-Z]*[0-9]+-[A-Z]*[0-9]+$", re.IGNORECASE)
 # A range wider than this is a typo (`1-1000`), not a building; refuse to
 # expand it rather than allocate a thousand designators.
 MAX_RANGE_WIDTH = 500
+# The fewest consecutive units `compress_flats` writes as a range. Two are
+# written `5;6`, not `5-6`: the dash saves nothing and suggests a span.
+MIN_RANGE_UNITS = 3
 
 # prefix letters, digits, suffix letters — "101", "D101", "101A", "1001".
 _UNIT = re.compile(r"([A-Z]*)(\d+)([A-Z]*)")
@@ -255,9 +258,9 @@ def compress_flats(units) -> str:
             if n == prev + 1:
                 prev = n
                 continue
-            parts.append((prefix, start, "", _run(prefix, start, prev, pad)))
+            parts.extend(_run_parts(prefix, start, prev, pad))
             start = prev = n
-        parts.append((prefix, start, "", _run(prefix, start, prev, pad)))
+        parts.extend(_run_parts(prefix, start, prev, pad))
     parts.extend(singles)
     parts.sort(key=lambda p: (p[0], p[1], p[2]))
     return ";".join([p[3] for p in parts] + sorted(unparsed))
@@ -282,6 +285,18 @@ def flats_tag(units) -> tuple[str | None, str | None]:
             f"{OSM_TAG_VALUE_MAX}-character tag limit, so it is not written"
         )
     return value, None
+
+
+def _run_parts(prefix: str, start: int, end: int,
+               pad: int = 0) -> list[tuple[str, int, str, str]]:
+    """One consecutive run as sortable parts. A range needs three units to
+    earn its dash: `5-6` is no shorter than `5;6` and reads as a span, so a
+    pair is two bare designators. Emitting them as separate parts also lets a
+    suffixed stray like `101A` sort between them."""
+    if end - start < MIN_RANGE_UNITS - 1:
+        return [(prefix, n, "", _run(prefix, n, n, pad))
+                for n in range(start, end + 1)]
+    return [(prefix, start, "", _run(prefix, start, end, pad))]
 
 
 def _run(prefix: str, start: int, end: int, pad: int = 0) -> str:
