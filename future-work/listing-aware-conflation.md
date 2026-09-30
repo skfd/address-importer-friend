@@ -151,18 +151,11 @@ the edit #3 batches, the way `multi_fixes` builds its exports.
 **Whether a door group mapped as a building should be exploded.** With
 MATCH_LISTED the 51 door groups are simply done. The source's opinion that
 they are doors survives on `/units/shapes` (rule says nodes, OSM says
-listing) for anyone who wants to take it up by hand.
+listing, frozen) for anyone who wants to take it up by hand.
 
 **The freeze.** `/units/shapes` freezes a listing group today because its
 shape is in OSM. That stays true after this change; the difference is that
 the frozen groups stop producing duplicates.
-
-*Superseded 2026-09-29:* a listing no longer freezes. Campaign 3 moved every
-list-valued `addr:unit` to `addr:flats` with no shape check, so the listing
-is often the thing under review (275 Hanlon Creek's bays), and mechanical
-edit #6 reads the page's verdicts to decide which listings to strip. Because
-MATCH_LISTED is skipped, a verdict on a listed group uploads nothing beside
-the listing. Door objects in OSM still freeze.
 
 ## 7. Order of work
 

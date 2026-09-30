@@ -200,18 +200,8 @@ def _base(snapshot_id: int) -> dict:
 # nodes into Guelph in 2025, so "somebody else already mapped these doors"
 # freezes a group as surely as our own upload does: overriding one of those to
 # collapse would put a civic node carrying addr:flats beside thirty existing
-# unit nodes.
-#
-# The mirror used to hold too -- a building already listing its units froze
-# its group -- and no longer does. Listing-aware conflation reads such a
-# building as present (MATCH for the collapsed node, MATCH_LISTED for each
-# door it names, both skipped), so a verdict of `nodes` on a listed group
-# uploads nothing beside the listing; it is the instruction mechanical edit #6
-# reads to strip the listing and put the doors in. And campaign 3 moved every
-# list-valued addr:unit to addr:flats without a shape check, so many of those
-# listings are wrong (five commercial bays, eight semis on one number) and
-# the verdict is exactly what somebody needs to be able to give. The listing
-# is still shown; it just does not lock the chips.
+# unit nodes. The mirror holds too -- a node already carrying addr:flats is a
+# collapsed building, and exploding it would put doors beside it.
 #
 # Both encodings of a door count. Before mechanical edit #2 a door sits in OSM
 # as addr:housenumber=714-30; after it, as 714 + addr:unit=30. Conflation only
@@ -325,7 +315,7 @@ def _osm_at(index: dict | None, base_row: dict) -> dict | None:
     `shape` is the shape OSM already asserts: "doors" (unit objects, in either
     encoding), "listing" (a building listing its units, under addr:flats or a
     multi-valued addr:unit), "civic" (a bare address object and nothing more),
-    or "" for nothing at all. Only "doors" freezes. A group can have both
+    or "" for nothing at all. Only the first two freeze. A group can have both
     doors and a listing -- terrace rows mapped as a few building ways each
     listing its units, plus stray hyphenated nodes -- and reads as "doors" with
     the listings counted alongside.
@@ -380,8 +370,7 @@ def _overlay(
     the emitter will not apply it either.
 
     `frozen` carries a reason so the row can say which of the two conditions
-    holds: our upload, or doors somebody else already put in OSM. A listing
-    in OSM does not freeze (see the note above `_OSM_CACHE`).
+    holds: our upload, or a shape somebody else already put in OSM.
     """
     override = unit_verdicts.effective(saved, base_row["unit_hash"])
     shape, reason, flats = units.resolve(
@@ -393,6 +382,8 @@ def _overlay(
         frozen_why = "uploaded by this import"
     elif osm and osm["shape"] == "doors":
         frozen_why = f"OSM already has {osm['doors']} unit object{'s' if osm['doors'] != 1 else ''} here"
+    elif osm and osm["shape"] == "listing":
+        frozen_why = "OSM already lists the units on a building here"
     return {
         **base_row,
         "shape": shape,
@@ -458,8 +449,8 @@ def collect(snapshot_id: int | None = None) -> dict:
 
 # The page's narrowing, beyond the shape tiles. "listing" is any group where
 # some OSM object lists units -- not only osm.shape == "listing", which a
-# group with a listing *and* a stray unit node reads as "doors". Edit 6 works
-# per listing object, so those groups are in its population all the same.
+# group with a listing *and* a stray unit node reads as "doors". Those are
+# frozen either way; the filter is for seeing them, not deciding them.
 OSM_FILTERS = (
     ("listing", "an OSM building lists its units"),
 )

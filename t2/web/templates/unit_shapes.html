@@ -204,11 +204,8 @@
   <code>714-30</code> form that mechanical edit #2 splits), {{ data.osm_shapes.listing }} have a
   building listing its units (mostly under a multi-valued <code>addr:unit</code> rather than
   <code>addr:flats</code>), {{ data.osm_shapes.civic }} have a bare civic node, and
-  {{ data.osm_shapes[''] }} have nothing. Groups with unit objects are frozen: their doors
-  are already in OSM, whoever put them there. A listing does not freeze — conflation
-  reads a listed building as present, so a verdict on it uploads nothing beside it,
-  and it is what mechanical edit #6 reads to decide whether the listing should
-  have been doors. Both encodings of a door count, so the column does not change
+  {{ data.osm_shapes[''] }} have nothing. Groups in the first two states are frozen: their
+  shape is already in OSM, whoever put it there. Both encodings of a door count, so the column does not change
   when the split runs — only conflation does.
   {% else %}
   <strong>In OSM now</strong> is empty because no extract has been fetched. Refresh it at
