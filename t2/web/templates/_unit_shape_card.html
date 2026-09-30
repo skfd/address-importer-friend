@@ -6,7 +6,7 @@
          id="g-{{ r.dom }}" tabindex="-1"
          data-points='{{ r.get('points', []) | tojson }}'
          data-listings='{{ (r.osm.listing_ids if r.osm else []) | tojson }}'
-         data-lat="{{ r.lat }}" data-lon="{{ r.lon }}"
+         data-lat="{{ r.lat or '' }}" data-lon="{{ r.lon or '' }}"
          {% if open_card %}open{% endif %}>
   <summary>
     <span class="addr">{{ r.number }} {{ r.street }}</span>
