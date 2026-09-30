@@ -1685,25 +1685,43 @@ def create_app() -> Flask:
                 '"per-door-or-collapse".'
             ))
         data = _unit_shapes.collect()
-        shape = request.args.get("shape", "")
-        if shape not in dict(_unit_shapes.SHAPES):
-            shape = ""
-        rows = [r for r in data["rows"] if not shape or r["shape"] == shape]
+        view = _shape_view_args(request.args)
+        rows = _unit_shapes.select(data["rows"], **{k: view[k] for k in ("shape", "osm", "sort")})
         # A candidate's back-link names its group; land on that row even if
-        # the shape filter would have hidden it.
+        # the filters would have hidden it.
         focus = data["by_key"].get(request.args.get("focus", ""))
-        if focus is not None and shape and focus["shape"] != shape:
-            shape = ""
-            rows = data["rows"]
+        if focus is not None and focus["key"] not in {r["key"] for r in rows}:
+            view.update(shape="", osm="")
+            rows = _unit_shapes.select(data["rows"], sort=view["sort"])
         return render_template(
             "unit_shapes.html",
             data=data,
             rows=rows,
-            active_shape=shape,
+            active_shape=view["shape"],
+            view=view,
+            view_counts=_unit_shapes.shape_counts(data["rows"], view["osm"]),
             shapes=_unit_shapes.SHAPES,
+            osm_filters=_unit_shapes.OSM_FILTERS,
+            sorts=_unit_shapes.SORTS,
             choices=_unit_shapes.CHOICES,
             focus=focus,
         )
+
+    def _shape_view_args(args) -> dict:
+        """The page's view state -- shape tile, OSM filter, sort, table or
+        review queue -- read from a query string or the verdict form, with
+        anything unknown dropped. The verdict form carries it back so the row
+        it returns is drawn the way the page around it is."""
+        shape = args.get("shape", "")
+        osm = args.get("osm", "")
+        sort = args.get("sort", "")
+        mode = args.get("mode", "")
+        return {
+            "shape": shape if shape in dict(_unit_shapes.SHAPES) else "",
+            "osm": osm if osm in dict(_unit_shapes.OSM_FILTERS) else "",
+            "sort": sort if sort in dict(_unit_shapes.SORTS) else "",
+            "mode": mode if mode == "queue" else "",
+        }
 
     @app.post("/units/shapes/verdict")
     def unit_shapes_verdict():
@@ -1717,9 +1735,7 @@ def create_app() -> Flask:
         choice = request.form.get("choice", "")
         if choice not in ("rule", *_unit_verdicts.VERDICTS):
             abort(400, description=f"unknown verdict {choice!r}")
-        shape = request.form.get("shape", "")
-        if shape not in dict(_unit_shapes.SHAPES):
-            shape = ""
+        view = _shape_view_args(request.form)
         refused = False
         try:
             row = _unit_shapes.decide(key, choice, request.form.get("note"))
@@ -1728,12 +1744,17 @@ def create_app() -> Flask:
         except _unit_verdicts.Frozen:
             refused = True
             row = _unit_shapes.collect()["by_key"][key]
+        # In the review queue only the verdict block is swapped: re-drawing
+        # the whole card would throw away the map the reviewer is looking at.
+        partial = "_unit_shape_decide.html" if view["mode"] == "queue" else "_unit_shape_row.html"
+        data = _unit_shapes.collect()
         return render_template(
-            "_unit_shape_row.html", r=row, choices=_unit_shapes.CHOICES,
-            active_shape=shape, refused=refused,
+            partial, r=row, choices=_unit_shapes.CHOICES,
+            active_shape=view["shape"], view=view, refused=refused,
         ) + render_template(
-            "_unit_shape_tiles.html", data=_unit_shapes.collect(),
-            active_shape=shape, shapes=_unit_shapes.SHAPES, oob=True,
+            "_unit_shape_tiles.html", data=data,
+            view_counts=_unit_shapes.shape_counts(data["rows"], view["osm"]),
+            active_shape=view["shape"], view=view, shapes=_unit_shapes.SHAPES, oob=True,
         )
 
     @app.get("/source/multi/partials")

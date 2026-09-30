@@ -50,6 +50,32 @@
   .v-opt.v-collapse:has(input:checked) { background: #16a34a; border-color: #16a34a; }
   .v-opt.v-civic-only:has(input:checked) { background: #d97706; border-color: #d97706; }
   .v-opt.v-skip:has(input:checked) { background: #6b7280; border-color: #6b7280; }
+  .tile .n .of { font-size: .8rem; font-weight: 400; color: #6b7280; }
+  .viewbar { display: flex; gap: .4rem 1rem; flex-wrap: wrap; align-items: center;
+             font-size: .84rem; margin: .5rem 0 .2rem; }
+  .viewbar a.on { font-weight: 600; color: #111827; text-decoration: none;
+                  border-bottom: 2px solid #6366f1; }
+  .viewbar .grp { display: inline-flex; gap: .5rem; align-items: center; }
+  .viewbar .lbl { color: #6b7280; }
+
+  .q-card { border: 1px solid #e5e7eb; border-radius: 6px; background: #fff;
+            margin: 0 0 .6rem; border-left: 4px solid #d1d5db; }
+  .q-card[open] { border-left-color: #6366f1; }
+  .q-card.focus { box-shadow: 0 0 0 2px #fde047; }
+  .q-card.kbd { box-shadow: 0 0 0 2px #6366f1; }
+  .q-card summary { cursor: pointer; padding: .45rem .7rem; display: flex; gap: .5rem;
+                    align-items: baseline; flex-wrap: wrap; }
+  .q-card summary .addr { font-weight: 600; }
+  .q-body { display: flex; gap: .8rem; padding: 0 .7rem .7rem; flex-wrap: wrap; }
+  .q-map { flex: 1 1 520px; height: 420px; min-width: 280px; border-radius: 4px;
+           background: #1f2937; }
+  .q-side { flex: 0 1 24rem; min-width: 18rem; font-size: .86rem; }
+  .q-side h4 { margin: .7rem 0 .2rem; font-size: .8rem; color: #374151; }
+  .q-side .verdicts .v-opt { font-size: .86rem; padding: .2rem .55rem; }
+  .q-listings { margin: .3rem 0; padding-left: 1rem; }
+  .q-unit-label { background: rgba(17,24,39,.8); color: #fff; border: 0; box-shadow: none;
+                  font: 600 11px/1.1 ui-monospace, Menlo, Consolas, monospace; padding: 1px 3px; }
+  .q-unit-label:before { display: none; }
   .decide .note { margin-top: .3rem; width: 100%; box-sizing: border-box; font-size: .78rem;
                   padding: .15rem .35rem; border: 1px solid #e5e7eb; border-radius: 3px; }
 </style>
@@ -63,6 +89,32 @@
 </p>
 
 {% include "_unit_shape_tiles.html" %}
+
+{# View state beyond the shape tile. Each link flips one setting and keeps the
+   others, so "listed in OSM, widest spacing first, as a queue" is three clicks
+   from anywhere and one URL to hand to a reviewer. #}
+{% macro view_url() -%}
+  {%- set v = dict(view, **kwargs) -%}
+  /units/shapes?{% for k in ('shape', 'osm', 'sort', 'mode') if v[k] %}{{ k }}={{ v[k] }}{% if not loop.last %}&{% endif %}{% endfor %}
+{%- endmacro %}
+<div class="viewbar">
+  <span class="grp"><span class="lbl">OSM:</span>
+    <a href="{{ view_url(osm='') }}" class="{{ 'on' if not view.osm }}">any</a>
+    {% for value, label in osm_filters %}
+    <a href="{{ view_url(osm=value) }}" class="{{ 'on' if view.osm == value }}" title="{{ label }}">{{ label }}</a>
+    {% endfor %}
+  </span>
+  <span class="grp"><span class="lbl">Order:</span>
+    {% for value, label in sorts %}
+    <a href="{{ view_url(sort=value) }}" class="{{ 'on' if view.sort == value }}">{{ label }}</a>
+    {% endfor %}
+  </span>
+  <span class="grp"><span class="lbl">View:</span>
+    <a href="{{ view_url(mode='') }}" class="{{ 'on' if not view.mode }}">table</a>
+    <a href="{{ view_url(mode='queue') }}" class="{{ 'on' if view.mode == 'queue' }}">review queue, over imagery</a>
+  </span>
+  <span class="why">{{ rows | length }} group{{ 's' if rows | length != 1 }} shown</span>
+</div>
 
 <div class="callout" style="background:#eef2ff;border-left-color:#6366f1">
   <strong>Pick a shape to overrule the rule.</strong> It saves on click and applies
@@ -99,6 +151,27 @@
 </div>
 {% endif %}
 
+{% if view.mode == 'queue' %}
+<div class="callout" style="background:#f0fdf4;border-left-color:#16a34a">
+  <strong>Judge the doors from the air.</strong> Dots are the City's unit points,
+  labelled with the unit; outlines are the OSM objects that list units at this
+  address, fetched live from the OSM API (hover for the listing as it is now,
+  which may be newer than the local extract). A row of dots along one building's
+  frontage is doors; several buildings each holding a few dots is several
+  buildings on one civic number; dots scattered along a plaza are storefronts.
+  Keys on the open card: <kbd>n</kbd> nodes, <kbd>c</kbd> collapse,
+  <kbd>o</kbd> civic-only, <kbd>s</kbd> skip, <kbd>r</kbd> back to the rule,
+  <kbd>j</kbd>/<kbd>k</kbd> next and previous.
+</div>
+<div id="queue">
+  {% for r in rows %}
+    {% set open_card = (focus and focus.key == r.key) or (not focus and loop.first) %}
+    {% include "_unit_shape_card.html" %}
+  {% else %}
+    <p class="muted">No civic groups in this view.</p>
+  {% endfor %}
+</div>
+{% else %}
 <div class="card" style="padding:.5rem">
 <table class="shp-tbl">
   <thead>
@@ -122,6 +195,7 @@
   </tbody>
 </table>
 </div>
+{% endif %}
 
 <p class="muted" style="font-size:.82rem">
   {% if data.osm_loaded %}
@@ -130,9 +204,12 @@
   <code>714-30</code> form that mechanical edit #2 splits), {{ data.osm_shapes.listing }} have a
   building listing its units (mostly under a multi-valued <code>addr:unit</code> rather than
   <code>addr:flats</code>), {{ data.osm_shapes.civic }} have a bare civic node, and
-  {{ data.osm_shapes[''] }} have nothing. Groups in the first two states are frozen: their
-  shape is already in OSM, whoever put it there. Both encodings of a door count, so the
-  column does not change when the split runs — only conflation does.
+  {{ data.osm_shapes[''] }} have nothing. Groups with unit objects are frozen: their doors
+  are already in OSM, whoever put them there. A listing does not freeze — conflation
+  reads a listed building as present, so a verdict on it uploads nothing beside it,
+  and it is what mechanical edit #6 reads to decide whether the listing should
+  have been doors. Both encodings of a door count, so the column does not change
+  when the split runs — only conflation does.
   {% else %}
   <strong>In OSM now</strong> is empty because no extract has been fetched. Refresh it at
   <a href="/osm">OSM extract</a>; until then the only freeze this page can see is our own
@@ -140,6 +217,136 @@
   measured, 2026-09-15) look open.
   {% endif %}
 </p>
+
+{% if view.mode == 'queue' %}
+<script>
+  // The review map. Esri World Imagery rather than OSM tiles: the question
+  // is where the doors physically are, and a rendered map only shows what
+  // somebody already mapped. Footprints come from the live API, not the
+  // extract, so what is outlined is what edit #6 would touch today.
+  (function () {
+    var ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+    var API = 'https://api.openstreetmap.org/api/0.6/';
+
+    function wayLatLngs(way, nodes) {
+      return (way.nodes || []).map(function (id) { return nodes[id]; }).filter(Boolean);
+    }
+
+    function listingOf(tags) {
+      tags = tags || {};
+      return tags['addr:flats'] ? 'addr:flats=' + tags['addr:flats']
+           : tags['addr:unit'] ? 'addr:unit=' + tags['addr:unit'] : '(no listing now)';
+    }
+
+    function drawListing(map, ref, bounds, errors) {
+      var kind = ref[0], id = ref[1];
+      var url = API + kind + '/' + id + (kind === 'node' ? '.json' : '/full.json');
+      return fetch(url).then(function (res) {
+        if (!res.ok) throw new Error(kind + ' ' + id + ': HTTP ' + res.status);
+        return res.json();
+      }).then(function (doc) {
+        var nodes = {}, self = null;
+        doc.elements.forEach(function (el) {
+          if (el.type === 'node') nodes[el.id] = [el.lat, el.lon];
+          if (el.type === kind && el.id === id) self = el;
+        });
+        if (!self) throw new Error(kind + ' ' + id + ' not in response');
+        var tip = kind[0] + id + ': ' + listingOf(self.tags);
+        var style = { color: '#facc15', weight: 3, fill: true, fillOpacity: 0.08 };
+        if (kind === 'node') {
+          var p = nodes[id];
+          L.circleMarker(p, { radius: 9, color: '#facc15', weight: 3, fill: false })
+            .bindTooltip(tip).addTo(map);
+          bounds.extend(p);
+        } else if (kind === 'way') {
+          var ll = wayLatLngs(self, nodes);
+          if (ll.length) { L.polygon(ll, style).bindTooltip(tip, { sticky: true }).addTo(map); bounds.extend(ll); }
+        } else {
+          // A multipolygon: outline every member way; the listing is on the relation.
+          var ways = {};
+          doc.elements.forEach(function (el) { if (el.type === 'way') ways[el.id] = el; });
+          (self.members || []).forEach(function (m) {
+            if (m.type !== 'way' || !ways[m.ref]) return;
+            var ll = wayLatLngs(ways[m.ref], nodes);
+            if (ll.length) { L.polyline(ll, style).bindTooltip(tip, { sticky: true }).addTo(map); bounds.extend(ll); }
+          });
+        }
+      }).catch(function (err) { errors.push(String(err.message || err)); });
+    }
+
+    function loadMap(card) {
+      if (card.dataset.loaded) return;
+      card.dataset.loaded = '1';
+      var el = card.querySelector('.q-map');
+      var points = JSON.parse(card.dataset.points || '[]');
+      var listings = JSON.parse(card.dataset.listings || '[]');
+      var map = L.map(el, { maxZoom: 21 });
+      L.tileLayer(ESRI, {
+        maxNativeZoom: 19, maxZoom: 21,
+        attribution: 'Imagery &copy; Esri, Maxar, Earthstar Geographics'
+      }).addTo(map);
+      var bounds = L.latLngBounds([]);
+      // Labels on every point would bury a tower under 140 tags, so only a
+      // group small enough to read gets them permanently; the rest on hover.
+      var permanent = points.length <= 40;
+      points.forEach(function (p) {
+        var ll = [p[1], p[2]];
+        L.circleMarker(ll, { radius: 5, color: '#fff', weight: 2, fillColor: '#ef4444', fillOpacity: 1 })
+          .bindTooltip(String(p[0]), { permanent: permanent, direction: 'top', offset: [0, -4], className: 'q-unit-label' })
+          .addTo(map);
+        bounds.extend(ll);
+      });
+      if (!bounds.isValid() && card.dataset.lat) bounds.extend([+card.dataset.lat, +card.dataset.lon]);
+      if (bounds.isValid()) map.fitBounds(bounds.pad(0.25), { maxZoom: 20 });
+      var statusEl = card.querySelector('.q-status');
+      var errors = [];
+      if (!listings.length) { statusEl.textContent = 'no OSM listing to outline'; return; }
+      statusEl.textContent = 'fetching ' + listings.length + ' OSM object' + (listings.length === 1 ? '' : 's') + '…';
+      Promise.all(listings.map(function (ref) { return drawListing(map, ref, bounds, errors); }))
+        .then(function () {
+          if (bounds.isValid()) map.fitBounds(bounds.pad(0.15), { maxZoom: 20 });
+          statusEl.textContent = errors.length
+            ? 'OSM fetch failed: ' + errors.join('; ')
+            : listings.length + ' OSM outline' + (listings.length === 1 ? '' : 's') + ' drawn (live)';
+        });
+    }
+
+    var cards = Array.prototype.slice.call(document.querySelectorAll('.q-card'));
+    var current = null;
+    function setCurrent(card, scroll) {
+      if (current) current.classList.remove('kbd');
+      current = card;
+      card.classList.add('kbd');
+      if (scroll) {
+        card.open = true;
+        card.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+    cards.forEach(function (card) {
+      card.addEventListener('toggle', function () { if (card.open) loadMap(card); });
+      card.addEventListener('click', function () { setCurrent(card, false); });
+      if (card.open) loadMap(card);
+    });
+    var first = cards.find(function (c) { return c.open; }) || cards[0];
+    if (first) setCurrent(first, false);
+
+    var KEYS = { n: 'nodes', c: 'collapse', o: 'civic-only', s: 'skip', r: 'rule' };
+    document.addEventListener('keydown', function (e) {
+      if (!current || e.ctrlKey || e.metaKey || e.altKey) return;
+      var t = e.target;
+      if (t && ((t.tagName === 'INPUT' && t.type === 'text') || t.tagName === 'TEXTAREA')) return;
+      var i = cards.indexOf(current);
+      if (e.key === 'j' && i + 1 < cards.length) { setCurrent(cards[i + 1], true); e.preventDefault(); return; }
+      if (e.key === 'k' && i > 0) { setCurrent(cards[i - 1], true); e.preventDefault(); return; }
+      var choice = KEYS[e.key];
+      if (!choice || !current.open) return;
+      // Re-queried each time: a verdict swaps the block the radios live in.
+      var input = current.querySelector('.q-decide input[name=choice][value="' + choice + '"]');
+      if (input && !input.checked) { input.click(); e.preventDefault(); }
+    });
+  })();
+</script>
+{% endif %}
 
 {% if focus %}
 <script>

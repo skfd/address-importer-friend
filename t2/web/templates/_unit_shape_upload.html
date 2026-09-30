@@ -1,0 +1,17 @@
+{# What the group creates, in tags. Shared by the table row and the review card. #}
+    {% if r.flats %}
+      <code class="mono">addr:flats={{ r.flats }}</code>
+    {% elif r.shape == 'nodes' %}
+      <span class="why">{{ r.nodes_created }} nodes, each with
+        <code>addr:unit</code> —
+        <span class="mono">{{ r.units[:8] | join(';') }}{% if r.units | length > 8 %};…{% endif %}</span>
+      </span>
+    {% elif r.shape == 'skip' %}
+      <span class="why">nothing —
+        <span class="mono">{{ r.units[:8] | join(';') }}{% if r.units | length > 8 %};…{% endif %}</span>
+        stay in the source only</span>
+    {% else %}
+      <span class="why">no <code>addr:unit</code> or <code>addr:flats</code> —
+        <span class="mono">{{ r.units[:8] | join(';') }}{% if r.units | length > 8 %};…{% endif %}</span>
+      </span>
+    {% endif %}

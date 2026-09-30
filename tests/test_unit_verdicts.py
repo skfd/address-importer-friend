@@ -372,15 +372,37 @@ def test_a_bare_civic_node_in_osm_does_not_freeze(tool_db, monkeypatch):
     assert unit_shapes.decide(KEY, "nodes")["override"] == "nodes"
 
 
-def test_a_building_already_listing_its_units_freezes_the_group(tool_db, monkeypatch):
+def test_a_building_already_listing_its_units_is_shown_but_does_not_freeze(tool_db, monkeypatch):
+    """Campaign 3 moved every list-valued addr:unit to addr:flats without a
+    shape check, so a listing in OSM is often the thing being judged (275
+    Hanlon Creek: five commercial bays listed on one building). Conflation
+    reads the listed building as present, so a `nodes` verdict uploads
+    nothing beside it; it is what edit #6 reads."""
     unit_shapes = _synthetic_base(monkeypatch)
-    listing = {("TEST ST", "7"): {"civic": 0, "units": set(), "hyphenated": set(), "listings": ["101-112"], "ids": [("way", 1)]}}
+    listing = {("TEST ST", "7"): {"civic": 0, "units": set(), "hyphenated": set(), "listings": ["101-112"],
+                                  "ids": [("way", 1)], "listing_ids": [("way", 1, "101-112")]}}
     monkeypatch.setattr(unit_shapes, "_osm_index", lambda: listing)
     row = unit_shapes.collect()["by_key"][KEY]
-    assert row["osm"]["shape"] == "listing" and row["frozen"]
-    assert "lists the units" in row["frozen_why"]
-    with pytest.raises(unit_verdicts.Frozen):
-        unit_shapes.decide(KEY, "nodes")
+    assert row["osm"]["shape"] == "listing" and not row["frozen"]
+    assert row["osm"]["listing_ids"] == [("way", 1, "101-112")]
+    assert unit_shapes.decide(KEY, "nodes")["shape"] == "nodes"
+    assert unit_verdicts.load_all()[KEY]["verdict"] == "nodes"
+
+
+def test_osm_summary_keeps_every_listing_object_with_its_listing():
+    """The review map outlines each one; `ids` is only a sample of three."""
+    from t2.unit_shapes import _osm_summaries
+
+    idx = _osm_summaries([
+        _el("way", 10 + i, {"addr:housenumber": "941", "addr:street": "Gordon Street", "addr:flats": f"{i}1-{i}4"})
+        for i in range(1, 6)
+    ] + [
+        _el("way", 20, {"addr:housenumber": "941", "addr:street": "Gordon Street", "addr:unit": "1-4"}),
+        _el("node", 21, {"addr:housenumber": "941", "addr:street": "Gordon Street", "addr:unit": "7"}),
+    ])
+    s = idx[("GORDON ST", "941")]
+    assert [(t, i) for t, i, _v in s["listing_ids"]] == [("way", 11), ("way", 12), ("way", 13), ("way", 14), ("way", 15), ("way", 20)]
+    assert s["listing_ids"][0][2] == "11-14" and s["listing_ids"][-1][2] == "1-4"
 
 
 def test_without_an_extract_the_column_is_absent_not_empty(tool_db, monkeypatch):
@@ -423,3 +445,44 @@ def test_without_a_verdict_the_rule_decides_and_the_key_still_travels(monkeypatc
     out = _emissions(monkeypatch, _doors(), None)
     assert len(out) == 12
     assert {e[5] for e in out} == {KEY}
+
+
+# --- the page: listing filter and review queue render --------------------------
+
+
+def _client(monkeypatch):
+    from t2.web.app import create_app
+
+    monkeypatch.setattr(source_db, "PER_DOOR", True)
+    app = create_app()
+    app.config["TESTING"] = True
+    return app.test_client()
+
+
+def test_the_review_queue_draws_a_card_with_its_points_and_listing_refs(tool_db, monkeypatch):
+    unit_shapes = _synthetic_base(monkeypatch)
+    listing = {("TEST ST", "7"): {"civic": 0, "units": set(), "hyphenated": set(), "listings": ["101-112"],
+                                  "ids": [("way", 1)], "listing_ids": [("way", 1, "101-112")]}}
+    monkeypatch.setattr(unit_shapes, "_osm_index", lambda: listing)
+    unit_shapes._base(1)["rows"][0]["points"] = [("101", 43.54, -80.25)]
+    client = _client(monkeypatch)
+
+    page = client.get("/units/shapes?osm=listing&mode=queue").get_data(as_text=True)
+    assert 'class="q-card' in page
+    assert '[[&#34;way&#34;, 1, &#34;101-112&#34;]]' in page or '[["way", 1, "101-112"]]' in page
+    assert 'name="mode" value="queue"' in page
+
+    # A verdict in the queue swaps only the chips, not the card with the map.
+    out = client.post("/units/shapes/verdict", data={
+        "civic_key": KEY, "choice": "nodes", "osm": "listing", "mode": "queue"}).get_data(as_text=True)
+    assert out.lstrip().startswith('<div class="q-decide">')
+    assert 'q-card' not in out and '<template>' not in out
+    assert unit_verdicts.load_all()[KEY]["verdict"] == "nodes"
+
+
+def test_the_listing_filter_hides_groups_osm_does_not_list(tool_db, monkeypatch):
+    unit_shapes = _synthetic_base(monkeypatch)
+    monkeypatch.setattr(unit_shapes, "_osm_index", lambda: {})
+    client = _client(monkeypatch)
+    assert "No civic groups in this shape." in client.get("/units/shapes?osm=listing").get_data(as_text=True)
+    assert "7 Test Street" in client.get("/units/shapes").get_data(as_text=True)

@@ -151,6 +151,16 @@ def _base(snapshot_id: int) -> dict:
         listed = units.listed_units(r.get("unit_name") for r in group)
         rep = min(group, key=lambda r: str(r.get("address_point_id")))
         key_text = source_db.civic_key_text(key)
+        # Where the City puts each unit, for the review map: the rule reads
+        # the numbering, but whether a sequential group is a row of front
+        # doors or a plaza's storefronts is a question the imagery answers.
+        points = [
+            (r.get("unit_name"), r["latitude"], r["longitude"])
+            for r in group
+            if (r.get("unit_name") or "").strip()
+            and r.get("latitude") is not None and r.get("longitude") is not None
+        ]
+        points.sort(key=lambda p: units.unit_sort_key(str(p[0])))
         rows.append(
             {
                 "key": key_text,
@@ -169,6 +179,10 @@ def _base(snapshot_id: int) -> dict:
                 "rule_reason": reason,
                 "units": listed,
                 "unit_hash": units.unit_hash(listed),
+                "points": points,
+                # The rule's own measure, not parsed back out of the reason:
+                # the widest-spaced "doors" are the likeliest plazas.
+                "spacing_m": units._nearest_neighbour_spacing([(p[1], p[2]) for p in points]),
             }
         )
 
@@ -186,8 +200,18 @@ def _base(snapshot_id: int) -> dict:
 # nodes into Guelph in 2025, so "somebody else already mapped these doors"
 # freezes a group as surely as our own upload does: overriding one of those to
 # collapse would put a civic node carrying addr:flats beside thirty existing
-# unit nodes. The mirror holds too -- a node already carrying addr:flats is a
-# collapsed building, and exploding it would put doors beside it.
+# unit nodes.
+#
+# The mirror used to hold too -- a building already listing its units froze
+# its group -- and no longer does. Listing-aware conflation reads such a
+# building as present (MATCH for the collapsed node, MATCH_LISTED for each
+# door it names, both skipped), so a verdict of `nodes` on a listed group
+# uploads nothing beside the listing; it is the instruction mechanical edit #6
+# reads to strip the listing and put the doors in. And campaign 3 moved every
+# list-valued addr:unit to addr:flats without a shape check, so many of those
+# listings are wrong (five commercial bays, eight semis on one number) and
+# the verdict is exactly what somebody needs to be able to give. The listing
+# is still shown; it just does not lock the chips.
 #
 # Both encodings of a door count. Before mechanical edit #2 a door sits in OSM
 # as addr:housenumber=714-30; after it, as 714 + addr:unit=30. Conflation only
@@ -229,7 +253,8 @@ def _osm_summaries(elements: list[dict]) -> dict[tuple[str, str], dict]:
     def slot(street: str, number: str) -> dict:
         return out.setdefault(
             (street, number),
-            {"civic": 0, "units": set(), "hyphenated": set(), "listings": [], "ids": []},
+            {"civic": 0, "units": set(), "hyphenated": set(), "listings": [], "ids": [],
+             "listing_ids": []},
         )
 
     for el in elements:
@@ -264,8 +289,10 @@ def _osm_summaries(elements: list[dict]) -> dict[tuple[str, str], dict]:
         s["ids"].append(ref)
         if tags.get("addr:flats"):
             s["listings"].append(str(tags["addr:flats"]).strip())
+            s["listing_ids"].append((*ref, str(tags["addr:flats"]).strip()))
         if unit and _UNIT_LISTING.search(unit):
             s["listings"].append(unit)
+            s["listing_ids"].append((*ref, unit))
         elif unit:
             s["units"].add(unit)
         else:
@@ -298,10 +325,14 @@ def _osm_at(index: dict | None, base_row: dict) -> dict | None:
     `shape` is the shape OSM already asserts: "doors" (unit objects, in either
     encoding), "listing" (a building listing its units, under addr:flats or a
     multi-valued addr:unit), "civic" (a bare address object and nothing more),
-    or "" for nothing at all. Only the first two freeze. A group can have both
+    or "" for nothing at all. Only "doors" freezes. A group can have both
     doors and a listing -- terrace rows mapped as a few building ways each
     listing its units, plus stray hyphenated nodes -- and reads as "doors" with
     the listings counted alongside.
+
+    `listing_ids` is every object carrying a listing, with the listing, unlike
+    `ids` which is a sample for links: the review map draws all of them, and
+    941 Gordon Street has seventeen.
     """
     if index is None:
         return None
@@ -316,7 +347,8 @@ def _osm_at(index: dict | None, base_row: dict) -> dict | None:
     number = str(base_row["number"] or "").strip().upper()
     s = index.get((street, number))
     if s is None:
-        return {"shape": "", "civic": 0, "units": 0, "hyphenated": 0, "doors": 0, "listings": [], "ids": []}
+        return {"shape": "", "civic": 0, "units": 0, "hyphenated": 0, "doors": 0, "listings": [],
+                "ids": [], "listing_ids": []}
     doors = len(s["units"] | s["hyphenated"])
     if doors:
         shape = "doors"
@@ -334,6 +366,7 @@ def _osm_at(index: dict | None, base_row: dict) -> dict | None:
         "doors": doors,
         "listings": s["listings"],
         "ids": s["ids"][:3],
+        "listing_ids": list(s.get("listing_ids", ())),
     }
 
 
@@ -347,7 +380,8 @@ def _overlay(
     the emitter will not apply it either.
 
     `frozen` carries a reason so the row can say which of the two conditions
-    holds: our upload, or a shape somebody else already put in OSM.
+    holds: our upload, or doors somebody else already put in OSM. A listing
+    in OSM does not freeze (see the note above `_OSM_CACHE`).
     """
     override = unit_verdicts.effective(saved, base_row["unit_hash"])
     shape, reason, flats = units.resolve(
@@ -359,8 +393,6 @@ def _overlay(
         frozen_why = "uploaded by this import"
     elif osm and osm["shape"] == "doors":
         frozen_why = f"OSM already has {osm['doors']} unit object{'s' if osm['doors'] != 1 else ''} here"
-    elif osm and osm["shape"] == "listing":
-        frozen_why = "OSM already lists the units on a building here"
     return {
         **base_row,
         "shape": shape,
@@ -422,6 +454,46 @@ def collect(snapshot_id: int | None = None) -> dict:
         "osm_hyphenated": sum(1 for r in rows if r["osm"] and r["osm"]["hyphenated"]),
     }
     return data
+
+
+# The page's narrowing, beyond the shape tiles. "listing" is any group where
+# some OSM object lists units -- not only osm.shape == "listing", which a
+# group with a listing *and* a stray unit node reads as "doors". Edit 6 works
+# per listing object, so those groups are in its population all the same.
+OSM_FILTERS = (
+    ("listing", "an OSM building lists its units"),
+)
+SORTS = (
+    ("", "biggest first"),
+    ("spacing", "widest door spacing first"),
+)
+
+
+def select(rows: list[dict], shape: str = "", osm: str = "", sort: str = "") -> list[dict]:
+    """The rows the page shows for a shape tile, OSM filter and sort.
+
+    Sorting by spacing puts the widest-spaced groups first because the rule
+    only has a floor on door spacing, not a ceiling: 91 m between "doors" is a
+    plaza's storefronts as often as it is a townhouse row. Groups with no
+    spacing (a lone unit, or collapsed without points) go last.
+    """
+    out = [r for r in rows if not shape or r["shape"] == shape]
+    if osm == "listing":
+        out = [r for r in out if r.get("osm") and r["osm"]["listings"]]
+    if sort == "spacing":
+        out = sorted(out, key=lambda r: (r.get("spacing_m") is None, -(r.get("spacing_m") or 0)))
+    return out
+
+
+def shape_counts(rows: list[dict], osm: str = "") -> dict[str, int] | None:
+    """Per-shape counts under the OSM filter alone, for the tiles; None when
+    no OSM filter is on and the page-wide counts already say it."""
+    if not osm:
+        return None
+    counts = {shape: 0 for shape, _ in SHAPES}
+    for r in select(rows, osm=osm):
+        counts[r["shape"]] += 1
+    return counts
 
 
 def decide(civic_key: str, choice: str, note: str | None = None) -> dict:

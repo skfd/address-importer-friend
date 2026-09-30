@@ -1,0 +1,40 @@
+{# One civic group in the review queue: the City's unit points over aerial
+   imagery, the OSM buildings that list units there, and the verdict chips
+   beside them. The map is drawn when the card is opened, not before -- a
+   queue of seventy cards is seventy tile sets and a hundred OSM API calls. #}
+<details class="q-card{% if r.frozen %} frozen{% endif %}{% if focus and focus.key == r.key %} focus{% endif %}"
+         id="g-{{ r.dom }}" tabindex="-1"
+         data-points='{{ r.get('points', []) | tojson }}'
+         data-listings='{{ (r.osm.listing_ids if r.osm else []) | tojson }}'
+         data-lat="{{ r.lat }}" data-lon="{{ r.lon }}"
+         {% if open_card %}open{% endif %}>
+  <summary>
+    <span class="addr">{{ r.number }} {{ r.street }}</span>
+    <span class="pill {% if r.shape == 'collapse' %}ok{% elif r.shape == 'review' %}bad{% elif r.shape == 'civic-only' %}warn{% elif r.shape == 'skip' %}off{% endif %}">{{ r.shape }}</span>
+    {% if r.override %}<span class="by-hand" title="the rule said {{ r.verdict }}">by hand</span>{% endif %}
+    <span class="why">{{ r.unit_count }} unit{{ 's' if r.unit_count != 1 }} · {{ r.reason }}</span>
+    {% if r.osm and r.osm.listing_ids %}<span class="why">· {{ r.osm.listing_ids | length }} OSM listing{{ 's' if r.osm.listing_ids | length != 1 }}</span>{% endif %}
+  </summary>
+  <div class="q-body">
+    <div class="q-map" aria-label="aerial imagery of {{ r.number }} {{ r.street }}"></div>
+    <div class="q-side">
+      {% include "_unit_shape_decide.html" %}
+      <h4>Uploads under the current decision</h4>
+      {% include "_unit_shape_upload.html" %}
+      <h4>In OSM now (local extract)</h4>
+      {% include "_unit_shape_osm.html" %}
+      {% if r.osm and r.osm.listing_ids %}
+      <ul class="q-listings mono">
+        {% for t, i, value in r.osm.listing_ids %}
+        <li><a href="https://www.openstreetmap.org/{{ t }}/{{ i }}" target="_blank" rel="noopener">{{ t[0] }}{{ i }}</a> {{ value | truncate(80, true, '…') }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      <p class="why">
+        Rule: {{ r.verdict }}{% if r.get('spacing_m') is not none %}, doors {{ '%.1f' | format(r.spacing_m) }} m apart (median nearest){% endif %}.
+        {% if r.lat and r.lon %}<a href="https://www.openstreetmap.org/#map=19/{{ r.lat }}/{{ r.lon }}" target="_blank" rel="noopener">osm.org</a>{% endif %}
+        · <span class="q-status"></span>
+      </p>
+    </div>
+  </div>
+</details>

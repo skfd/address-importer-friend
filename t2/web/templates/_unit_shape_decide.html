@@ -1,0 +1,45 @@
+{# The verdict chips for one group. In the table they fill a cell and a click
+   swaps the whole row; in the review queue they are their own block and a
+   click swaps only them, so the map beside them survives. #}
+{% set queue = view and view.mode == 'queue' %}
+{% if queue %}<div class="q-decide">{% endif %}
+    {% if r.frozen %}
+      <span class="pill" title="{{ r.frozen_why }}. Both flips are now mutations, and this import only creates.">frozen — {{ r.frozen_why }}</span>
+      {% if r.saved %}<span class="why">decided {{ r.saved.verdict }}{% if r.saved.note %}: {{ r.saved.note }}{% endif %}</span>{% endif %}
+      {% if refused %}<div class="stale">Not saved: this group's shape is already in OSM. Disagreement from here is a QA finding, not an override.</div>{% endif %}
+    {% else %}
+      <form hx-post="/units/shapes/verdict" hx-target="{{ 'closest .q-decide' if queue else 'closest tr' }}" hx-swap="outerHTML"
+            hx-trigger="change" onsubmit="return false">
+        <input type="hidden" name="civic_key" value="{{ r.key }}">
+        <input type="hidden" name="shape" value="{{ active_shape }}">
+        {% if view %}
+        <input type="hidden" name="osm" value="{{ view.osm }}">
+        <input type="hidden" name="sort" value="{{ view.sort }}">
+        <input type="hidden" name="mode" value="{{ view.mode }}">
+        {% endif %}
+        <div class="verdicts">
+          {% set picked = r.saved.verdict if r.saved else 'rule' %}
+          {% for value, label in choices %}
+          <label class="v-opt v-{{ value }}" title="{{ label }}">
+            <input type="radio" name="choice" value="{{ value }}" {% if picked == value %}checked{% endif %}>
+            <span>{{ value }}</span>
+          </label>
+          {% endfor %}
+        </div>
+        <input type="text" name="note" class="note" value="{{ r.saved.note or '' if r.saved else '' }}"
+               placeholder="why (saved with the verdict)">
+      </form>
+      {% if queue and r.saved and not r.stale %}
+        <div class="why">Saved: <strong>{{ r.saved.verdict }}</strong>, so this group uploads as <strong>{{ r.shape }}</strong>.</div>
+      {% endif %}
+      {% if r.stale %}
+        <div class="stale">Units changed since this was decided
+          ({{ r.saved.verdict }}, {{ r.saved.updated_at[:10] }}). The rule decides until you pick again.</div>
+      {% endif %}
+      {% if r.ingested_runs %}
+        <div class="why">Already ingested in run{{ 's' if r.ingested_runs | length != 1 }}
+          {% for run_id in r.ingested_runs %}<a href="/runs/{{ run_id }}">{{ run_id }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
+          with the shape it had then; a verdict applies to runs ingested after it.</div>
+      {% endif %}
+    {% endif %}
+{% if queue %}</div>{% endif %}

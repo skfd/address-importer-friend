@@ -1,0 +1,15 @@
+{# What OSM already holds at the address. Shared by the table row and the review card. #}
+    {% if r.osm is none %}
+      <span class="why">extract not loaded</span>
+    {% elif r.osm.shape == 'doors' %}
+      <strong>{{ r.osm.doors }} unit object{{ 's' if r.osm.doors != 1 }}</strong>{% if r.osm.hyphenated %}, {{ r.osm.hyphenated }} still as <code class="mono">{{ r.number }}-…</code>{% endif %}{% if r.osm.listings %}, {{ r.osm.listings | length }} building{{ 's' if r.osm.listings | length != 1 }} listing units{% endif %}{% if r.osm.civic %}, plus the civic node{% endif %}
+    {% elif r.osm.shape == 'listing' %}
+      <strong>a building listing its units</strong> <code class="mono">{{ r.osm.listings[0] | truncate(60, true, '…') }}</code>{% if r.osm.listings | length > 1 %} (+{{ r.osm.listings | length - 1 }}){% endif %}
+    {% elif r.osm.shape == 'civic' %}
+      <span class="why">civic node only{% if r.osm.civic > 1 %} (×{{ r.osm.civic }}){% endif %}</span>
+    {% else %}
+      <span class="why">nothing</span>
+    {% endif %}
+    {% if r.osm and r.osm.ids %}
+      <span class="why">— {% for t, i in r.osm.ids %}<a href="https://www.openstreetmap.org/{{ t }}/{{ i }}" target="_blank" rel="noopener">{{ t[0] }}{{ i }}</a>{% if not loop.last %} {% endif %}{% endfor %}</span>
+    {% endif %}

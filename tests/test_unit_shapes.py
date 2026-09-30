@@ -5,6 +5,8 @@
 place the four review outcomes are named. If the two drift, the page describes
 an upload that will not happen.
 """
+import pytest
+
 from t2 import units
 from t2.unit_shapes import _outcome, _unit_sort_key
 
@@ -78,3 +80,78 @@ def test_unit_samples_read_in_human_order():
     assert sorted(["B2", "A10", "A2"], key=_unit_sort_key) == ["A2", "A10", "B2"]
     # Unparseable designators sort last rather than interrupting a run.
     assert sorted(["REAR", "2", "1"], key=_unit_sort_key) == ["1", "2", "REAR"]
+
+
+# --- the review queue: points for the map, the listing filter, the sort ------
+
+
+def _fake_source(monkeypatch, rows):
+    """Point `_base` at an in-memory source instead of the city's SQLite."""
+    from t2 import source_db, unit_shapes
+
+    class _Conn:
+        def execute(self, q, params):
+            return iter(rows)
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(source_db, "connect_readonly", lambda: _Conn())
+    monkeypatch.setattr(source_db, "build_civic_group_query", lambda *a, **k: "q")
+    monkeypatch.setattr(unit_shapes, "_BASE_CACHE", {})
+    return unit_shapes
+
+
+def _src_row(number, unit, lat, lon, pid):
+    return {"address_number": number, "linear_name_full": "Hanlon Creek Boulevard",
+            "municipality_name": "Guelph", "unit_name": unit, "latitude": lat,
+            "longitude": lon, "address_point_id": pid}
+
+
+def test_base_rows_carry_each_units_point_for_the_map(monkeypatch):
+    m = 1.0 / 111320.0
+    rows = [_src_row("275", str(u), 43.5 + i * 8.4 * m, -80.2, f"p{u}")
+            for i, u in enumerate((5, 1, 3, 2, 4))]
+    # The unit-less civic row is part of the group but not a point on the map.
+    rows.append(_src_row("275", None, 43.5, -80.2, "civic"))
+    unit_shapes = _fake_source(monkeypatch, rows)
+    (row,) = unit_shapes._base(1)["rows"]
+    assert [p[0] for p in row["points"]] == ["1", "2", "3", "4", "5"]
+    assert all(len(p) == 3 and p[1] > 43 and p[2] < -80 for p in row["points"])
+    assert row["spacing_m"] == pytest.approx(8.4, abs=0.1)
+
+
+def _row(key, shape, listings=(), spacing=None, osm=True):
+    return {
+        "key": key, "shape": shape, "spacing_m": spacing,
+        "osm": {"listings": list(listings), "shape": "listing" if listings else ""} if osm else None,
+    }
+
+
+def test_the_listing_filter_keeps_any_group_where_osm_lists_units():
+    from t2.unit_shapes import select
+
+    rows = [
+        _row("a", "nodes", ["1-5"]),
+        _row("b", "nodes"),
+        _row("c", "review", ["101-110"]),
+        _row("d", "collapse", osm=False),  # no extract loaded
+    ]
+    # A group with a listing and a stray door reads osm.shape "doors"; the
+    # filter is on the listing, not the shape, so it is kept.
+    rows[0]["osm"]["shape"] = "doors"
+    assert [r["key"] for r in select(rows, osm="listing")] == ["a", "c"]
+    assert [r["key"] for r in select(rows, shape="review", osm="listing")] == ["c"]
+    assert [r["key"] for r in select(rows, osm="")] == ["a", "b", "c", "d"]
+
+
+def test_the_spacing_sort_puts_the_widest_doors_first_and_the_unmeasured_last():
+    from t2.unit_shapes import select, shape_counts
+
+    rows = [_row("a", "nodes", spacing=8.4), _row("b", "nodes", spacing=None),
+            _row("c", "nodes", spacing=91.2), _row("d", "review", spacing=3.0)]
+    assert [r["key"] for r in select(rows, sort="spacing")] == ["c", "a", "d", "b"]
+    assert [r["key"] for r in select(rows, sort="")] == ["a", "b", "c", "d"]
+    assert shape_counts(rows, "") is None
+    rows[0]["osm"]["listings"] = ["1-5"]
+    assert shape_counts(rows, "listing")["nodes"] == 1

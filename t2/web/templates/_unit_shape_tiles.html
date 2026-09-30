@@ -1,18 +1,23 @@
 {# When sent out-of-band behind a <tr>, the fragment is parsed inside a
    synthetic table by htmx 1.x and a bare <div> would be foster-parented out
-   of it; <template> is the documented way to keep it whole. #}
-{% if oob %}<template>{% endif %}
+   of it; <template> is the documented way to keep it whole. The review queue
+   swaps a <div>, which needs no such wrapper.
+   The tile links keep the OSM filter, sort and mode: a tile narrows the
+   queue, it does not leave it. #}
+{% set in_table = oob and not (view and view.mode == 'queue') %}
+{% set keep %}{% if view %}{% if view.osm %}&osm={{ view.osm }}{% endif %}{% if view.sort %}&sort={{ view.sort }}{% endif %}{% if view.mode %}&mode={{ view.mode }}{% endif %}{% endif %}{% endset %}
+{% if in_table %}<template>{% endif %}
 <div id="shape-tiles" {% if oob %}hx-swap-oob="true"{% endif %}>
 <div class="tiles">
-  <a class="tile {% if not active_shape %}on{% endif %}" href="/units/shapes">
-    <div class="n">{{ data.group_total }}</div>
+  <a class="tile {% if not active_shape %}on{% endif %}" href="/units/shapes?{{ keep[1:] }}">
+    <div class="n">{% if view_counts %}{{ view_counts.values() | sum }}<span class="of"> of {{ data.group_total }}</span>{% else %}{{ data.group_total }}{% endif %}</div>
     <div class="k">All groups</div>
     <div class="d">{{ '{:,}'.format(data.unit_total) }} units</div>
   </a>
   {% for shape, blurb in shapes %}
   <a class="tile tile-{{ shape }} {% if active_shape == shape %}on{% endif %}"
-     href="/units/shapes?shape={{ shape }}">
-    <div class="n">{{ data.counts[shape] }}</div>
+     href="/units/shapes?shape={{ shape }}{{ keep }}">
+    <div class="n">{% if view_counts %}{{ view_counts[shape] }}<span class="of"> of {{ data.counts[shape] }}</span>{% else %}{{ data.counts[shape] }}{% endif %}</div>
     <div class="k">{{ shape }}</div>
     <div class="d">{{ blurb }}</div>
   </a>
@@ -28,4 +33,4 @@
   question, so they are counted here and reviewed elsewhere.
 </p>
 </div>
-{% if oob %}</template>{% endif %}
+{% if in_table %}</template>{% endif %}
