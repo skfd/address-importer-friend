@@ -13,8 +13,9 @@ from __future__ import annotations
 import argparse
 from collections import Counter
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 
-from t2 import config as _config, osm_buildings, unit_autojudge, unit_shapes, unit_verdicts, units
+from t2 import config as _config, osm_buildings, osm_refresh, unit_autojudge, unit_shapes, unit_verdicts, units
 
 
 def main() -> int:
@@ -25,9 +26,14 @@ def main() -> int:
 
     cfg = _config.load()
     buildings = osm_buildings.load(cfg, rebuild=args.rebuild_buildings)
-    stamp = datetime.fromtimestamp(
-        osm_buildings.cache_path(cfg).stat().st_mtime, timezone.utc
-    ).date().isoformat()
+    # The data's date, not the cache's: the outlines are as old as the PBF.
+    meta = osm_refresh.read_meta(cfg) or {}
+    try:
+        stamp = parsedate_to_datetime(meta["source_last_modified"]).date().isoformat()
+    except (KeyError, TypeError, ValueError):
+        stamp = datetime.fromtimestamp(
+            osm_buildings.pbf_path(cfg).stat().st_mtime, timezone.utc
+        ).date().isoformat()
     index = osm_buildings.Index(buildings)
     print(f"{len(buildings)} building outlines, read {stamp}")
 
