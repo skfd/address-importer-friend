@@ -6,8 +6,11 @@
     {% if r.frozen %}
       <span class="pill" title="{{ r.frozen_why }}. Both flips are now mutations, and this import only creates.">frozen — {{ r.frozen_why }}</span>
       {% if r.saved %}<span class="why">decided {{ r.saved.verdict }}{% if r.saved.note %}: {{ r.saved.note }}{% endif %}</span>{% endif %}
-      {% if refused %}<div class="stale">Not saved: this group's shape is already in OSM. Disagreement from here is a QA finding, not an override.</div>{% endif %}
+      {% if refused %}<div class="stale">Not saved: this import has already uploaded this group. Disagreement from here is a QA finding, not an override.</div>{% endif %}
     {% else %}
+      {% if r.in_osm %}
+        <div class="why" title="A verdict here adds only what OSM lacks, beside what is there; nothing existing is changed.">In OSM already: {{ r.in_osm }}.</div>
+      {% endif %}
       <form hx-post="/units/shapes/verdict" hx-target="{{ 'closest .q-decide' if queue else 'closest tr' }}" hx-swap="outerHTML"
             hx-trigger="change" onsubmit="return false">
         <input type="hidden" name="civic_key" value="{{ r.key }}">

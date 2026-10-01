@@ -351,16 +351,16 @@ def test_a_building_listing_its_units_under_addr_unit_is_a_listing_not_a_door():
     assert idx[("GORDON ST", "1882")]["units"] == {"PH-2"}
 
 
-def test_a_group_somebody_else_mapped_as_doors_is_frozen(tool_db, monkeypatch):
+def test_a_group_somebody_else_mapped_as_doors_still_takes_a_verdict(tool_db, monkeypatch):
     unit_shapes = _synthetic_base(monkeypatch)
     doors = {("TEST ST", "7"): {"civic": 1, "units": {"1", "2"}, "hyphenated": {"3"}, "listings": [], "ids": [("node", 1)]}}
     monkeypatch.setattr(unit_shapes, "_osm_index", lambda: doors)
     row = unit_shapes.collect()["by_key"][KEY]
     assert row["osm"]["shape"] == "doors" and row["osm"]["doors"] == 3 and row["osm"]["hyphenated"] == 1
-    assert row["frozen"] and "3 unit objects" in row["frozen_why"]
-    with pytest.raises(unit_verdicts.Frozen):
-        unit_shapes.decide(KEY, "collapse")
-    assert KEY not in unit_verdicts.load_all()
+    assert not row["frozen"] and "3 of" in row["in_osm"]
+    # 15 Carere Crescent: two doors in OSM must not lock the other 64 out.
+    assert unit_shapes.decide(KEY, "nodes")["override"] == "nodes"
+    assert unit_shapes.select(unit_shapes.collect()["rows"], osm="open") == []
 
 
 def test_a_bare_civic_node_in_osm_does_not_freeze(tool_db, monkeypatch):
@@ -372,17 +372,25 @@ def test_a_bare_civic_node_in_osm_does_not_freeze(tool_db, monkeypatch):
     assert unit_shapes.decide(KEY, "nodes")["override"] == "nodes"
 
 
-def test_a_building_already_listing_its_units_freezes_the_group(tool_db, monkeypatch):
+def test_a_building_already_listing_its_units_still_takes_a_verdict(tool_db, monkeypatch):
     unit_shapes = _synthetic_base(monkeypatch)
     listing = {("TEST ST", "7"): {"civic": 0, "units": set(), "hyphenated": set(), "listings": ["101-112"],
                                   "ids": [("way", 1)], "listing_ids": [("way", 1, "101-112")]}}
     monkeypatch.setattr(unit_shapes, "_osm_index", lambda: listing)
     row = unit_shapes.collect()["by_key"][KEY]
-    assert row["osm"]["shape"] == "listing" and row["frozen"]
-    assert "lists the units" in row["frozen_why"]
+    assert row["osm"]["shape"] == "listing" and not row["frozen"]
+    assert "lists the units" in row["in_osm"]
     assert row["osm"]["listing_ids"] == [("way", 1, "101-112")]
-    with pytest.raises(unit_verdicts.Frozen):
-        unit_shapes.decide(KEY, "nodes")
+    assert unit_shapes.decide(KEY, "nodes")["override"] == "nodes"
+
+
+def test_an_auto_judged_verdict_is_labelled_auto(tool_db, monkeypatch):
+    unit_shapes = _synthetic_base(monkeypatch)
+    monkeypatch.setattr(unit_shapes, "_osm_index", lambda: {})
+    assert unit_shapes.decide(KEY, "nodes", "auto: 66 units in 34 buildings")["auto"] is True
+    assert unit_shapes.decide(KEY, "nodes", "townhouses, checked")["auto"] is False
+    rows = unit_shapes.collect()["rows"]
+    assert [r["key"] for r in unit_shapes.select(rows, osm="decided")] == [KEY]
 
 
 def test_osm_summary_keeps_every_listing_object_with_its_listing():
@@ -466,8 +474,8 @@ def test_the_review_queue_draws_a_card_with_its_points_and_listing_refs(tool_db,
     page = client.get("/units/shapes?osm=listing&mode=queue").get_data(as_text=True)
     assert 'class="q-card' in page
     assert '[[&#34;way&#34;, 1, &#34;101-112&#34;]]' in page or '[["way", 1, "101-112"]]' in page
-    # A listed group is frozen: the card still draws its map, but offers no chips.
-    assert 'name="mode" value="queue"' not in page
+    # A listed group takes a verdict, and the card says what OSM already has.
+    assert 'name="mode" value="queue"' in page and "In OSM already" in page
 
     # A verdict in the queue swaps only the chips, not the card with the map.
     monkeypatch.setattr(unit_shapes, "_osm_index", lambda: {})

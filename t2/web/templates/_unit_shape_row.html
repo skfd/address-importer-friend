@@ -12,7 +12,7 @@
   <td class="num">{{ r.unit_count }}</td>
   <td>
     <span class="pill {% if r.shape == 'collapse' %}ok{% elif r.shape == 'review' %}bad{% elif r.shape == 'civic-only' %}warn{% elif r.shape == 'skip' %}off{% endif %}">{{ r.shape }}</span>
-    {% if r.override %}<span class="by-hand" title="the rule said {{ r.verdict }}">by hand</span>{% endif %}
+    {% if r.override %}<span class="by-hand" title="the rule said {{ r.verdict }}{% if r.saved and r.saved.note %} — {{ r.saved.note }}{% endif %}">{{ 'auto' if r.auto else 'by hand' }}</span>{% endif %}
   </td>
   <td class="num">{{ r.nodes_created }}</td>
   <td class="why">{{ r.reason }}</td>

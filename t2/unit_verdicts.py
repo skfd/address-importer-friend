@@ -25,9 +25,10 @@ civic key, not of the verdict row: a group uploaded under the rule's own
 decision is as frozen as one uploaded under an override, and a single
 uploaded door freezes its whole group. After that both flips are mutations
 (nodes->collapse deletes fifty-two nodes and creates one) and this import
-only creates, so `save` refuses and later disagreement is a QA finding. There
-is a second freeze condition -- somebody else already mapped the doors -- that
-needs the OSM extract and lives on the page, not here.
+only creates, so `save` refuses and later disagreement is a QA finding. A
+shape somebody *else* put in OSM -- doors, or a building listing its units --
+froze too until 2026-10-01 and no longer does: a verdict there only adds what
+OSM lacks beside it, which is a create.
 
 `skip` produces zero candidates for the group. That was checked against the
 consumers that could read "active source row with no candidate" as an error:

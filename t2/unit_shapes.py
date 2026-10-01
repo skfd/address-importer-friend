@@ -369,8 +369,14 @@ def _overlay(
     operator can see what was decided and re-decide, but not applied, because
     the emitter will not apply it either.
 
-    `frozen` carries a reason so the row can say which of the two conditions
-    holds: our upload, or a shape somebody else already put in OSM.
+    `frozen` means this import uploaded the group's shape: both flips would
+    then be mutations, and the chips go. `in_osm` is the weaker fact that
+    somebody already mapped doors or a listing here. Until 2026-10-01 that
+    froze too; it no longer does, because a verdict there only adds what OSM
+    lacks -- the doors a listing does not stand in for, or the doors missing
+    from a half-mapped row -- beside what is there, and creating beside is
+    what this import does. The row says what is there so the operator rules
+    knowing it.
     """
     override = unit_verdicts.effective(saved, base_row["unit_hash"])
     shape, reason, flats = units.resolve(
@@ -380,10 +386,13 @@ def _overlay(
     frozen_why = None
     if base_row["key"] in frozen or bool(saved and saved.get("frozen_at")):
         frozen_why = "uploaded by this import"
-    elif osm and osm["shape"] == "doors":
-        frozen_why = f"OSM already has {osm['doors']} unit object{'s' if osm['doors'] != 1 else ''} here"
+    in_osm = None
+    if osm and osm["shape"] == "doors":
+        in_osm = f"OSM already has {osm['doors']} of {base_row['unit_count']} units as door objects"
+        if osm["listings"]:
+            in_osm += ", and a building listing them"
     elif osm and osm["shape"] == "listing":
-        frozen_why = "OSM already lists the units on a building here"
+        in_osm = "OSM lists the units on a building here, with no door objects"
     return {
         **base_row,
         "shape": shape,
@@ -395,6 +404,8 @@ def _overlay(
         "stale": saved is not None and override is None,
         "frozen": frozen_why is not None,
         "frozen_why": frozen_why,
+        "in_osm": in_osm,
+        "auto": bool(override and saved and (saved.get("note") or "").startswith("auto:")),
         "ingested_runs": ingested.get(base_row["key"], []),
         "osm": osm,
     }
@@ -437,6 +448,8 @@ def collect(snapshot_id: int | None = None) -> dict:
         "overridden": sum(1 for r in rows if r["override"]),
         "stale": sum(1 for r in rows if r["stale"]),
         "frozen": sum(1 for r in rows if r["frozen"]),
+        "in_osm": sum(1 for r in rows if r["in_osm"] and not r["frozen"]),
+        "auto": sum(1 for r in rows if r["auto"]),
         "osm_loaded": osm_index is not None,
         "osm_shapes": {
             k: sum(1 for r in rows if r["osm"] and r["osm"]["shape"] == k)
@@ -452,7 +465,8 @@ def collect(snapshot_id: int | None = None) -> dict:
 # group with a listing *and* a stray unit node reads as "doors". Those are
 # frozen either way; the filter is for seeing them, not deciding them.
 OSM_FILTERS = (
-    ("open", "still yours to decide"),
+    ("open", "nothing in OSM yet"),
+    ("decided", "decided, by you or the auto-judge"),
     ("listing", "an OSM building lists its units"),
 )
 SORTS = (
@@ -471,9 +485,11 @@ def select(rows: list[dict], shape: str = "", osm: str = "", sort: str = "") -> 
     """
     out = [r for r in rows if not shape or r["shape"] == shape]
     if osm == "open":
-        # Frozen groups take no verdict, and they are most of the city: the
-        # handful still open are lost among them without this.
-        out = [r for r in out if not r["frozen"]]
+        # Groups OSM has nothing for are the ones only this import will shape;
+        # the rest already have doors or a listing and are most of the city.
+        out = [r for r in out if not r["frozen"] and not r["in_osm"]]
+    elif osm == "decided":
+        out = [r for r in out if r["override"] or r["stale"]]
     elif osm == "listing":
         out = [r for r in out if r.get("osm") and r["osm"]["listings"]]
     if sort == "spacing":
@@ -496,13 +512,12 @@ def decide(civic_key: str, choice: str, note: str | None = None) -> dict:
     """Record the operator's choice for one group and return its fresh row.
 
     The unit hash is taken from the group as the page sees it now, never from
-    the form. Raises `unit_verdicts.Frozen` if the group's shape is already in
-    OSM, and KeyError if the key names no unit-bearing group.
+    the form. Raises `unit_verdicts.Frozen` if this import has uploaded the
+    group, and KeyError if the key names no unit-bearing group. A group
+    somebody else already shaped in OSM takes a verdict (see `_overlay`).
     """
     row = collect()["by_key"][civic_key]
     if row["frozen"]:
-        # Covers the second freeze condition too, which `unit_verdicts` cannot
-        # see: a shape somebody else already put in OSM.
         raise unit_verdicts.Frozen(civic_key)
     if choice == "rule":
         unit_verdicts.clear(civic_key)

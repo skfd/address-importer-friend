@@ -11,7 +11,7 @@
   <summary>
     <span class="addr">{{ r.number }} {{ r.street }}</span>
     <span class="pill {% if r.shape == 'collapse' %}ok{% elif r.shape == 'review' %}bad{% elif r.shape == 'civic-only' %}warn{% elif r.shape == 'skip' %}off{% endif %}">{{ r.shape }}</span>
-    {% if r.override %}<span class="by-hand" title="the rule said {{ r.verdict }}">by hand</span>{% endif %}
+    {% if r.override %}<span class="by-hand" title="the rule said {{ r.verdict }}{% if r.saved and r.saved.note %} — {{ r.saved.note }}{% endif %}">{{ 'auto' if r.auto else 'by hand' }}</span>{% endif %}
     <span class="why">{{ r.unit_count }} unit{{ 's' if r.unit_count != 1 }} · {{ r.reason }}</span>
     {% if r.osm and r.osm.listing_ids %}<span class="why">· {{ r.osm.listing_ids | length }} OSM listing{{ 's' if r.osm.listing_ids | length != 1 }}</span>{% endif %}
   </summary>
