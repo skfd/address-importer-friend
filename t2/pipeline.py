@@ -351,8 +351,8 @@ def run_checks(run_id: int) -> dict[str, int]:
                 )
             else:
                 # Clean MISSING with no flags -> auto-approve; MATCH -> SKIPPED (already in OSM),
-                # and so does MATCH_LISTED: the unit is a line on a building that already
-                # lists it, and there is nothing to create. MATCH_FAR falls through to
+                # and so does MATCH_LISTED, which only runs conflated before 2026-10-01
+                # still carry (see conflate._match_kind). MATCH_FAR falls through to
                 # CHECKED so it can't auto-clear without a decision.
                 new_stage = (
                     "APPROVED" if cand.verdict == "MISSING"

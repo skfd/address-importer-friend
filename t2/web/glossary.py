@@ -17,7 +17,7 @@ GLOSSARY: dict[str, str] = {
     # conflation verdicts
     "verdict.MISSING": "Not found in OSM — eligible for upload.",
     "verdict.MATCH": "Same housenumber+street already in OSM within the near threshold — skip.",
-    "verdict.MATCH_LISTED": "No node for this unit, but a building at the address already lists it (addr:flats, or a multi-valued addr:unit). Nothing to create — skipped like MATCH.",
+    "verdict.MATCH_LISTED": "Runs conflated before 2026-10-01 only: no node for this unit, but a building at the address lists it, so it was skipped like MATCH. Withdrawn — a listing no longer stands in for a door, and such units now read MISSING.",
     "verdict.MATCH_FAR": "Same housenumber+street exists in OSM but unusually far from this candidate — needs review.",
     "verdict.SKIPPED": "Address range or duplicate — held for reference, not uploaded.",
 

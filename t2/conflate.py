@@ -201,13 +201,18 @@ def _index_listing(el: dict, tags: dict) -> None:
 
 
 def _match_kind(el: dict, c_num: str, c_street_norm: str, c_unit: str) -> str | None:
-    """How this OSM element answers to the candidate: "exact", "listed", or
-    None.
+    """How this OSM element answers to the candidate: "exact" or None.
 
-    "exact" is the compare `_same_address` always made. "listed" is new: a
-    door candidate whose designator appears in the element's unit listing.
-    There is no node for unit 30 in that case -- there is a line on the
-    building that says 30 exists -- and the verdict has to say so.
+    "exact" is the compare `_same_address` always made. Until 2026-10-01 there
+    was also "listed": a door candidate whose designator appeared in a
+    building's unit listing read MATCH_LISTED and was skipped as present. That
+    is withdrawn. A listing says the building *contains* unit 30; a door node
+    says *this is* unit 30, at its door. Where the group's shape is doors -- a
+    townhouse complex whose buildings list their units -- the listing does not
+    stand in for the doors, and they are proposed beside it. Whether a group is
+    doors at all is the shape decision's job (`units.resolve` and the
+    operator's verdicts), not the matcher's. `_listed_units` is still indexed:
+    it is what makes a listing element the building for a collapsed candidate.
     """
     if el["_norm_number"] != c_num or el["_norm_street"] != c_street_norm:
         return None
@@ -215,9 +220,6 @@ def _match_kind(el: dict, c_num: str, c_street_norm: str, c_unit: str) -> str | 
         return "exact"
     if el.get("_norm_unit", "") == c_unit:
         return "exact"
-    listed = el.get("_listed_units")
-    if c_unit and listed and units.norm_designator(c_unit) in listed:
-        return "listed"
     return None
 
 
@@ -262,13 +264,11 @@ def _classify(
     beyond that = MATCH_FAR (operator review). No match → MISSING, plus a
     same-address POI node from poi_idx (if any) attached as acknowledgment.
 
-    Two refinements under per-door-or-collapse. An exact match beats a
-    containment match whatever the distances: a door node for unit 30 is a
-    better answer than a building that lists 30. A containment match within
-    the radius is MATCH_LISTED with no near/far split, because the distance
-    to a building's centre is its footprint, not an error. And for any
-    polygon match, a candidate inside the element's bounds is MATCH however
-    far the centre is, for the same reason.
+    Under per-door-or-collapse, for any polygon match, a candidate inside the
+    element's bounds is MATCH however far the centre is: the distance to a
+    building's centre is its footprint, not an error. (MATCH_LISTED, a door
+    satisfied by a building's listing, was withdrawn 2026-10-01; see
+    `_match_kind`. Rows from earlier runs still carry it.)
     """
     c_lat, c_lon = cand_row["lat"], cand_row["lon"]
     if c_lat is None or c_lon is None:
@@ -281,25 +281,20 @@ def _classify(
     # Tiebreak on osm_id when distances are equal so equidistant candidates
     # pick deterministically — GridIndex.query order depends on dict insertion
     # and isn't stable across refactors.
-    # Sort key (rank, dist, id): exact before listed, then nearest, then a
-    # stable id so equidistant candidates pick deterministically.
-    best_match: tuple[int, float, int, dict] | None = None
+    best_match: tuple[float, int, dict] | None = None
     for o_lat, o_lon, osm in match_idx.query(c_lat, c_lon):
         dist = haversine(c_lat, c_lon, o_lat, o_lon)
         if dist > match_radius_m:
             continue
-        kind = _match_kind(osm, c_num, c_street_norm, c_unit)
-        if kind is None:
+        if _match_kind(osm, c_num, c_street_norm, c_unit) is None:
             continue
-        key = (0 if kind == "exact" else 1, dist, osm.get("id") or 0)
-        if best_match is None or key < best_match[:3]:
+        key = (dist, osm.get("id") or 0)
+        if best_match is None or key < best_match[:2]:
             best_match = (*key, osm)
 
     if best_match is not None:
-        rank, dist, _oid, el = best_match
-        if rank == 1:
-            verdict = "MATCH_LISTED"
-        elif dist <= match_near_m or _inside_bounds(el, c_lat, c_lon):
+        dist, _oid, el = best_match
+        if dist <= match_near_m or _inside_bounds(el, c_lat, c_lon):
             verdict = "MATCH"
         else:
             verdict = "MATCH_FAR"

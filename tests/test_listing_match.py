@@ -5,8 +5,8 @@ Guelph's towers are in OSM as one way with `addr:unit=101-116;201-215;...`
 matcher demanded unit equality, so neither the collapsed candidate nor any
 door candidate ever matched them. Pins: the index recognises a listing, the
 collapsed candidate matches it as the building, a door matches it by
-containment and says so (MATCH_LISTED), an exact door node still wins, and
-off the policy nothing changed.
+containment no longer -- withdrawn 2026-10-01, a listing does not stand in
+for a door -- an exact door node matches, and off the policy nothing changed.
 
 Also pins the SELECT in `conflate.run`: the unit has to reach `_classify`,
 or every door compares as the bare civic point, matches the building's node
@@ -114,14 +114,12 @@ def test_a_collapsed_candidate_matches_the_building_that_lists_its_units(unit_aw
     assert _verdict(_cand(flats="101-103;201-203"), [_way(1, "714", unit="101-103;201-203")]) == "MATCH"
 
 
-def test_a_door_is_matched_by_containment_and_says_so(unit_aware):
-    listing = [_way(1, "714", unit="1-40")]
-    assert _verdict(_cand(unit="30"), listing) == "MATCH_LISTED"
-    assert _verdict(_cand(unit="30"), [_way(1, "714", unit="1-20")]) == "MISSING"
-
-
-def test_leading_zeros_do_not_hide_a_door_from_its_listing(unit_aware):
-    assert _verdict(_cand(unit="LL01"), [_way(1, "714", flats="LL1-LL4")]) == "MATCH_LISTED"
+def test_a_listing_does_not_stand_in_for_a_door(unit_aware):
+    # The building says it contains 30; nothing says where 30's door is. A
+    # door candidate is proposed beside the listing, which stays as it is.
+    assert _verdict(_cand(unit="30"), [_way(1, "714", unit="1-40")]) == "MISSING"
+    assert _verdict(_cand(unit="30"), [_way(1, "714", flats="1-40")]) == "MISSING"
+    assert _verdict(_cand(unit="LL01"), [_way(1, "714", flats="LL1-LL4")]) == "MISSING"
 
 
 def test_an_exact_door_node_beats_a_nearer_listing(unit_aware):
@@ -137,12 +135,6 @@ def test_an_exact_door_node_beats_a_nearer_listing(unit_aware):
     match_idx, poi_idx = build_osm_index(els)
     verdict, osm_id, *_ = _classify(_cand(unit="30"), match_idx, poi_idx, 100.0, 15.0)
     assert (verdict, osm_id) == ("MATCH_FAR", 2)
-
-
-def test_containment_has_no_far_because_the_distance_is_the_footprint(unit_aware):
-    # 60 m from the way's centre, well past match_near_m, but the building
-    # lists the unit; MATCH_LISTED, not MATCH_FAR.
-    assert _verdict(_cand(unit="30", lat=43.5 + 60 / 111320.0), [_way(1, "714", unit="1-40", half=0.001)]) == "MATCH_LISTED"
 
 
 def test_a_civic_point_inside_the_buildings_bounds_is_not_far(unit_aware):

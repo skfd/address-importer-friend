@@ -1,5 +1,14 @@
 # Listing-aware conflation — a building that lists its units is the building
 
+**Half withdrawn 2026-10-01.** A collapsed candidate still matches a building
+that lists its units — that half stands. A *door* no longer matches a listing:
+MATCH_LISTED is gone from `_classify`, and a door candidate matches only a door
+object. skfd's ruling: a townhouse complex whose buildings list their units
+still gets its doors, beside the listing, which is left alone (create-only).
+Whether a group is doors is the shape decision's job, not the matcher's. On
+the 134 tiles conflated 2026-09-29, all 910 MATCH_LISTED rows (77 groups)
+re-read as MISSING. Everything below is the record of the original design.
+
 **Proposed 2026-09-15; built 2026-09-16 (`38ea7459`).** Landed as designed, with
 two additions the build surfaced: `conflate.run` had never selected `unit` or
 `flats`, so every door compared as the bare civic point (fixed, with a test
