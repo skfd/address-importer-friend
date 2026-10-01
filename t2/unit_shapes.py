@@ -452,6 +452,7 @@ def collect(snapshot_id: int | None = None) -> dict:
 # group with a listing *and* a stray unit node reads as "doors". Those are
 # frozen either way; the filter is for seeing them, not deciding them.
 OSM_FILTERS = (
+    ("open", "still yours to decide"),
     ("listing", "an OSM building lists its units"),
 )
 SORTS = (
@@ -469,7 +470,11 @@ def select(rows: list[dict], shape: str = "", osm: str = "", sort: str = "") -> 
     spacing (a lone unit, or collapsed without points) go last.
     """
     out = [r for r in rows if not shape or r["shape"] == shape]
-    if osm == "listing":
+    if osm == "open":
+        # Frozen groups take no verdict, and they are most of the city: the
+        # handful still open are lost among them without this.
+        out = [r for r in out if not r["frozen"]]
+    elif osm == "listing":
         out = [r for r in out if r.get("osm") and r["osm"]["listings"]]
     if sort == "spacing":
         out = sorted(out, key=lambda r: (r.get("spacing_m") is None, -(r.get("spacing_m") or 0)))
