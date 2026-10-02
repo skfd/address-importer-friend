@@ -282,6 +282,10 @@
       var points = JSON.parse(card.dataset.points || '[]');
       var listings = JSON.parse(card.dataset.listings || '[]');
       var map = L.map(el, { maxZoom: 21 });
+      // The City's points get their own pane above the overlay pane, or the
+      // OSM outlines -- drawn later, when the API answers -- land on top and
+      // swallow the hover on every dot inside a building.
+      map.createPane('units').style.zIndex = 610;
       L.tileLayer(ESRI, {
         maxNativeZoom: 19, maxZoom: 21,
         attribution: 'Imagery &copy; Esri, Maxar, Earthstar Geographics'
@@ -292,7 +296,7 @@
       var permanent = points.length <= 40;
       points.forEach(function (p) {
         var ll = [p[1], p[2]];
-        L.circleMarker(ll, { radius: 5, color: '#fff', weight: 2, fillColor: '#ef4444', fillOpacity: 1 })
+        L.circleMarker(ll, { pane: 'units', radius: 5, color: '#fff', weight: 2, fillColor: '#ef4444', fillOpacity: 1 })
           .bindTooltip(String(p[0]), { permanent: permanent, direction: 'top', offset: [0, -4], className: 'q-unit-label' })
           .addTo(map);
         bounds.extend(ll);
