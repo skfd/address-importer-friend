@@ -159,13 +159,16 @@
   which may be newer than the local extract). A row of dots along one building's
   frontage is doors; several buildings each holding a few dots is several
   buildings on one civic number; dots scattered along a plaza are storefronts.
-  Keys on the open card: <kbd>n</kbd> nodes, <kbd>c</kbd> collapse,
+  Scroll to read; the card under the upper third of the screen is the one the keys act on: <kbd>n</kbd> nodes, <kbd>c</kbd> collapse,
   <kbd>o</kbd> civic-only, <kbd>s</kbd> skip, <kbd>r</kbd> back to the rule,
   <kbd>j</kbd>/<kbd>k</kbd> next and previous.
 </div>
 <div id="queue">
   {% for r in rows %}
-    {% set open_card = (focus and focus.key == r.key) or (not focus and loop.first) %}
+    {# Every card open: the queue is read by scrolling, and a click is for
+       changing a decision, not for seeing one. Maps draw as they near the
+       viewport, so 400 open cards cost what the screen shows. #}
+    {% set open_card = true %}
     {% include "_unit_shape_card.html" %}
   {% else %}
     <p class="muted">No civic groups in this view.</p>
@@ -320,13 +323,24 @@
         card.scrollIntoView({ block: 'start', behavior: 'smooth' });
       }
     }
+    // Draw a map once its card comes within a screen of the viewport, and
+    // make the card nearest the top the one the keys act on, so scrolling
+    // alone is enough to read the queue and decide from the keyboard.
+    var near = 'IntersectionObserver' in window ? new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (en.isIntersecting && en.target.open) { loadMap(en.target); near.unobserve(en.target); }
+      });
+    }, { rootMargin: '800px 0px' }) : null;
+    var inView = 'IntersectionObserver' in window ? new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) { if (en.isIntersecting) setCurrent(en.target, false); });
+    }, { rootMargin: '-30% 0px -60% 0px' }) : null;
     cards.forEach(function (card) {
       card.addEventListener('toggle', function () { if (card.open) loadMap(card); });
       card.addEventListener('click', function () { setCurrent(card, false); });
-      if (card.open) loadMap(card);
+      if (near) { near.observe(card); inView.observe(card); }
+      else if (card.open) loadMap(card);
     });
-    var first = cards.find(function (c) { return c.open; }) || cards[0];
-    if (first) setCurrent(first, false);
+    if (cards[0]) setCurrent(cards[0], false);
 
     var KEYS = { n: 'nodes', c: 'collapse', o: 'civic-only', s: 'skip', r: 'rule' };
     document.addEventListener('keydown', function (e) {
