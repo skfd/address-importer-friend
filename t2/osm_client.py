@@ -23,6 +23,17 @@ _API = "/api/0.6"
 SCOPES = "read_prefs write_api"
 
 
+def _auth_base() -> str:
+    """Where the OAuth endpoints live: the website, not the API host.
+
+    api.openstreetmap.org answers /oauth2/token with a 301 to www, and
+    requests replays a redirected POST as a GET, which OSM 404s -- so the
+    token exchange failed against prod while authorize (a GET) still worked.
+    The dev server serves both from one host and is left as it is.
+    """
+    return _CONFIG.osm_api_base.rstrip("/").replace("://api.", "://www.", 1)
+
+
 class OsmAuthError(Exception):
     pass
 
@@ -111,7 +122,7 @@ def build_auth_url() -> tuple[str, str]:
         "code_challenge_method": "S256",
     }
     qs = "&".join(f"{k}={requests.utils.quote(str(v), safe='')}" for k, v in params.items())
-    return f"{_CONFIG.osm_api_base}{_AUTHORIZE}?{qs}", state
+    return f"{_auth_base()}{_AUTHORIZE}?{qs}", state
 
 
 def exchange_code(code: str, state: str) -> None:
@@ -119,7 +130,7 @@ def exchange_code(code: str, state: str) -> None:
     if not verifier:
         raise OsmAuthError("Unknown OAuth state (PKCE verifier missing).")
     resp = requests.post(
-        f"{_CONFIG.osm_api_base}{_TOKEN}",
+        f"{_auth_base()}{_TOKEN}",
         data={
             "grant_type": "authorization_code",
             "code": code,
@@ -140,7 +151,7 @@ def _refresh_tokens(tokens: dict) -> dict:
     if not rt:
         raise OsmAuthError("No refresh_token available; re-authorize.")
     resp = requests.post(
-        f"{_CONFIG.osm_api_base}{_TOKEN}",
+        f"{_auth_base()}{_TOKEN}",
         data={
             "grant_type": "refresh_token",
             "refresh_token": rt,
