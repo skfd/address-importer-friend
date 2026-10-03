@@ -16,7 +16,7 @@ GLOSSARY: dict[str, str] = {
 
     # conflation verdicts
     "verdict.MISSING": "Not found in OSM — eligible for upload.",
-    "verdict.MATCH": "Same housenumber+street already in OSM within the near threshold — skip.",
+    "verdict.MATCH": "Same housenumber+street already in OSM within the near threshold. Not uploaded unless you choose Upload new node, which adds a second copy.",
     "verdict.MATCH_LISTED": "Runs conflated before 2026-10-01 only: no node for this unit, but a building at the address lists it, so it was skipped like MATCH. Withdrawn — a listing no longer stands in for a door, and such units now read MISSING.",
     "verdict.MATCH_FAR": "Same housenumber+street exists in OSM but unusually far from this candidate — needs review.",
     "verdict.SKIPPED": "Address range or duplicate — held for reference, not uploaded.",
@@ -109,8 +109,8 @@ GLOSSARY: dict[str, str] = {
     "btn.upload_api": "Upload the run's APPROVED candidates to OSM as a changeset via the API.",
 
     # buttons — review actions
-    "btn.approve": "Mark this candidate for upload.",
-    "btn.reject": "Mark this candidate as not-for-upload.",
+    "btn.approve": "Upload this candidate as a new OSM node, whatever its verdict. On a MATCH or MATCH_FAR that is a second copy of an address OSM already has.",
+    "btn.reject": "Leave this candidate out of the upload. The right answer when OSM already has the address.",
     "btn.defer": "Postpone the decision; stays in the review queue.",
     "btn.toggle_check": "Enable or disable this check for the current run.",
 
