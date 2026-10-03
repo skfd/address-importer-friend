@@ -21,6 +21,9 @@
   · <a href="https://www.openstreetmap.org/edit?editor=id#map=21/{{ candidate.lat }}/{{ candidate.lon }}" target="_blank" rel="noopener">open in OSM</a>
   {% endif %}
   · verdict <span class="pill" data-tip="{{ tip('verdict.' ~ candidate.verdict) if candidate.verdict else '' }}">{{ candidate.verdict or '—' }}</span>
+  {% if candidate.verdict == 'SKIPPED' and candidate.housenumber in cfg.skip_housenumbers %}
+  · <span class="pill" data-tip="{{ tip('reason.housenumber_skipped') }}">housenumber {{ candidate.housenumber }}: {{ cfg.skip_housenumbers[candidate.housenumber] }}</span>
+  {% endif %}
   {% if candidate.nearest_dist_m %}· nearest <a href="https://www.openstreetmap.org/edit?editor=id&{{ candidate.nearest_osm_type }}={{ candidate.nearest_osm_id }}" target="_blank" rel="noopener">{{ candidate.nearest_osm_type }} #{{ candidate.nearest_osm_id }}</a> at <span data-tip="{{ tip('metric.nearest_dist_m') }}">{{ '%.1fm' % candidate.nearest_dist_m }}</span>{% endif %}
   {% if candidate.poi_osm_id %}
   · <span class="pill" data-tip="{{ tip('pill.poi_acknowledged') }}">POI acknowledged:

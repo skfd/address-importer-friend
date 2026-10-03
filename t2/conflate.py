@@ -44,6 +44,11 @@ _STREET_PROFILE = StreetProfile(_config.load().street_overrides)
 # objects. So the strict rule lands only where the policy asks for it.
 _UNIT_AWARE = _config.load().units_policy == "per-door-or-collapse"
 
+# Housenumbers this city declares are not addresses (`[skip] housenumbers`,
+# Guelph's STREETNO "0" placeholders), mapped to the city's reason. Empty for
+# every city that declares none, so the branch below never fires for them.
+_SKIP_HOUSENUMBERS: dict[str, str] = _config.load().skip_housenumbers
+
 #: This city's declared overrides, source spelling -> OSM-canonical spelling.
 STREET_NAME_OVERRIDES: dict[str, str] = dict(_STREET_PROFILE.overrides)
 
@@ -462,11 +467,17 @@ def run(run_id: int, osm_snapshot_hash: str, match_radius_m: float, match_near_m
             # row; wider pairs persist the link for the intra_source_duplicate check.
             dup = _intra_dup_status(cand, land_groups)
             auto_skip_dup = dup is not None and dup[1] <= _INTRA_DUP_AUTO_SKIP_M and not dup[2]
+            # Checked ahead of matching: a placeholder is never "already in
+            # OSM", whatever happens to sit near it.
+            skip_reason = _SKIP_HOUSENUMBERS.get(cand.get("housenumber") or "")
 
             # Address ranges are skipped during conflation (kept for reference only).
             # Non-Land rows that share an address with a Land sibling are also skipped —
             # the Land row is the canonical record (see SOURCE_DATA.md).
-            if _is_range(cand) or _colocated_land_sibling(cand, land_keys) or auto_skip_dup:
+            if (
+                _is_range(cand) or _colocated_land_sibling(cand, land_keys)
+                or auto_skip_dup or skip_reason
+            ):
                 verdict, osm_id, osm_type, dist, matched, poi = "SKIPPED", None, None, None, None, None
             else:
                 verdict, osm_id, osm_type, dist, matched, poi = _classify(
@@ -520,6 +531,13 @@ def run(run_id: int, osm_snapshot_hash: str, match_radius_m: float, match_near_m
                             ]
                         ),
                     },
+                    conn=conn,
+                )
+            if skip_reason:
+                audit.log(
+                    actor="pipeline", event_type="HOUSENUMBER_SKIPPED",
+                    run_id=run_id, candidate_id=cand["candidate_id"],
+                    payload={"housenumber": cand["housenumber"], "reason": skip_reason},
                     conn=conn,
                 )
             conn.execute(

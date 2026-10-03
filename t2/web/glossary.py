@@ -47,6 +47,7 @@ GLOSSARY: dict[str, str] = {
     # check reason codes
     "reason.match_far": "Same housenumber+street exists in OSM, but the matched element is unusually far from the candidate coordinates.",
     "reason.range": "Address range (e.g. 10–14) — reference only, not uploaded.",
+    "reason.housenumber_skipped": "This city's config declares the number is not an address ([skip] housenumbers) — kept for reference, not uploaded.",
     "reason.colocated_land": "Non-Land row shares an address with a Land sibling in the same source — the Land row is the canonical record.",
     "reason.suspicious_suffix": "Suffix letter looks like a digit (I↔1, O↔0, Q↔0) — likely a data-entry typo.",
     "reason.city_duplicate": "Another candidate in this run sits within a few metres.",

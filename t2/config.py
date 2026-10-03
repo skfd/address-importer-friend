@@ -408,6 +408,49 @@ def parse_street_overrides(section: dict, origin: str = "config.toml") -> dict[s
     return out
 
 
+def parse_skip_housenumbers(section: dict, origin: str = "config.toml") -> dict[str, str]:
+    """Validate this city's `[skip] housenumbers` — projected housenumber ->
+    the reason a row carrying it is not an address.
+
+    For sources that publish placeholder points under a number no door
+    carries: Guelph files 13 active rows (two of them bridges) under STREETNO
+    "0", and without this every one auto-approved as addr:housenumber=0.
+    Conflation SKIPs such a candidate the way it skips a range, so it stays
+    visible in the skipped queue with the city's reason rather than vanishing
+    from the source query. Keys compare against the projected housenumber
+    exactly — after number_from and number_suffix, i.e. what would be
+    uploaded. Absent section = nothing skipped, so nothing is required of a
+    new city and no other city's verdicts move.
+    """
+    unknown = sorted(set(section or {}) - {"housenumbers"})
+    if unknown:
+        raise ValueError(
+            f"{origin} [skip] has unknown key(s) {unknown}; the only key is "
+            "'housenumbers'."
+        )
+    raw = (section or {}).get("housenumbers", {})
+    if not isinstance(raw, dict):
+        raise ValueError(
+            f"{origin} [skip] housenumbers must be a table of "
+            "\"housenumber\" = \"reason\" pairs."
+        )
+    out: dict[str, str] = {}
+    for number, reason in raw.items():
+        if not str(number).strip() or str(number) != str(number).strip():
+            raise ValueError(
+                f"{origin} [skip] housenumbers key {number!r} is blank or "
+                "padded; it must be the housenumber exactly as projected."
+            )
+        if not isinstance(reason, str) or not reason.strip():
+            raise ValueError(
+                f"{origin} [skip] housenumbers {number!r} = {reason!r} gives "
+                "no reason. Say why this number is not an address — the "
+                "reason is what the operator sees on every skipped candidate."
+            )
+        out[str(number)] = reason.strip()
+    return out
+
+
 DERIVED_NODE_TAGS = ("addr:housenumber", "addr:street", "addr:postcode", "addr:source")
 
 
@@ -584,6 +627,10 @@ class Config:
     # where this city's source and OSM disagree about the actual name.
     # Empty for a city that declares none.
     street_overrides: dict[str, str]
+    # Projected housenumber -> why a row carrying it is not an address
+    # (Guelph's STREETNO "0" placeholders). Conflation SKIPs those
+    # candidates. Empty for a city that declares none.
+    skip_housenumbers: dict[str, str]
     # Operator-facing chrome: this city's repo, OSM thread, proposal and
     # open-data credit. Empty for a city that declares none.
     links: Links
@@ -757,6 +804,7 @@ def load() -> Config:
             cfg.get("status", {}), source_fields, str(toml_path)
         ),
         street_overrides=parse_street_overrides(cfg.get("streets", {}), str(toml_path)),
+        skip_housenumbers=parse_skip_housenumbers(cfg.get("skip", {}), str(toml_path)),
         links=parse_links(cfg.get("links", {}), str(toml_path)),
         default_bbox=bbox,  # type: ignore
         overpass_url=cfg["run_defaults"]["overpass_url"],

@@ -91,6 +91,16 @@ address_class = "props:ADDRESS_CLASS_DESC" # Land Entrance skip + Land dedup
 # intentionally has no short suffix — don't "fix" it by appending one.
 "Sunnyslope Ave" = "Sunny Slope"
 
+# Housenumbers that are not addresses, each with the reason the operator sees.
+# For sources that file placeholder points (bridges, park access) under a
+# number no door carries — Guelph's STREETNO "0". Conflation SKIPs any
+# candidate whose projected housenumber (after number_from / number_suffix,
+# i.e. exactly what would be uploaded) is a key here, ahead of matching, so it
+# lands in the skipped queue with this reason instead of auto-approving.
+# Omit the section when the source has none (Toronto, Hamilton).
+# [skip.housenumbers]
+# "0" = "Placeholder point with no civic number"
+
 # Operator-facing chrome — where the tool's own header and footer point for
 # this city. Everything is optional: omit the section and the pages fall back
 # to the engine's own repo and licence and show no city credit, rather than

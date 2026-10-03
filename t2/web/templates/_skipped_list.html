@@ -24,7 +24,10 @@
         <span class="pill ok" data-tip="{{ tip('verdict.MATCH') }}">MATCH</span>
         <span class="muted">already in OSM</span>
       {% elif it.verdict == 'SKIPPED' %}
-        {% if it.lo_num is not none and it.hi_num is not none and it.lo_num != it.hi_num %}
+        {% if it.housenumber in cfg.skip_housenumbers %}
+          <span class="pill" data-tip="{{ tip('reason.housenumber_skipped') }}">housenumber {{ it.housenumber }}</span>
+          <span class="muted">{{ cfg.skip_housenumbers[it.housenumber] }}</span>
+        {% elif it.lo_num is not none and it.hi_num is not none and it.lo_num != it.hi_num %}
           <span class="pill" data-tip="{{ tip('reason.range') }}">range</span>
         {% elif it.address_class and it.address_class != 'Land' %}
           <span class="pill" data-tip="{{ tip('reason.colocated_land') }}">colocated Land</span>
