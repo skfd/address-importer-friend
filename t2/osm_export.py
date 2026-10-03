@@ -93,13 +93,22 @@ def changeset_tags(run_id: int) -> dict[str, str]:
 
 
 def _load_upload_items(run_id: int) -> list[dict]:
-    """APPROVED candidates pending upload, with per-row data for tag building."""
+    """APPROVED candidates pending upload, with per-row data for tag building.
+
+    Every column `build_tags` reads must be selected here. It reads the dict it
+    is handed and treats a missing key as an empty value, so a column left out
+    does not fail — the tag silently stops reaching the changeset while the
+    review preview, which builds from its own query, still shows it. That is
+    how addr:unit and addr:flats went missing from every upload between the
+    commit that taught build_tags to write them and 2026-10-03.
+    """
     conn = _db.connect()
     try:
         rows = conn.execute(
             """
             SELECT c.candidate_id, c.local_node_id, c.osm_node_id,
                    c.housenumber, c.street_raw, c.lat, c.lon,
+                   c.unit, c.flats,
                    cf.proposed_postcode
             FROM candidates c
             LEFT JOIN conflation cf ON cf.run_id = c.run_id AND cf.candidate_id = c.candidate_id
