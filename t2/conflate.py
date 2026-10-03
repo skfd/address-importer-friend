@@ -88,6 +88,20 @@ class GridIndex:
         return out
 
 
+class MatchIndex(GridIndex):
+    """The grid, plus every addressed area keyed by its address.
+
+    The grid holds each element at its centre, so a park or school whose
+    centre is a few hundred metres from the candidate never comes back from
+    `query`, even with the candidate standing inside it. `areas` lets
+    `_classify` find those by address instead of by position.
+    """
+
+    def __init__(self, cell_size_deg: float = 0.002):
+        super().__init__(cell_size_deg)
+        self.areas: dict[tuple[str, str], list[dict]] = defaultdict(list)
+
+
 
 
 POI_TAG_KEYS = frozenset((
@@ -155,7 +169,7 @@ def build_osm_index(elements: list[dict]) -> tuple[GridIndex, GridIndex]:
         for nid in el.get("nodes") or ():
             interp_node_ids.add(nid)
 
-    match_idx = GridIndex()
+    match_idx = MatchIndex()
     poi_idx = GridIndex()
     for el in elements:
         tags = el.get("tags") or {}
@@ -179,6 +193,8 @@ def build_osm_index(elements: list[dict]) -> tuple[GridIndex, GridIndex]:
             _index_listing(el, tags)
         target = poi_idx if _is_poi_node(el) else match_idx
         target.add(el, float(lat), float(lon))
+        if target is match_idx and el.get("bounds"):
+            match_idx.areas[(el["_norm_number"], el["_norm_street"])].append(el)
     return match_idx, poi_idx
 
 
@@ -228,6 +244,19 @@ def _match_kind(el: dict, c_num: str, c_street_norm: str, c_unit: str) -> str | 
     return None
 
 
+def _distance_m(el: dict, o_lat: float, o_lon: float, lat: float, lon: float) -> float:
+    """How far the candidate is from this element: to the centre for a node,
+    to the edge of the bounding box for an area (0 inside it). A park or
+    school that carries the address is "already in OSM" for every point
+    within the radius of its edge, however far away its centre is."""
+    b = el.get("bounds")
+    if not b:
+        return haversine(lat, lon, o_lat, o_lon)
+    near_lat = min(max(lat, b["minlat"]), b["maxlat"])
+    near_lon = min(max(lon, b["minlon"]), b["maxlon"])
+    return haversine(lat, lon, near_lat, near_lon)
+
+
 def _inside_bounds(el: dict, lat: float, lon: float) -> bool:
     """Is the candidate point inside the element's bounding box? A civic point
     inside a building's footprint is not "far" from it however big the
@@ -269,9 +298,11 @@ def _classify(
     beyond that = MATCH_FAR (operator review). No match → MISSING, plus a
     same-address POI node from poi_idx (if any) attached as acknowledgment.
 
-    Under per-door-or-collapse, for any polygon match, a candidate inside the
-    element's bounds is MATCH however far the centre is: the distance to a
-    building's centre is its footprint, not an error. (MATCH_LISTED, a door
+    For an area the distance is to the edge of its bounding box, not its
+    centre, and areas are also looked up by address, not only by grid cell:
+    a candidate inside a park, school or building that carries the address is
+    MATCH however far the centre is, and one within the radius of its edge is
+    MATCH_FAR. The distance to a centre is the footprint, not an error. (MATCH_LISTED, a door
     satisfied by a building's listing, was withdrawn 2026-10-01; see
     `_match_kind`. Rows from earlier runs still carry it.)
     """
@@ -287,8 +318,11 @@ def _classify(
     # pick deterministically — GridIndex.query order depends on dict insertion
     # and isn't stable across refactors.
     best_match: tuple[float, int, dict] | None = None
-    for o_lat, o_lon, osm in match_idx.query(c_lat, c_lon):
-        dist = haversine(c_lat, c_lon, o_lat, o_lon)
+    nearby = list(match_idx.query(c_lat, c_lon))
+    for area in getattr(match_idx, "areas", {}).get((c_num, c_street_norm), ()):
+        nearby.append((None, None, area))
+    for o_lat, o_lon, osm in nearby:
+        dist = _distance_m(osm, o_lat, o_lon, c_lat, c_lon)
         if dist > match_radius_m:
             continue
         if _match_kind(osm, c_num, c_street_norm, c_unit) is None:

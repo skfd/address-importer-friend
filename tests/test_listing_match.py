@@ -138,10 +138,10 @@ def test_an_exact_door_node_beats_a_nearer_listing(unit_aware):
 
 
 def test_a_civic_point_inside_the_buildings_bounds_is_not_far(unit_aware):
-    # 25 m from the centre of a big footprint, inside its bounds: MATCH.
-    # Outside the bounds at the same distance: MATCH_FAR, as before.
-    inside = _verdict(_cand(flats="1-40", lat=43.5 + 25 / 111320.0), [_way(1, "714", unit="1-40", half=0.001)])
-    outside = _verdict(_cand(flats="1-40", lat=43.5 + 25 / 111320.0), [_way(1, "714", unit="1-40", half=0.0001)])
+    # 40 m from the centre of a big footprint, inside its bounds: MATCH.
+    # Outside a small one at the same distance, ~29 m past its edge: MATCH_FAR.
+    inside = _verdict(_cand(flats="1-40", lat=43.5 + 40 / 111320.0), [_way(1, "714", unit="1-40", half=0.001)])
+    outside = _verdict(_cand(flats="1-40", lat=43.5 + 40 / 111320.0), [_way(1, "714", unit="1-40", half=0.0001)])
     assert (inside, outside) == ("MATCH", "MATCH_FAR")
 
 
