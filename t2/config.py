@@ -77,6 +77,13 @@ class SourceFields:
     # 155A as STREETNO "155" + QUALIFIER "A" on 206 rows, and its ADDRESS
     # carries the unit too, so number_from cannot reach it (2026-10-03).
     number_suffix: str | None = None
+    # "props:<KEY>" | None. The source's own postal code, written as
+    # addr:postcode on created nodes once it passes [postcode] (Guelph's
+    # POSTCODE, on 48,957 of 53,847 active rows at snapshot 47). Declaring it
+    # obliges a [postcode] prefixes list, the same lie-together contract as
+    # unit and status: a source value is only written once the city has said
+    # which ones are believable.
+    postcode: str | None = None
 
     def declares(self, name: str) -> bool:
         """True when the optional field ``name`` is mapped for this city."""
@@ -93,10 +100,17 @@ class SourceFields:
             return None
         return self.address_class.removeprefix("props:")
 
+    @property
+    def postcode_key(self) -> str | None:
+        """The props key holding the postal code, or None if undeclared."""
+        if self.postcode is None:
+            return None
+        return self.postcode.removeprefix("props:")
+
 
 _SOURCE_FIELD_OPTIONAL = (
     "municipality", "ward", "lo_num", "lo_num_suf", "hi_num", "hi_num_suf",
-    "address_class", "unit", "status", "number_suffix",
+    "address_class", "unit", "status", "number_suffix", "postcode",
 )
 
 
@@ -309,6 +323,82 @@ class Links:
 
 
 _LINK_KEYS = ("repo", "discussion", "proposal", "open_data")
+
+
+# A Canadian postal code: forward sortation area, space, local delivery unit.
+# D, F, I, O, Q and U never appear; W and Z never lead. Every city in the
+# portfolio is Ontario, so this is the engine's format rather than a city's.
+_POSTCODE_RE = re.compile(r"^[ABCEGHJ-NPRSTVXY]\d[ABCEGHJ-NPRSTV-Z] \d[ABCEGHJ-NPRSTV-Z]\d$")
+_FSA_RE = re.compile(r"^[ABCEGHJ-NPRSTVXY]\d[ABCEGHJ-NPRSTV-Z]$")
+
+
+def parse_postcode_policy(
+    section: dict, sf: SourceFields, origin: str = "config.toml"
+) -> tuple[str, ...] | None:
+    """Validate the [postcode] section against the [source_fields] declaration.
+
+    A source postcode is only written when it is a well-formed postal code
+    whose forward sortation area is on the city's declared list. The list is
+    required rather than inferred because the failure it guards against is
+    plausible-looking data: Guelph's layer carries a Peterborough code at 254
+    Colonial Drive, a Toronto one at 91 Poppy Drive East and a Burlington one
+    at 88 Decorso Drive (2026-10-03), well-formed every one, and an address
+    node in Guelph would carry them forever. Same lie-together shape as
+    [units] and [status]: declaring the field without the list, or the list
+    without the field, is refused."""
+    unknown = sorted(set(section) - {"prefixes"})
+    if unknown:
+        raise ValueError(
+            f"{origin} [postcode] has unknown key(s) {unknown}; the only key is "
+            "'prefixes'."
+        )
+    prefixes = section.get("prefixes")
+    if prefixes is None:
+        if sf.declares("postcode"):
+            raise ValueError(
+                f"{origin} [source_fields] declares postcode = {sf.postcode!r} "
+                "but has no [postcode] prefixes. List the forward sortation "
+                "areas the city's postcodes may start with (e.g. ['N1E', "
+                "'N1G']) — a source postcode is never written unchecked."
+            )
+        return None
+    if not sf.declares("postcode"):
+        raise ValueError(
+            f"{origin} [postcode] prefixes = {prefixes!r} but [source_fields] "
+            "declares no postcode field — nothing to check. Declare "
+            "postcode = 'props:<KEY>', or remove the section."
+        )
+    if (
+        not isinstance(prefixes, list)
+        or not prefixes
+        or not all(isinstance(v, str) and _FSA_RE.match(v) for v in prefixes)
+    ):
+        raise ValueError(
+            f"{origin} [postcode] prefixes = {prefixes!r} is invalid; expected "
+            "a non-empty list of upper-case forward sortation areas like 'N1E'."
+        )
+    return tuple(prefixes)
+
+
+def check_postcode(raw, prefixes: tuple[str, ...] | None) -> tuple[str | None, str | None]:
+    """(postcode, None) for a writable source value, (None, why) otherwise.
+
+    The value is upper-cased and given its one space ("n1h4e2" -> "N1H 4E2"),
+    the form 48,956 of Guelph's 48,957 values already take. Nothing else is
+    repaired: a value that is not a postal code, or is one from outside the
+    declared areas, is omitted — never guessed at, and never swapped for a
+    neighbour's. `why` is "empty", "format" or "prefix"; "empty" is not a
+    rejection, only the absence the POI fallback exists for."""
+    value = "" if raw is None else str(raw).strip().upper()
+    if value in ("", "NONE"):
+        return None, "empty"
+    compact = re.sub(r"\s+", "", value)
+    value = f"{compact[:3]} {compact[3:]}" if len(compact) == 6 else value
+    if not _POSTCODE_RE.match(value):
+        return None, "format"
+    if prefixes is not None and value[:3] not in prefixes:
+        return None, "prefix"
+    return value, None
 
 
 def parse_links(section: dict, origin: str = "config.toml") -> Links:
@@ -623,6 +713,9 @@ class Config:
     # None (no status field) or the tuple of status values whose rows are
     # importable reality; everything else is filtered from every source query.
     status_active_values: tuple[str, ...] | None
+    # None (no postcode field) or the forward sortation areas a source
+    # postcode must start with to be written. See parse_postcode_policy.
+    postcode_prefixes: tuple[str, ...] | None
     # Source spelling -> OSM-canonical name, for the handful of streets
     # where this city's source and OSM disagree about the actual name.
     # Empty for a city that declares none.
@@ -802,6 +895,9 @@ def load() -> Config:
         units_policy=parse_units_policy(cfg.get("units", {}), source_fields, str(toml_path)),
         status_active_values=parse_status_policy(
             cfg.get("status", {}), source_fields, str(toml_path)
+        ),
+        postcode_prefixes=parse_postcode_policy(
+            cfg.get("postcode", {}), source_fields, str(toml_path)
         ),
         street_overrides=parse_street_overrides(cfg.get("streets", {}), str(toml_path)),
         skip_housenumbers=parse_skip_housenumbers(cfg.get("skip", {}), str(toml_path)),

@@ -38,7 +38,7 @@
       {% if it.poi_osm_id %}
         <span class="pill" data-tip="{{ tip('pill.poi_acknowledged') }}">POI</span>
       {% endif %}
-      {% if it.proposed_postcode %}
+      {% if it.proposed_postcode and not it.postcode %}
         <span class="pill" data-tip="{{ tip('pill.postcode_from_poi') }}">+postcode</span>
       {% endif %}
       {% if it.dup_sibling_candidate_id %}

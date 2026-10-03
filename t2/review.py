@@ -35,7 +35,10 @@ def _poi_where(
     if poi_ack:
         clauses.append("cf.poi_osm_id IS NOT NULL")
     if postcode_from_poi:
-        clauses.append("cf.proposed_postcode IS NOT NULL AND cf.proposed_postcode != ''")
+        # Only where the POI's postcode is the one that uploads: a usable
+        # source postcode outranks it (osm_export.build_tags).
+        clauses.append("cf.proposed_postcode IS NOT NULL AND cf.proposed_postcode != ''"
+                       " AND c.postcode IS NULL")
     if verdicts:
         placeholders = ",".join("?" for _ in verdicts)
         clauses.append(f"cf.verdict IN ({placeholders})")
@@ -165,7 +168,7 @@ def queue(
                        cf.verdict, cf.nearest_osm_id, cf.nearest_osm_type, cf.nearest_dist_m,
                        cf.poi_osm_id, cf.proposed_postcode,
                        cf.dup_sibling_candidate_id, cf.dup_sibling_dist_m,
-                       c.unit, c.flats, c.unit_shape, c.civic_key
+                       c.unit, c.flats, c.unit_shape, c.civic_key, c.postcode
                 FROM review_items r
                 JOIN candidates c USING (run_id, candidate_id)
                 LEFT JOIN conflation cf USING (run_id, candidate_id)
@@ -189,7 +192,7 @@ def queue(
                        cf.verdict, cf.nearest_osm_id, cf.nearest_osm_type, cf.nearest_dist_m,
                        cf.poi_osm_id, cf.proposed_postcode,
                        cf.dup_sibling_candidate_id, cf.dup_sibling_dist_m,
-                       c.unit, c.flats, c.unit_shape, c.civic_key
+                       c.unit, c.flats, c.unit_shape, c.civic_key, c.postcode
                 FROM candidates c
                 LEFT JOIN review_items r USING (run_id, candidate_id)
                 LEFT JOIN conflation cf USING (run_id, candidate_id)

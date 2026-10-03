@@ -29,7 +29,7 @@
   · <span class="pill" data-tip="{{ tip('pill.poi_acknowledged') }}">POI acknowledged:
     <a href="https://www.openstreetmap.org/edit?editor=id&{{ candidate.poi_osm_type }}={{ candidate.poi_osm_id }}" target="_blank" rel="noopener">{{ candidate.poi_osm_type }} #{{ candidate.poi_osm_id }}</a>{% if candidate.poi_tags and candidate.poi_tags.name %} — {{ candidate.poi_tags.name }}{% endif %}</span>
   {% endif %}
-  {% if candidate.proposed_postcode %}
+  {% if candidate.proposed_postcode and not candidate.postcode %}
   · <span class="pill" data-tip="{{ tip('pill.postcode_from_poi') }}">postcode from POI: {{ candidate.proposed_postcode }}</span>
   {% endif %}
   {% if candidate.dup_sibling_candidate_id %}

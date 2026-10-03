@@ -145,11 +145,16 @@ def test_unavailable_checks_per_city():
     # Neither city declares a unit field, so unit_shape_ambiguous cannot run
     # for either — and says so, rather than passing everything silently. That
     # is the point of gating: "could not run" must not read as "found nothing".
-    assert unavailable_checks(TORONTO) == {"unit_shape_ambiguous": "unit"}
+    # Neither publishes a postcode either, so postcode_mismatch is off too.
+    assert unavailable_checks(TORONTO) == {
+        "unit_shape_ambiguous": "unit",
+        "postcode_mismatch": "postcode",
+    }
     assert unavailable_checks(HAMILTON) == {
         "suffix_range": "lo_num, hi_num",
         "intra_source_duplicate": "address_class",
         "unit_shape_ambiguous": "unit",
+        "postcode_mismatch": "postcode",
     }
 
 

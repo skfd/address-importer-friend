@@ -46,6 +46,16 @@ address_class = "props:ADDRESS_CLASS_DESC" # Land Entrance skip + Land dedup
 # unit = "unit" | "props:<KEY>" — declare when the source publishes one row
 # per unit (Toronto doesn't). Declaring it REQUIRES a [units] policy; see
 # future-work/multi-city/09-units.md.
+# postcode = "props:<KEY>" — the source's own postal code, written as
+# addr:postcode on created nodes (Toronto's source has none, so its nodes get
+# one only from a same-address POI). Declaring it REQUIRES [postcode] below.
+
+# Required iff [source_fields] declares `postcode`: the forward sortation
+# areas a source postcode must start with. A value that is not a well-formed
+# postal code, or is outside these, is omitted from the node and audited as
+# POSTCODE_REJECTED — never repaired. Guelph's, for example:
+# [postcode]
+# prefixes = ["N1C", "N1E", "N1G", "N1H", "N1K", "N1L"]
 
 # Required iff [source_fields] declares `unit`. The only policy so far is
 # "collapse-to-civic": one candidate per (number, street, municipality), the

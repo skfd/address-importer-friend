@@ -1350,7 +1350,7 @@ def create_app() -> Flask:
                 SELECT c.candidate_id, c.address_full, c.housenumber, c.street_raw,
                        c.lat, c.lon, c.stage_updated_at, c.address_class, c.municipality_name,
                        cf.verdict, cf.nearest_osm_id, cf.nearest_osm_type, cf.nearest_dist_m,
-                       cf.poi_osm_id, cf.proposed_postcode,
+                       cf.poi_osm_id, cf.proposed_postcode, c.postcode,
                        r.status AS review_status, r.prior_auto_approved
                 FROM candidates c
                 LEFT JOIN conflation cf USING (run_id, candidate_id)
@@ -1390,7 +1390,7 @@ def create_app() -> Flask:
                        c.municipality_name,
                        cf.verdict, cf.nearest_osm_id, cf.nearest_osm_type, cf.nearest_dist_m,
                        cf.poi_osm_id, cf.proposed_postcode,
-                       cf.dup_sibling_candidate_id, cf.dup_sibling_dist_m,
+                       cf.dup_sibling_candidate_id, cf.dup_sibling_dist_m, c.postcode,
                        r.status AS review_status
                 FROM candidates c
                 LEFT JOIN conflation cf USING (run_id, candidate_id)

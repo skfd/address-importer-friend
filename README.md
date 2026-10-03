@@ -230,7 +230,20 @@ as `disused:amenity` or `amenity:disused` — see `POI_TAG_KEYS` /
 `LIFECYCLE_QUALIFIERS` in `t2/conflate.py`) are **ignored** for matching: their address
 is a courtesy annotation, not the canonical address feature. When a POI sits at
 a MISSING candidate's address, the review UI acknowledges it with a pill, and
-any `addr:postcode` on the POI is copied into the proposed upload tags.
+any `addr:postcode` on the POI is copied into the proposed upload tags — unless
+the source row has a usable postcode of its own, which comes first.
+
+**Source postcodes.** A city whose source publishes postal codes declares
+`[source_fields] postcode = "props:<KEY>"` and, obligatorily, a `[postcode]
+prefixes` list of the forward sortation areas its codes may start with. At
+ingest a value is upper-cased and given its space ("N1H4E2" -> "N1H 4E2") and
+nothing else: one that is not a well-formed Canadian postal code, or starts
+outside the list, is left off the node and audited as `POSTCODE_REJECTED` (the
+`CANDIDATE_INGESTED` event counts them). Existing OSM objects are never
+retagged; when a MATCHed object's `addr:postcode` differs from the source's
+(ignoring spacing and case), the `postcode_mismatch` check puts it in the
+review queue instead. A city that declares no postcode — Toronto, Hamilton —
+writes exactly what it did before.
 
 Even after that filter, a matched "pure address" node can quietly carry
 non-address tags (`name`, `ref`, `entrance`). The `potential_amenity` check

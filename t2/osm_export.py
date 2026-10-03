@@ -108,7 +108,7 @@ def _load_upload_items(run_id: int) -> list[dict]:
             """
             SELECT c.candidate_id, c.local_node_id, c.osm_node_id,
                    c.housenumber, c.street_raw, c.lat, c.lon,
-                   c.unit, c.flats,
+                   c.unit, c.flats, c.postcode,
                    cf.proposed_postcode
             FROM candidates c
             LEFT JOIN conflation cf ON cf.run_id = c.run_id AND cf.candidate_id = c.candidate_id
@@ -373,6 +373,12 @@ def build_tags(it: dict) -> dict[str, str]:
     alike. `conflate._proposed_tags` calls this and adds only its POI-postcode
     fallback on top, so the review UI cannot drift from the changeset again.
 
+    addr:postcode is the source's own (`postcode`, written at ingest only after
+    `config.check_postcode` accepted it) where the city declares one, and the
+    same-address POI's (`proposed_postcode`) only where the source row has
+    none it could use. A city that declares no postcode has the column NULL on
+    every row, so it gets exactly the POI fallback it always had.
+
     Emits a pure address node regardless of address_class — Structure Entrance
     rows are uploaded as plain addresses, not as entrance=yes nodes (see
     IMPORT_PROPOSAL_CHANGELOG.md 2026-05-06).
@@ -406,7 +412,7 @@ def build_tags(it: dict) -> dict[str, str]:
         "addr:street": street,
         "addr:source": _CONFIG.export_attribution,
     }
-    postcode = (it.get("proposed_postcode") or "").strip()
+    postcode = (it.get("postcode") or it.get("proposed_postcode") or "").strip()
     if postcode:
         tags["addr:postcode"] = postcode
     # addr:unit and addr:flats differ in kind, not in spelling: the first says

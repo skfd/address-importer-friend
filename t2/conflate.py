@@ -326,7 +326,8 @@ def _proposed_tags(cand_row: dict, poi_tags: dict | None = None) -> dict[str, st
     Output does not merely match what osm_export writes — it *is* what
     osm_export writes: this delegates to `build_tags`, and adds only the one
     thing review knows that the upload path does not, a postcode read off a
-    matched POI when the source row carries none.
+    matched POI when the source row carries none (a usable source postcode
+    is already in `build_tags`' output, so the POI's never displaces it).
     """
     tags = osm_export.build_tags(cand_row)
     if "addr:postcode" not in tags and poi_tags:
@@ -454,7 +455,8 @@ def run(run_id: int, osm_snapshot_hash: str, match_radius_m: float, match_near_m
             # without them here every door compared as the bare civic point,
             # MATCHed the building's node and was SKIPPED as already in OSM.
             "SELECT candidate_id, address_full, housenumber, street_raw, street_norm, lat, lon, "
-            "       lo_num, hi_num, address_class, municipality_name, unit, flats, civic_key "
+            "       lo_num, hi_num, address_class, municipality_name, unit, flats, civic_key, "
+            "       postcode "
             "FROM candidates WHERE run_id = ? AND stage = 'INGESTED'",
             (run_id,),
         ).fetchall()

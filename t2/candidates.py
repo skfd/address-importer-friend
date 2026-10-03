@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from . import audit, config as _config, db as _db, source_db, unit_verdicts, units
 
 _SOURCE_FIELDS = _config.load().source_fields
+_POSTCODE_PREFIXES = _config.load().postcode_prefixes
 
 
 def _street_from_row(row: dict) -> str:
@@ -28,6 +29,47 @@ def _build_polygon(polygon_latlon: list):
         return None
     shell = [(lon, lat) for lat, lon in polygon_latlon[0]]
     return Polygon(shell)
+
+
+def _source_postcode(extra_raw) -> tuple[str | None, str | None, str | None]:
+    """(postcode, raw, why) for one source row's props.
+
+    All three are None for a city that declares no [source_fields] postcode,
+    so the column stays NULL and nothing else is read. Otherwise `postcode` is
+    the normalized value config.check_postcode accepted, or None with `why`
+    saying what was wrong with `raw`."""
+    key = _SOURCE_FIELDS.postcode_key
+    if not key:
+        return None, None, None
+    try:
+        raw = (json.loads(extra_raw) if extra_raw else {}).get(key)
+    except (ValueError, TypeError):
+        raw = None
+    value, why = _config.check_postcode(raw, _POSTCODE_PREFIXES)
+    return value, raw, why
+
+
+def _log_postcode_rejection(conn, run_id: int, row: dict) -> bool:
+    """Audit a source postcode that was present but not written. True if so.
+
+    "Omitted and counted, not guessed": the node is still created, without
+    addr:postcode (or with a same-address POI's, if conflation finds one), and
+    the value it did not get stays findable per candidate."""
+    _value, raw, why = _source_postcode(row.get("extra"))
+    if why not in ("format", "prefix"):
+        return False
+    audit.log(
+        actor="pipeline", event_type="POSTCODE_REJECTED",
+        run_id=run_id, candidate_id=row["address_point_id"],
+        payload={"value": raw, "reason": why}, conn=conn,
+    )
+    return True
+
+
+def _postcode_tally(rejected: int) -> dict:
+    """The ingest audit's postcode count — absent, not zero, for a city that
+    declares no postcode, so its CANDIDATE_INGESTED payload does not move."""
+    return {"postcode_rejected": rejected} if _SOURCE_FIELDS.postcode_key else {}
 
 
 def _candidate_values(
@@ -72,6 +114,7 @@ def _candidate_values(
     # IMPORT_PROPOSAL.mediawiki § Goals and non-goals.
     if address_class == "Land Entrance":
         return None
+    postcode, _raw, _why = _source_postcode(extra_raw)
     return (
         run_id,
         row["address_point_id"],
@@ -93,6 +136,7 @@ def _candidate_values(
         shape,
         shape_reason,
         civic_key,
+        postcode,
         "INGESTED",
         now,
     )
@@ -103,8 +147,8 @@ _INSERT_SQL = """
       (run_id, candidate_id, address_full, housenumber, street_raw, street_norm,
        lat, lon, lo_num, lo_num_suf, hi_num, hi_num_suf, extra_json,
        address_class, municipality_name, unit, flats, unit_shape,
-       unit_shape_reason, civic_key, stage, stage_updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       unit_shape_reason, civic_key, postcode, stage, stage_updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 """
 
 
@@ -258,7 +302,7 @@ def ingest_rows(run_id: int, rows) -> int:
             "needs addr:flats modified rather than a node created. Run the "
             "tile path, and route source deltas to a QA finding."
         )
-    inserted = 0
+    inserted = rejected = 0
     now = datetime.now(timezone.utc).isoformat()
     conn = _db.connect()
     try:
@@ -270,11 +314,13 @@ def ingest_rows(run_id: int, rows) -> int:
             cur = conn.execute(_INSERT_SQL, values)
             if cur.rowcount > 0:
                 inserted += 1
+                rejected += _log_postcode_rejection(conn, run_id, row)
         audit.log(
             actor="pipeline",
             event_type="CANDIDATE_INGESTED",
             run_id=run_id,
-            payload={"inserted": inserted, "source": "maintenance_delta"},
+            payload={"inserted": inserted, "source": "maintenance_delta",
+                     **_postcode_tally(rejected)},
             conn=conn,
         )
         conn.execute("COMMIT")
@@ -316,7 +362,7 @@ def ingest(
             return polygon.contains(point_cls(lon, lat))
         return min_lat <= lat <= max_lat and min_lon <= lon <= max_lon
 
-    inserted = 0
+    inserted = rejected = 0
     now = datetime.now(timezone.utc).isoformat()
     conn = _db.connect()
     try:
@@ -330,11 +376,13 @@ def ingest(
             cur = conn.execute(_INSERT_SQL, values)
             if cur.rowcount > 0:
                 inserted += 1
+                rejected += _log_postcode_rejection(conn, run_id, row)
         audit.log(
             actor="pipeline",
             event_type="CANDIDATE_INGESTED",
             run_id=run_id,
-            payload={"inserted": inserted, "snapshot_id": snapshot_id, "bbox": list(bbox)},
+            payload={"inserted": inserted, "snapshot_id": snapshot_id, "bbox": list(bbox),
+                     **_postcode_tally(rejected)},
             conn=conn,
         )
         conn.execute("COMMIT")
