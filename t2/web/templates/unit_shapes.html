@@ -29,6 +29,7 @@
   .tile-civic-only { border-left-color: #f59e0b; }
   .tile-review     { border-left-color: #dc2626; }
   .tile-skip       { border-left-color: #6b7280; }
+  .tile-split      { border-left-color: #0d9488; }
   .callout { background: #fffbeb; border-left: 3px solid #f59e0b; padding: .5rem .75rem;
              margin: .6rem 0; font-size: .86rem; }
   .why { color: #6b7280; font-size: .82rem; }
@@ -164,7 +165,7 @@
   frontage is doors; several buildings each holding a few dots is several
   buildings on one civic number; dots scattered along a plaza are storefronts.
   Scroll to read; the card under the upper third of the screen is the one the keys act on: <kbd>n</kbd> nodes, <kbd>c</kbd> collapse,
-  <kbd>o</kbd> civic-only, <kbd>s</kbd> skip, <kbd>r</kbd> back to the rule,
+  <kbd>o</kbd> civic-only, <kbd>p</kbd> split, <kbd>s</kbd> skip, <kbd>r</kbd> back to the rule,
   <kbd>j</kbd>/<kbd>k</kbd> next and previous.
 </div>
 <div id="q-where" aria-live="polite"></div>
@@ -355,7 +356,7 @@
     });
     if (cards[0]) setCurrent(cards[0], false);
 
-    var KEYS = { n: 'nodes', c: 'collapse', o: 'civic-only', s: 'skip', r: 'rule' };
+    var KEYS = { n: 'nodes', c: 'collapse', o: 'civic-only', p: 'split', s: 'skip', r: 'rule' };
     document.addEventListener('keydown', function (e) {
       if (!current || e.ctrlKey || e.metaKey || e.altKey) return;
       var t = e.target;

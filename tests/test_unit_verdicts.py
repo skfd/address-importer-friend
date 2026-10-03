@@ -494,3 +494,50 @@ def test_the_listing_filter_hides_groups_osm_does_not_list(tool_db, monkeypatch)
     client = _client(monkeypatch)
     assert "No civic groups in this shape." in client.get("/units/shapes?osm=listing").get_data(as_text=True)
     assert "7 Test Street" in client.get("/units/shapes").get_data(as_text=True)
+
+
+# --- split: a tower with a row of townhouses on the same civic number -----------
+
+
+def _tower_with_rows():
+    # 53 Arthur Street South in miniature: floor-coded suites in one spot, a
+    # lettered row of doors 5.5 m apart, and a lower level that is a floor.
+    tower = [_src(f"u{f}{n}", f"{f}{n:02d}", spacing_m=0.5, index=n) for f in range(1, 5) for n in range(1, 4)]
+    row = [_src(f"rl{i}", f"RL{i}", index=i, spacing_m=5.5, lon=-80.251) for i in range(1, 5)]
+    lower = [_src(f"ll{i}", f"LL0{i}", index=i, spacing_m=0.5) for i in range(1, 3)]
+    return tower + row + lower
+
+
+def test_split_doors_takes_the_sequential_lettered_row_and_leaves_the_floors():
+    rows = [{"unit": r["unit_name"], "lat": r["latitude"], "lon": r["longitude"]} for r in _tower_with_rows()]
+    assert units.split_doors(rows) == {"RL1", "RL2", "RL3", "RL4"}
+
+
+def test_split_emits_the_row_as_doors_and_lists_only_the_suites():
+    out = _emit(_tower_with_rows(), "split")
+    doors = [(u, s) for _pid, u, _f, s, _w in out if u]
+    building = [(f, s) for _pid, u, f, s, _w in out if u is None]
+    assert sorted(doors) == [("RL1", "nodes"), ("RL2", "nodes"), ("RL3", "nodes"), ("RL4", "nodes")]
+    assert len(building) == 1 and building[0][1] == "collapse"
+    assert "RL" not in building[0][0] and "LL01;LL02" in building[0][0] and "101-103" in building[0][0]
+    page = _outcome(_tower_with_rows(), "split")
+    assert page["shape"] == "split" and page["nodes_created"] == len(out) == 5
+    assert page["flats"] == building[0][0]
+
+
+def test_split_with_no_door_row_falls_back_to_collapse_and_says_so():
+    shape, reason, flats = units.resolve(units.COLLAPSE, "floor-coded", ["101", "201"], "split", set())
+    assert shape == "collapse" and "found no door row" in reason and flats
+
+
+def test_a_split_verdict_saves_and_shows_its_doors(tool_db, monkeypatch):
+    unit_shapes = _synthetic_base(monkeypatch)
+    monkeypatch.setattr(unit_shapes, "_osm_index", lambda: {})
+    group = _tower_with_rows()
+    base = unit_shapes._base(1)["rows"][0]
+    listed = units.listed_units(r["unit_name"] for r in group)
+    base.update(units=listed, unit_hash=units.unit_hash(listed), row_count=len(group),
+                points=[(r["unit_name"], r["latitude"], r["longitude"]) for r in group])
+    row = unit_shapes.decide(KEY, "split")
+    assert row["shape"] == "split" and row["split_doors"] == ["RL1", "RL2", "RL3", "RL4"]
+    assert row["nodes_created"] == 5

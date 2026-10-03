@@ -152,8 +152,26 @@ def _emit_group(group: list[dict], in_tile, override: str | None = None):
         ]
     )
     listed = units.listed_units(r.get("unit_name") for r in group)
-    shape, reason, flats = units.resolve(verdict, reason, listed, override)
+    doors = None
+    if override == "split":
+        doors = units.split_doors(
+            {"unit": r.get("unit_name"), "lat": r.get("latitude"), "lon": r.get("longitude")}
+            for r in group
+        )
+    shape, reason, flats = units.resolve(verdict, reason, listed, override, doors)
     if shape == "skip":
+        return
+    if shape == "split":
+        # The door rows as `nodes` and the building as `collapse`, so every
+        # consumer of unit_shape reads each candidate as the thing it is; the
+        # reason carries the split.
+        door_rows = [r for r in group if (r.get("unit_name") or "").strip() in doors]
+        for row in door_rows:
+            if in_tile(row):
+                yield row, row["unit_name"].strip(), None, "nodes", reason
+        rep = _elect([r for r in group if r not in door_rows])
+        if in_tile(rep):
+            yield rep, None, flats, "collapse", reason
         return
     if shape == "nodes":
         # Every row is its own address, the unit-less civic row included: the

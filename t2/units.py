@@ -76,7 +76,7 @@ NO_UNITS = "no-units"
 # its own -- it is for 252 Stone Road West, whose 140 "units" are storefronts
 # and where both a civic node and forty front doors would assert something
 # false.
-OVERRIDES = ("nodes", "collapse", "civic-only", "skip")
+OVERRIDES = ("nodes", "collapse", "civic-only", "skip", "split")
 
 # An addr:unit value that is a *listing* rather than one designator: several
 # separated by semicolons, or a numeric range. `PH-2` and `A-1` stay single.
@@ -372,6 +372,37 @@ def classify(rows) -> tuple[str, str]:
     return NODES, f"sequential, {spacing:.1f} m apart"
 
 
+def split_doors(rows) -> set[str]:
+    """The units a `split` verdict makes into door nodes: every lettered
+    family (`AT1..AT8`, `RL1..RL6`) that is numbered in sequence rather than
+    floor-coded and spaced at least a door's width apart. Plain numbers stay
+    with the suites whatever their spacing -- they are what the tower is.
+
+    53 Arthur Street South is why this exists: 119 floor-coded suites in a
+    tower and two rows of townhouses on the same civic number. The rule can
+    only give a group one shape, and either one is wrong for half of it.
+    Only an operator's verdict invokes it; the rule never does, because
+    `LL01..LL06` beside floor codes is a lower level, not a row of doors.
+
+    `rows` are mappings with `unit`, `lat`, `lon`, as `classify` takes them.
+    """
+    families: dict[str, list[tuple[str, float, float]]] = defaultdict(list)
+    for r in rows:
+        unit = str(r.get("unit") or "").strip()
+        parsed = parse_unit(unit)
+        if parsed is None or not parsed[0] or r.get("lat") is None or r.get("lon") is None:
+            continue
+        families[parsed[0]].append((unit, r["lat"], r["lon"]))
+    doors: set[str] = set()
+    for members in families.values():
+        if len(members) < 2 or is_coded([m[0] for m in members]):
+            continue
+        spacing = _nearest_neighbour_spacing([(m[1], m[2]) for m in members])
+        if spacing is not None and spacing >= DOOR_SPACING_M:
+            doors.update(m[0] for m in members)
+    return doors
+
+
 # --- the decision both the emitter and the audit page make -----------------
 
 
@@ -452,7 +483,8 @@ def unit_hash(listed: list[str]) -> str:
 
 
 def resolve(
-    verdict: str, reason: str, listed: list[str], override: str | None = None
+    verdict: str, reason: str, listed: list[str], override: str | None = None,
+    doors: set[str] | None = None,
 ) -> tuple[str, str, str | None]:
     """What a civic group becomes, given the rule's verdict and any operator
     override. Returns (shape, reason, flats).
@@ -464,6 +496,8 @@ def resolve(
         civic-only  one node for the building and no listing
         review      collapsed, but the rule was not confident
         skip        nothing at all
+        split       the suites collapse and `doors` (from `split_doors`)
+                    become door nodes; the listing names the suites only
 
     `candidates._emit_group` and `unit_shapes._outcome` both go through here,
     so they cannot drift: if the page says a building collapses, that is what
@@ -494,6 +528,19 @@ def resolve(
     # candidate that says only "nodes" cannot tell a reviewer that the rule
     # wanted to collapse it and a person disagreed.
     said = f"override: rule said {verdict} ({reason})"
+    if override == "split":
+        stacked = [u for u in listed if u not in (doors or set())]
+        if not doors or not stacked:
+            # Nothing to split along: fall back to the safe shape, and say so.
+            flats, too_long = flats_tag(listed)
+            if too_long:
+                return "civic-only", f"override to split found no door row; {too_long}", None
+            return "collapse", f"override to split found no door row: {said}", flats
+        flats, too_long = flats_tag(stacked)
+        door_list = ";".join(sorted(doors, key=unit_sort_key))
+        if too_long:
+            return "split", f"{said}; doors {door_list}; suite listing dropped: {too_long}", None
+        return "split", f"{said}; doors {door_list}", flats
     if override == "collapse":
         flats, too_long = flats_tag(listed)
         if too_long:

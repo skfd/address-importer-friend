@@ -1,5 +1,9 @@
 {# What the group creates, in tags. Shared by the table row and the review card. #}
-    {% if r.flats %}
+    {% if r.shape == 'split' %}
+      {% if r.flats %}<code class="mono">addr:flats={{ r.flats }}</code>{% else %}<span class="why">one node, suite listing dropped</span>{% endif %}
+      <span class="why">plus {{ r.split_doors | length }} door nodes with <code>addr:unit</code>:
+        <span class="mono">{{ r.split_doors | join(';') }}</span></span>
+    {% elif r.flats %}
       <code class="mono">addr:flats={{ r.flats }}</code>
     {% elif r.shape == 'nodes' %}
       <span class="why">{{ r.nodes_created }} nodes, each with

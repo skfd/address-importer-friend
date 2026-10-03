@@ -62,6 +62,7 @@ SHAPES = (
     ("collapse", "one node, units listed"),
     ("civic-only", "one node, listing dropped"),
     ("review", "collapsed, but unsure"),
+    ("split", "suites listed, door rows as nodes"),
     ("skip", "nothing created"),
 )
 
@@ -72,6 +73,7 @@ CHOICES = (
     ("nodes", "one node per door"),
     ("collapse", "one node, units listed"),
     ("civic-only", "one node, no listing"),
+    ("split", "suites listed, lettered door rows as nodes"),
     ("skip", "create nothing"),
 )
 
@@ -92,20 +94,28 @@ def _outcome(group: list[dict], override: str | None = None) -> dict:
         ]
     )
     listed = units.listed_units(r.get("unit_name") for r in group)
-    shape, reason, flats = units.resolve(verdict, reason, listed, override)
+    doors = None
+    if override == "split":
+        doors = units.split_doors(
+            {"unit": r.get("unit_name"), "lat": r.get("latitude"), "lon": r.get("longitude")}
+            for r in group
+        )
+    shape, reason, flats = units.resolve(verdict, reason, listed, override, doors)
     return {
         "shape": shape,
         "verdict": verdict,
         "reason": reason,
         "flats": flats,
-        "nodes_created": _nodes_created(shape, len(group)),
+        "nodes_created": _nodes_created(shape, len(group), doors),
         "units": listed,
     }
 
 
-def _nodes_created(shape: str, row_count: int) -> int:
+def _nodes_created(shape: str, row_count: int, doors=None) -> int:
     if shape == "nodes":
         return row_count
+    if shape == "split":
+        return len(doors or ()) + 1
     if shape == "skip":
         return 0
     return 1
@@ -379,8 +389,13 @@ def _overlay(
     knowing it.
     """
     override = unit_verdicts.effective(saved, base_row["unit_hash"])
+    doors = None
+    if override == "split":
+        doors = units.split_doors(
+            {"unit": u, "lat": lat, "lon": lon} for u, lat, lon in base_row.get("points") or ()
+        )
     shape, reason, flats = units.resolve(
-        base_row["verdict"], base_row["rule_reason"], base_row["units"], override
+        base_row["verdict"], base_row["rule_reason"], base_row["units"], override, doors
     )
     osm = _osm_at(osm_index, base_row)
     frozen_why = None
@@ -398,7 +413,8 @@ def _overlay(
         "shape": shape,
         "reason": reason,
         "flats": flats,
-        "nodes_created": _nodes_created(shape, base_row["row_count"]),
+        "nodes_created": _nodes_created(shape, base_row["row_count"], doors),
+        "split_doors": sorted(doors, key=units.unit_sort_key) if shape == "split" else [],
         "saved": saved,
         "override": override,
         "stale": saved is not None and override is None,
@@ -444,7 +460,8 @@ def collect(snapshot_id: int | None = None) -> dict:
         "unit_total": sum(r["unit_count"] for r in rows),
         "nodes_created": nodes_created,
         "no_unit_groups": base["no_unit_groups"],
-        "door_nodes": sum(r["nodes_created"] for r in rows if r["shape"] == "nodes"),
+        "door_nodes": sum(r["nodes_created"] for r in rows if r["shape"] == "nodes")
+        + sum(len(r["split_doors"]) for r in rows if r["shape"] == "split"),
         "overridden": sum(1 for r in rows if r["override"]),
         "stale": sum(1 for r in rows if r["stale"]),
         "frozen": sum(1 for r in rows if r["frozen"]),
