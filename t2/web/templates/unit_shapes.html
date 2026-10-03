@@ -61,6 +61,10 @@
   .q-card { border: 1px solid #e5e7eb; border-radius: 6px; background: #fff;
             margin: 0 0 .6rem; border-left: 4px solid #d1d5db; }
   .q-card[open] { border-left-color: #6366f1; }
+  .q-pos { font-variant-numeric: tabular-nums; color: #6b7280; font-size: .8rem; margin-right: .4rem; }
+  #q-where { position: fixed; right: 1rem; bottom: 1rem; z-index: 1000; background: #1f2937; color: #fff;
+             padding: .35rem .7rem; border-radius: 999px; font: 600 .85rem/1.2 system-ui, sans-serif;
+             font-variant-numeric: tabular-nums; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
   .q-card.focus { box-shadow: 0 0 0 2px #fde047; }
   .q-card.kbd { box-shadow: 0 0 0 2px #6366f1; }
   .q-card summary { cursor: pointer; padding: .45rem .7rem; display: flex; gap: .5rem;
@@ -163,12 +167,14 @@
   <kbd>o</kbd> civic-only, <kbd>s</kbd> skip, <kbd>r</kbd> back to the rule,
   <kbd>j</kbd>/<kbd>k</kbd> next and previous.
 </div>
+<div id="q-where" aria-live="polite"></div>
 <div id="queue">
   {% for r in rows %}
     {# Every card open: the queue is read by scrolling, and a click is for
        changing a decision, not for seeing one. Maps draw as they near the
        viewport, so 400 open cards cost what the screen shows. #}
     {% set open_card = true %}
+    {% set q_pos, q_total = loop.index, loop.length %}
     {% include "_unit_shape_card.html" %}
   {% else %}
     <p class="muted">No civic groups in this view.</p>
@@ -322,6 +328,9 @@
       if (current) current.classList.remove('kbd');
       current = card;
       card.classList.add('kbd');
+      var where = document.getElementById('q-where');
+      if (where) where.textContent = (cards.indexOf(card) + 1) + ' / ' + cards.length
+        + ' · ' + card.querySelector('.addr').textContent;
       if (scroll) {
         card.open = true;
         card.scrollIntoView({ block: 'start', behavior: 'smooth' });

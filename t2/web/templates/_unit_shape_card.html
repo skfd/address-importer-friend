@@ -9,6 +9,7 @@
          data-lat="{{ r.lat or '' }}" data-lon="{{ r.lon or '' }}"
          {% if open_card %}open{% endif %}>
   <summary>
+    {% if q_total %}<span class="q-pos">{{ q_pos }}/{{ q_total }}</span>{% endif %}
     <span class="addr">{{ r.number }} {{ r.street }}</span>
     <span class="pill {% if r.shape == 'collapse' %}ok{% elif r.shape == 'review' %}bad{% elif r.shape == 'civic-only' %}warn{% elif r.shape == 'skip' %}off{% endif %}">{{ r.shape }}</span>
     {% if r.override %}<span class="by-hand" title="the rule said {{ r.verdict }}{% if r.saved and r.saved.note %} — {{ r.saved.note }}{% endif %}">{{ 'auto' if r.auto else 'by hand' }}</span>{% endif %}
