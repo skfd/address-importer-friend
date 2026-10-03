@@ -72,6 +72,11 @@ class SourceFields:
     # ONLY CIVIC_ADDR; its tracker number column is 100% NULL (2026-08-16).
     # Rejected together with full_from = "number+street" (circular).
     number_from: str = "number"
+    # "props:<KEY>" | None. A separate housenumber-qualifier column appended
+    # (upper-cased, no space) to whatever number_from projects: Guelph keeps
+    # 155A as STREETNO "155" + QUALIFIER "A" on 206 rows, and its ADDRESS
+    # carries the unit too, so number_from cannot reach it (2026-10-03).
+    number_suffix: str | None = None
 
     def declares(self, name: str) -> bool:
         """True when the optional field ``name`` is mapped for this city."""
@@ -91,7 +96,7 @@ class SourceFields:
 
 _SOURCE_FIELD_OPTIONAL = (
     "municipality", "ward", "lo_num", "lo_num_suf", "hi_num", "hi_num_suf",
-    "address_class", "unit", "status",
+    "address_class", "unit", "status", "number_suffix",
 )
 
 

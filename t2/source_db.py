@@ -136,26 +136,37 @@ def _spec_sql(spec: str, alias: str) -> str:
     return f"json_extract({p}props,'$.{key}')"
 
 
+def _number_base_sql(sf: _config.SourceFields, alias: str) -> str:
+    """The housenumber as number_from projects it, before any number_suffix."""
+    if sf.number_from.startswith("props:"):
+        # e.g. Thunder Bay's ADDRESS ("963 1/2", "688B") — the combined
+        # civic number with its qualifier, which the tracker's integer
+        # column drops (the hastings shape, 2026-08-16).
+        return _spec_sql(sf.number_from, alias)
+    p = f"{alias}." if alias else ""
+    if sf.number_from == "full":
+        # Leading whitespace token of the combined column (Waterloo's
+        # CIVIC_ADDR — the tracker number column is 100% NULL there).
+        # The trailing "|| ' '" makes single-token fulls terminate.
+        return f"NULLIF(SUBSTR({p}full, 1, INSTR({p}full || ' ', ' ') - 1),'')"
+    return f"{p}number"
+
+
 def field_sql(sf: _config.SourceFields, name: str, alias: str = "a") -> str:
     """SQL value expression (no AS) for a logical source field under recipe
     ``sf``. Undeclared optional fields project literal NULL — visible in the
     generated SQL rather than an absent key at runtime."""
     if name == "number":
-        if sf.number_from.startswith("props:"):
-            # e.g. Thunder Bay's ADDRESS ("963 1/2", "688B") — the combined
-            # civic number with its qualifier, which the tracker's integer
-            # column drops (the hastings shape, 2026-08-16).
-            return _spec_sql(sf.number_from, alias)
-        if sf.number_from == "full":
-            # Leading whitespace token of the combined column (Waterloo's
-            # CIVIC_ADDR — the tracker number column is 100% NULL there).
-            # The trailing "|| ' '" makes single-token fulls terminate.
-            p = f"{alias}." if alias else ""
-            return (
-                f"NULLIF(SUBSTR({p}full, 1, INSTR({p}full || ' ', ' ') - 1),'')"
-            )
-        p = f"{alias}." if alias else ""
-        return f"{p}number"
+        base = _number_base_sql(sf, alias)
+        if not sf.number_suffix:
+            return base
+        # Guelph's QUALIFIER: 155 + A -> 155A. NULL || x is NULL, so a row
+        # with no number stays number-less rather than becoming "A".
+        suffix = _spec_sql(sf.number_suffix, alias)
+        return (
+            f"({base} || COALESCE(UPPER(NULLIF(NULLIF(TRIM({suffix}),''),"
+            "'None')),''))"
+        )
     if name == "street":
         if sf.street_from == "full":
             # Derive the street by stripping the housenumber prefix from the
