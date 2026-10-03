@@ -38,12 +38,14 @@ def latest_snapshot_id(conn: sqlite3.Connection | None = None) -> int:
 
 
 def latest_snapshot_info(stale_after_days: int = 14) -> dict | None:
-    """Return {id, downloaded, age_days, is_stale} for the newest non-skipped
-    snapshot, or None if the source DB is unavailable or empty.
+    """Return {id, downloaded, age_days, is_stale}, or None if the source DB is
+    unavailable or empty. `id` is the newest non-skipped snapshot (the one with
+    address rows); `downloaded` and the age come from the newest row of any kind.
 
-    Used by the run-create UI to warn when the upstream source hasn't been
-    refreshed recently. The upstream publishes daily, so >14d stale means
-    we're building candidates against outdated address data.
+    Used by the run-create UI to warn when the tracker has stopped checking the
+    upstream. A skipped row is a check that found nothing new, so a source that
+    simply hasn't changed (Guelph went 16 days, 2026-09-17 to 10-03) is current,
+    not stale.
     """
     try:
         conn = connect_readonly()
@@ -51,19 +53,22 @@ def latest_snapshot_info(stale_after_days: int = 14) -> dict | None:
         return None
     try:
         row = conn.execute(
-            "SELECT id, downloaded FROM snapshots WHERE skipped = 0 ORDER BY id DESC LIMIT 1"
+            "SELECT id FROM snapshots WHERE skipped = 0 ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        checked = conn.execute(
+            "SELECT downloaded FROM snapshots ORDER BY id DESC LIMIT 1"
         ).fetchone()
     finally:
         conn.close()
     if not row:
         return None
-    ts = row["downloaded"]
+    ts = checked["downloaded"]
     age_days: float | None = None
     if ts:
         try:
             dt = datetime.fromisoformat(ts)
             if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
+                dt = dt.astimezone()  # the tracker writes local datetime.now()
             age_days = (datetime.now(timezone.utc) - dt).total_seconds() / 86400
         except (ValueError, TypeError):
             age_days = None
