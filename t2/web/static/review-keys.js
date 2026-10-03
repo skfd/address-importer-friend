@@ -141,7 +141,7 @@
             prev: 'No earlier neighbouring tile still needs review.',
             next: 'No further neighbouring tile still needs review.',
             hardest: 'No other tile with items for review found.',
-            easiest: 'No other tile with items for review found.',
+            easiest: 'No other tile with items to review or upload found.',
           };
           neighborMsg(msgs[direction] || 'No eligible tile found.');
         }

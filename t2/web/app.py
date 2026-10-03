@@ -731,21 +731,25 @@ def create_app() -> Flask:
         try:
             rows = conn.execute(
                 "SELECT r.run_id, r.upload_status, r.bbox_min_lat, r.bbox_min_lon, r.bbox_max_lat, r.bbox_max_lon, "
-                "  (SELECT COUNT(*) FROM candidates c WHERE c.run_id = r.run_id AND c.stage = 'REVIEW_PENDING') AS pending_count "
+                "  (SELECT COUNT(*) FROM candidates c WHERE c.run_id = r.run_id AND c.stage = 'REVIEW_PENDING') AS pending_count, "
+                "  (SELECT COUNT(*) FROM candidates c WHERE c.run_id = r.run_id AND c.stage = 'APPROVED') AS approved_count "
                 "FROM runs r ORDER BY r.created_at DESC, r.run_id DESC"
             ).fetchall()
         finally:
             conn.close()
-        latest_by_bbox: dict[tuple, tuple[int, str | None, int]] = {}
+        latest_by_bbox: dict[tuple, tuple[int, str | None, int, int]] = {}
         for r in rows:
             key = (
                 round(r["bbox_min_lat"], 6), round(r["bbox_min_lon"], 6),
                 round(r["bbox_max_lat"], 6), round(r["bbox_max_lon"], 6),
             )
-            latest_by_bbox.setdefault(key, (r["run_id"], r["upload_status"], r["pending_count"]))
+            latest_by_bbox.setdefault(key, (r["run_id"], r["upload_status"], r["pending_count"], r["approved_count"]))
         if direction in ("hardest", "easiest"):
-            eligible = [(rid, pc) for rid, status, pc in latest_by_bbox.values()
-                        if status != "uploaded" and rid != run_id and pc > 0]
+            # Easiest also takes a fully reviewed tile still waiting on upload:
+            # zero left to review is the easiest there is.
+            eligible = [(rid, pc) for rid, status, pc, ac in latest_by_bbox.values()
+                        if status != "uploaded" and rid != run_id
+                        and (pc > 0 or (direction == "easiest" and ac > 0))]
             if not eligible:
                 return jsonify({"run_id": None})
             best = max(eligible, key=lambda x: x[1]) if direction == "hardest" else min(eligible, key=lambda x: x[1])
