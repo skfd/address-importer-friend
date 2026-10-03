@@ -37,9 +37,6 @@ class Candidate:
     unit_shape: str | None = None
     unit_shape_reason: str | None = None
     flats: str | None = None
-    # The source's own postal code as config.check_postcode accepted it at
-    # ingest. NULL for a city that declares no [source_fields] postcode.
-    postcode: str | None = None
 
 
 @dataclass

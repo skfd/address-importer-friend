@@ -15,10 +15,7 @@ import xml.etree.ElementTree as ET
 import pytest
 
 from t2 import candidates, config as _config, db as _db, osm_export
-from t2.checks.base import Candidate
-from t2.checks.postcode_mismatch import PostcodeMismatchCheck
 from t2.conflate import _proposed_tags
-from t2.pipeline import unavailable_checks
 
 GUELPH_FSAS = ("N1C", "N1E", "N1G", "N1H", "N1K", "N1L")
 
@@ -214,49 +211,6 @@ def test_the_upload_query_carries_the_column(tool_db):
     root = ET.fromstring(osm_export._osm_change_xml(items))
     tags = {t.attrib["k"]: t.attrib["v"] for t in root.findall("./node/tag")}
     assert tags["addr:postcode"] == "N1H 4E2"
-
-
-# ------------------------------------------------------- postcode_mismatch
-
-def _cand(postcode, osm_postcode, verdict="MATCH"):
-    tags = {"addr:housenumber": "1", "addr:street": "Wyndham Street North"}
-    if osm_postcode is not None:
-        tags["addr:postcode"] = osm_postcode
-    return Candidate(
-        run_id=1, candidate_id=1, address_full=None, housenumber="1",
-        street_raw="Wyndham Street North", street_norm=None, lat=43.5, lon=-80.2,
-        lo_num=None, lo_num_suf=None, hi_num=None, hi_num_suf=None,
-        verdict=verdict, nearest_osm_id=42, nearest_osm_type="node",
-        nearest_dist_m=3.0, matched_osm_tags=tags, postcode=postcode,
-    )
-
-
-CHECK = PostcodeMismatchCheck()
-
-
-def test_a_different_postcode_on_the_matched_object_is_flagged():
-    v = CHECK.evaluate(_cand("N1L 0A6", "N1L 0Z6"), None)
-    assert (v.status, v.reason_code) == ("FLAG", "postcode_mismatch")
-    assert v.details["source_postcode"] == "N1L 0A6"
-    assert v.details["osm_postcode"] == "N1L 0Z6"
-
-
-def test_spacing_and_case_are_not_a_disagreement():
-    assert CHECK.evaluate(_cand("N1H 4E2", "n1h4e2"), None).status == "PASS"
-
-
-@pytest.mark.parametrize("cand", [
-    _cand("N1H 4E2", "N1G 1A1", verdict="MISSING"),   # nothing matched
-    _cand(None, "N1G 1A1"),                           # source has none usable
-    _cand("N1H 4E2", None),                           # OSM has none: beholder's
-])
-def test_it_applies_only_where_both_sides_have_one(cand):
-    assert not CHECK.applies(cand, None)
-
-
-def test_a_city_without_postcode_cannot_run_it():
-    assert unavailable_checks(WITHOUT)["postcode_mismatch"] == "postcode"
-    assert "postcode_mismatch" not in unavailable_checks(WITH_POSTCODE)
 
 
 # ------------------------------------------------- collapsed buildings

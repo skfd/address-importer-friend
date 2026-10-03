@@ -239,11 +239,11 @@ prefixes` list of the forward sortation areas its codes may start with. At
 ingest a value is upper-cased and given its space ("N1H4E2" -> "N1H 4E2") and
 nothing else: one that is not a well-formed Canadian postal code, or starts
 outside the list, is left off the node and audited as `POSTCODE_REJECTED` (the
-`CANDIDATE_INGESTED` event counts them). Existing OSM objects are never
-retagged; when a MATCHed object's `addr:postcode` differs from the source's
-(ignoring spacing and case), the `postcode_mismatch` check puts it in the
-review queue instead. A city that declares no postcode — Toronto, Hamilton —
-writes exactly what it did before.
+`CANDIDATE_INGESTED` event counts them). Only created nodes carry it:
+existing OSM objects are neither retagged nor flagged here, whether their
+postcode is missing or different — that audit belongs to the city's beholder
+dataset, which compares every matched object against the source. A city that
+declares no postcode — Toronto, Hamilton — writes exactly what it did before.
 
 Even after that filter, a matched "pure address" node can quietly carry
 non-address tags (`name`, `ref`, `entrance`). The `potential_amenity` check

@@ -6,7 +6,6 @@ from .intra_source_duplicate import IntraSourceDuplicateCheck
 from .match_number_drift import MatchNumberDriftCheck
 from .missing_sample import MissingSampleCheck
 from .nearby_street_mismatch import NearbyStreetMismatchCheck
-from .postcode_mismatch import PostcodeMismatchCheck
 from .potential_amenity import PotentialAmenityCheck
 from .suffix_range import SuffixRangeCheck
 from .unit_shape_ambiguous import UnitShapeAmbiguousCheck
@@ -23,7 +22,6 @@ REGISTRY: dict[str, Check] = {
         MatchNumberDriftCheck(),
         PotentialAmenityCheck(),
         UnitShapeAmbiguousCheck(),
-        PostcodeMismatchCheck(),
     )
 }
 
