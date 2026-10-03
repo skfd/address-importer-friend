@@ -257,3 +257,48 @@ def test_it_applies_only_where_both_sides_have_one(cand):
 def test_a_city_without_postcode_cannot_run_it():
     assert unavailable_checks(WITHOUT)["postcode_mismatch"] == "postcode"
     assert "postcode_mismatch" not in unavailable_checks(WITH_POSTCODE)
+
+
+# ------------------------------------------------- collapsed buildings
+
+def _member(aid, postcode, unit=None):
+    row = _row(postcode)
+    return dict(row, address_point_id=aid, unit_name=unit)
+
+
+def test_a_building_takes_the_one_postcode_its_rows_agree_on(guelph):
+    # The elected row has none; its units do, and they agree.
+    group = [_member(1, None), _member(2, "N1H 7J7", "101"), _member(3, "N1H7J7", "102")]
+    rep = candidates._with_group_postcodes(candidates._elect(group), group)
+    assert rep["address_point_id"] == 1
+    assert candidates._source_postcode(rep) == ("N1H 7J7", "N1H 7J7", None)
+
+
+def test_a_building_whose_rows_disagree_gets_none(guelph, tool_db):
+    # 180 Marksam Road: four valid postcodes across one civic group.
+    group = [_member(1, "N1H 8G4"), _member(2, "N1H 8G6", "2"), _member(3, "K8V 5P4", "3")]
+    rep = candidates._with_group_postcodes(candidates._elect(group), group)
+    assert candidates._source_postcode(rep) == (None, ["N1H 8G4", "N1H 8G6"], "ambiguous")
+    conn = _db.connect()
+    try:
+        assert candidates._log_postcode_rejection(conn, 1, rep)
+        payload = conn.execute(
+            "SELECT payload_json FROM events WHERE event_type = 'POSTCODE_REJECTED'"
+        ).fetchone()["payload_json"]
+    finally:
+        conn.close()
+    assert json.loads(payload) == {"value": ["N1H 8G4", "N1H 8G6"], "reason": "ambiguous"}
+
+
+def test_the_collapse_branch_of_emit_group_decides_for_the_group(guelph):
+    tower = [_member(i, "N1H 8G4" if i % 2 else "N1H 8G6", f"{100 + i}") for i in range(1, 30)]
+    for i, r in enumerate(tower):  # stacked on one point: a tower, collapsed
+        r["latitude"], r["longitude"] = 43.5, -80.2
+    emitted = list(candidates._emit_group(tower, lambda r: True))
+    assert len(emitted) == 1
+    assert candidates._source_postcode(emitted[0][0])[2] == "ambiguous"
+
+
+def test_toronto_emissions_are_untouched():
+    row = _member(1, "N1H 8G4")
+    assert candidates._with_group_postcodes(row, [row]) is row

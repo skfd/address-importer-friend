@@ -31,20 +31,54 @@ def _build_polygon(polygon_latlon: list):
     return Polygon(shell)
 
 
-def _source_postcode(extra_raw) -> tuple[str | None, str | None, str | None]:
-    """(postcode, raw, why) for one source row's props.
+def _raw_postcode(row: dict):
+    try:
+        props = json.loads(row["extra"]) if row.get("extra") else {}
+    except (ValueError, TypeError):
+        return None
+    return props.get(_SOURCE_FIELDS.postcode_key)
+
+
+def _with_group_postcodes(rep: dict, members: list[dict]) -> dict:
+    """The representative row of a collapsed group, carrying every member's
+    raw postcode so `_source_postcode` decides for the building, not for
+    whichever row the election happened to pick.
+
+    A copy: the group's rows are the caller's. Untouched for a city that
+    declares no postcode, so its emissions are the dicts they always were."""
+    if not _SOURCE_FIELDS.postcode_key:
+        return rep
+    return dict(rep, postcode_group=[_raw_postcode(r) for r in members])
+
+
+def _source_postcode(row: dict) -> tuple[str | None, object, str | None]:
+    """(postcode, raw, why) for one emitted source row.
 
     All three are None for a city that declares no [source_fields] postcode,
     so the column stays NULL and nothing else is read. Otherwise `postcode` is
     the normalized value config.check_postcode accepted, or None with `why`
-    saying what was wrong with `raw`."""
-    key = _SOURCE_FIELDS.postcode_key
-    if not key:
+    saying what was wrong with `raw`.
+
+    A collapsed building (`postcode_group`, from `_with_group_postcodes`)
+    gets a postcode only when exactly one accepted value applies across its
+    rows; rows with none do not count against it. Where they disagree it gets
+    none, `why` is "ambiguous" and `raw` lists the candidates. In Guelph's
+    snapshot 47 that is 8 towers, each with one dominant code and 1-4 stray
+    rows; the other 23 multi-postcode groups become doors, which each keep
+    their own row's."""
+    if not _SOURCE_FIELDS.postcode_key:
         return None, None, None
-    try:
-        raw = (json.loads(extra_raw) if extra_raw else {}).get(key)
-    except (ValueError, TypeError):
-        raw = None
+    if "postcode_group" in row:
+        accepted = sorted({
+            v for v, _why in (_config.check_postcode(raw, _POSTCODE_PREFIXES)
+                              for raw in row["postcode_group"]) if v
+        })
+        if len(accepted) > 1:
+            return None, accepted, "ambiguous"
+        if accepted:
+            return accepted[0], accepted[0], None
+        # None accepted: report the representative's own value, as for any row.
+    raw = _raw_postcode(row)
     value, why = _config.check_postcode(raw, _POSTCODE_PREFIXES)
     return value, raw, why
 
@@ -55,8 +89,8 @@ def _log_postcode_rejection(conn, run_id: int, row: dict) -> bool:
     "Omitted and counted, not guessed": the node is still created, without
     addr:postcode (or with a same-address POI's, if conflation finds one), and
     the value it did not get stays findable per candidate."""
-    _value, raw, why = _source_postcode(row.get("extra"))
-    if why not in ("format", "prefix"):
+    _value, raw, why = _source_postcode(row)
+    if why not in ("format", "prefix", "ambiguous"):
         return False
     audit.log(
         actor="pipeline", event_type="POSTCODE_REJECTED",
@@ -114,7 +148,7 @@ def _candidate_values(
     # IMPORT_PROPOSAL.mediawiki § Goals and non-goals.
     if address_class == "Land Entrance":
         return None
-    postcode, _raw, _why = _source_postcode(extra_raw)
+    postcode, _raw, _why = _source_postcode(row)
     return (
         run_id,
         row["address_point_id"],
@@ -213,7 +247,8 @@ def _emit_group(group: list[dict], in_tile, override: str | None = None):
         for row in door_rows:
             if in_tile(row):
                 yield row, row["unit_name"].strip(), None, "nodes", reason
-        rep = _elect([r for r in group if r not in door_rows])
+        rest = [r for r in group if r not in door_rows]
+        rep = _with_group_postcodes(_elect(rest), rest)
         if in_tile(rep):
             yield rep, None, flats, "collapse", reason
         return
@@ -230,7 +265,7 @@ def _emit_group(group: list[dict], in_tile, override: str | None = None):
     # for a human to look, because collapsing is right either way while
     # exploding a group the rule is unsure about uploads front doors that may
     # not exist.
-    rep = _elect(group)
+    rep = _with_group_postcodes(_elect(group), group)
     if not in_tile(rep):
         return
     label = "review" if shape == "civic-only" and override != "civic-only" else shape
