@@ -16,6 +16,7 @@ from t2.units import (
     REVIEW,
     classify,
     compress_flats,
+    split_pair_ranges,
     is_coded,
     parse_unit,
 )
@@ -301,3 +302,18 @@ def test_an_over_long_listing_is_dropped_rather_than_truncated():
 
 def test_a_group_with_no_units_asks_for_nothing_and_complains_about_nothing():
     assert flats_tag([]) == (None, None)
+
+
+# --- split_pair_ranges: listings stored before the pair rule ----------------
+
+def test_split_pair_ranges_spells_out_only_pairs():
+    assert split_pair_ranges("1-2;4") == "1;2;4"
+    assert split_pair_ranges("5-6;A;B") == "5;6;A;B"
+    assert split_pair_ranges("104-108;209-210") == "104-108;209;210"
+    assert split_pair_ranges("LL01-LL02;D101-D103") == "LL01;LL02;D101-D103"
+
+
+def test_split_pair_ranges_leaves_current_renderings_alone():
+    for value in ("1;2;4", "101-112;201-212", "LL02;LL04", "101;101A;102", "224;234"):
+        assert split_pair_ranges(value) == value
+    assert split_pair_ranges(compress_flats(["5", "6", "8"])) == "5;6;8"

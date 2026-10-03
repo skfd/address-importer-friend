@@ -287,6 +287,29 @@ def flats_tag(units) -> tuple[str | None, str | None]:
     return value, None
 
 
+_PAIR = re.compile(r"([A-Za-z]*)(\d+)-\1(\d+)")
+
+
+def split_pair_ranges(value: str) -> str:
+    """`value` with every two-unit range spelled out (`5-6` -> `5;6`) and every
+    other part left exactly as written.
+
+    For listings rendered before `MIN_RANGE_UNITS` existed (34a40061,
+    2026-09-29): candidates built then still store `1-2;4`, and the export
+    writes the stored string. A full re-render would fix the pair too, but
+    `expand_listing` normalises designators through `int()`, so it would also
+    turn `LL01` into `LL1`. This changes only what the pair rule changed.
+    """
+    out: list[str] = []
+    for part in str(value or "").split(";"):
+        m = _PAIR.fullmatch(part.strip())
+        if m and int(m.group(3)) - int(m.group(2)) == 1:
+            out += [m.group(1) + m.group(2), m.group(1) + m.group(3)]
+        else:
+            out.append(part)
+    return ";".join(out)
+
+
 def _run_parts(prefix: str, start: int, end: int,
                pad: int = 0) -> list[tuple[str, int, str, str]]:
     """One consecutive run as sortable parts. A range needs three units to

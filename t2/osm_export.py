@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from xml.dom import minidom
 
-from . import audit, config as _config, db as _db
+from . import audit, config as _config, db as _db, units as _units
 
 _CONFIG = _config.load()
 
@@ -409,7 +409,8 @@ def build_tags(it: dict) -> dict[str, str]:
         tags["addr:unit"] = unit
     flats = (it.get("flats") or "").strip()
     if flats:
-        tags["addr:flats"] = flats
+        # A run built before 2026-09-29 stores pairs as ranges; write `1;2`.
+        tags["addr:flats"] = _units.split_pair_ranges(flats)
     tags.update(_CONFIG.export_node_tags)
     return {k: v for k, v in tags.items() if v}
 
