@@ -204,6 +204,28 @@ def _josm_import_endpoint(run_id: int, cs_tags: dict[str, str]) -> str:
     return "http://127.0.0.1:8111/import?" + urlencode(params)
 
 
+# The header's links, and the pages that live under each. A run page is
+# reached from the dashboard, a tile page from the map, so those count as
+# being on the dashboard and the map.
+_NAV_LINKS = ("/", "/map", "/osm", "/streets", "/source/multi", "/units/shapes",
+              "/osm/multi", "/osm/multi/corners", "/osm/orphans", "/maintenance",
+              "/drift", "/data", "/stats", "/oauth")
+_NAV_ALIASES = {"/runs": "/", "/tiles": "/map"}
+
+
+def nav_current(path: str) -> str | None:
+    """The header link the page at `path` sits under: the longest link that is
+    the path itself or a parent of it, so /osm/multi/corners lights Corners
+    and not OSM extract. None for a page no link leads to."""
+    for prefix, link in _NAV_ALIASES.items():
+        if path == prefix or path.startswith(prefix + "/"):
+            return link
+    if path == "/":
+        return "/"
+    hits = [l for l in _NAV_LINKS if l != "/" and (path == l or path.startswith(l + "/"))]
+    return max(hits, key=len, default=None)
+
+
 def _area_label(cfg) -> str:
     """What this city's tiles roll up into. A city with no polygon layer has
     its tiles split straight off the bbox, so 'neighbourhoods' would be a
@@ -262,6 +284,10 @@ def create_app() -> Flask:
         # Templates name the city in a few places (the extract filename, the
         # clip bbox). Injecting cfg beats threading it through every route.
         return {"cfg": cfg}
+
+    @app.context_processor
+    def _inject_nav_current():
+        return {"nav_current": nav_current(request.path)}
 
     @app.context_processor
     def _inject_source_snapshot():

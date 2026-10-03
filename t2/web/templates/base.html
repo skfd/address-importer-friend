@@ -31,23 +31,25 @@
 {% if static_export.active %}{% set _ = _body_classes.append('static-export') %}{% endif %}
 {% if run_uploaded %}{% set _ = _body_classes.append('run-uploaded') %}{% endif %}
 <body{% if _body_classes %} class="{{ _body_classes|join(' ') }}"{% endif %}>
+  {# Marks the header link for the page being shown; nav_current picks it. -#}
+  {% macro here(href) %}{% if nav_current == href %} aria-current="page"{% endif %}{% endmacro %}
   <header>
     <span class="nav">
-      <a href="{% if static_export.active %}/__landing__{% else %}/{% endif %}"><strong>t2 address import</strong></a>
+      <a href="{% if static_export.active %}/__landing__{% else %}/{% endif %}"{{ here("/") }}><strong>t2 address import</strong></a>
       {% if not static_export.active %}<span class="osm-target osm-target-{{ osm_target.class }}" title="OSM API: {{ osm_target.api_base }}">{{ osm_target.label }}</span>{% endif %}
-      {% if not static_export.active or static_export.multi %}<a href="/map">Map</a>{% endif %}
-      <a href="/osm">OSM extract</a>
-      <a href="/streets">Streets</a>
-      {% if cfg.source_fields.has_ranges %}<a href="/source/multi">{{ cfg.city_name }} Open Data ranges</a>{% endif %}
-      {% if cfg.units_policy == "per-door-or-collapse" %}<a href="/units/shapes">Unit shapes</a>{% endif %}
-      <a href="/osm/multi">Multi-addresses</a>
-      <a href="/osm/multi/corners">Corners</a>
-      <a href="/osm/orphans">OSM not in source</a>
-      {% if not static_export.active %}<a href="/maintenance">Maintenance</a>{% endif %}
-      <a href="/drift">Drift</a>
-      <a href="/data">Data</a>
-      {% if not static_export.active %}<a href="/stats">Wrap-up</a>{% endif %}
-      {% if not static_export.active %}<a href="/oauth">OSM auth</a>{% endif %}
+      {% if not static_export.active or static_export.multi %}<a href="/map"{{ here("/map") }}>Map</a>{% endif %}
+      <a href="/osm"{{ here("/osm") }}>OSM extract</a>
+      <a href="/streets"{{ here("/streets") }}>Streets</a>
+      {% if cfg.source_fields.has_ranges %}<a href="/source/multi"{{ here("/source/multi") }}>{{ cfg.city_name }} Open Data ranges</a>{% endif %}
+      {% if cfg.units_policy == "per-door-or-collapse" %}<a href="/units/shapes"{{ here("/units/shapes") }}>Unit shapes</a>{% endif %}
+      <a href="/osm/multi"{{ here("/osm/multi") }}>Multi-addresses</a>
+      <a href="/osm/multi/corners"{{ here("/osm/multi/corners") }}>Corners</a>
+      <a href="/osm/orphans"{{ here("/osm/orphans") }}>OSM not in source</a>
+      {% if not static_export.active %}<a href="/maintenance"{{ here("/maintenance") }}>Maintenance</a>{% endif %}
+      <a href="/drift"{{ here("/drift") }}>Drift</a>
+      <a href="/data"{{ here("/data") }}>Data</a>
+      {% if not static_export.active %}<a href="/stats"{{ here("/stats") }}>Wrap-up</a>{% endif %}
+      {% if not static_export.active %}<a href="/oauth"{{ here("/oauth") }}>OSM auth</a>{% endif %}
     </span>
     <span class="meta">
       <a href="{{ cfg.links.repo or engine_repo }}" target="_blank" rel="noopener">GitHub</a>
