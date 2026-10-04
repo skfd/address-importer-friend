@@ -244,7 +244,7 @@
 {% else %}
 <p class="muted">Matched: {{ geom_label or '— no OSM match' }}</p>
 {% endif %}
-<table>
+<table class="tag-diff">
   <thead><tr><th>Tag</th><th>Proposed</th><th>OSM has</th><th>Status</th></tr></thead>
   <tbody>
     {% for r in diff_rows %}
@@ -261,6 +261,7 @@
 </table>
 
 <h4>Check results</h4>
+<div class="table-scroll">
 <table>
   <thead><tr><th>Check</th><th>Verdict</th><th>Severity</th><th>Reason</th><th>Details</th></tr></thead>
   <tbody>
@@ -287,6 +288,7 @@
     {% endfor %}
   </tbody>
 </table>
+</div>
 
 <h4>Decision</h4>
 {% set rs = review_state.status %}

@@ -54,7 +54,14 @@ form.inline { display: inline; }
 .stage-msg.err { background: #fee2e2; color: #991b1b; padding: .4rem .6rem; border-radius: 4px; }
 .stage-counts { margin: .2rem 0 0; }
 .flash { background: #fef3c7; padding: .5rem .8rem; border-radius: 4px; margin-bottom: 1rem; }
-.grid-2 { display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; }
+/* minmax(0, …): a plain fr track never shrinks below its widest unbreakable
+   content, so a long addr:flats in the detail crushed the list to a sliver
+   and the detail card painted over it. */
+.grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 1rem; }
+/* Values only: a tag name or a status pill split mid-word reads worse than
+   the overlap did. */
+.tag-diff td:nth-child(2), .tag-diff td:nth-child(3) { overflow-wrap: anywhere; }
+.table-scroll { overflow-x: auto; }
 .muted { color: #6b7280; }
 code { background: #f3f4f6; padding: 1px 4px; border-radius: 3px; }
 #leaflet-map { height: 280px; border-radius: 4px; }
