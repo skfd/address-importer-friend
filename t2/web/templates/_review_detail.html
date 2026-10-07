@@ -203,7 +203,7 @@
       }
       for (const c of cands) {
         if (c.lat == null || c.lon == null) continue;
-        const m = L.marker([c.lat, c.lon], {icon: candIcon(c.verdict), title: c.address || `#${c.candidate_id}`});
+        const m = L.marker([c.lat, c.lon], {icon: candIcon(c.verdict), title: (c.address || `#${c.candidate_id}`) + (c.unit ? `, unit ${c.unit}` : '')});
         m.bindPopup(candPopup(c));
         siblingCands.addLayer(m);
       }

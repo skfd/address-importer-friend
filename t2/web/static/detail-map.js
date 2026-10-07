@@ -29,7 +29,7 @@
   function makeCandPopup(runId, view) {
     return function (c) {
       const addr = c.address || [c.housenumber, c.street].filter(Boolean).join(' ') || ('#' + c.candidate_id);
-      const parts = ['<strong>' + esc(addr) + '</strong>'];
+      const parts = ['<strong>' + esc(addr) + (c.unit ? ', unit ' + esc(c.unit) : '') + '</strong>'];
       const meta = [];
       if (c.verdict) meta.push('<span class="pill">verdict: ' + esc(c.verdict) + '</span>');
       if (c.review_status) meta.push('<span class="pill">' + esc(c.review_status) + '</span>');
