@@ -44,13 +44,12 @@
   }
   function osmPopup(o) {
     const head = [o.housenumber, o.street].filter(Boolean).join(' ') || (o.type + ' #' + o.id);
-    const parts = ['<strong>' + esc(head) + '</strong>'];
+    const parts = ['<strong>' + esc(head) + (o.unit ? ', unit ' + esc(o.unit) : '') + '</strong>'];
     const kindPill = o.kind === 'poi'
       ? '<span class="pill" style="background:#d1f5ec">POI' + (o.poi_tag ? ' &middot; ' + esc(o.poi_tag) : '') + '</span>'
       : '<span class="pill" style="background:#ede3f7">address</span>';
     parts.push('<div style="margin-top:.25rem">' + kindPill + '</div>');
     const extra = [];
-    if (o.unit) extra.push('unit ' + esc(o.unit));
     if (o.floor) extra.push('floor ' + esc(o.floor));
     if (o.postcode) extra.push(esc(o.postcode));
     if (extra.length) parts.push('<div class="muted" style="margin-top:.15rem">' + extra.join(' &middot; ') + '</div>');

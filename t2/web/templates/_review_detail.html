@@ -210,7 +210,7 @@
       for (const o of osm) {
         if (o.lat == null || o.lon == null) continue;
         const icon = o.kind === 'poi' ? osmPoiIcon : osmAddrIcon;
-        const title = (o.kind === 'poi' ? 'POI: ' : '') + (`${o.housenumber || ''} ${o.street || ''}`.trim() || `${o.type} #${o.id}`);
+        const title = (o.kind === 'poi' ? 'POI: ' : '') + (`${o.housenumber || ''} ${o.street || ''}`.trim() || `${o.type} #${o.id}`) + (o.unit ? `, unit ${o.unit}` : '');
         const m = L.marker([o.lat, o.lon], {icon, title});
         m.bindPopup(osmPopup(o));
         siblingOsm.addLayer(m);
