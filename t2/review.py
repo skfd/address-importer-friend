@@ -112,6 +112,16 @@ def resolve(run_id: int, candidate_id: int, new_status: str, actor: str = "opera
         conn.close()
 
 
+# How many doors the row's civic group has, across every run: doors scatter
+# across tiles, so the run's own queue cannot count them. Lets the list say
+# "unit 3 · 16 doors" where it would otherwise show sixteen identical
+# addresses each flagged city_duplicate.
+_DOOR_COUNT = """CASE WHEN c.unit IS NOT NULL THEN
+                         (SELECT COUNT(DISTINCT d.unit) FROM candidates d
+                          WHERE d.civic_key = c.civic_key AND d.unit IS NOT NULL)
+                       END AS door_count"""
+
+
 def queue(
     run_id: int,
     statuses: tuple[str, ...] | list[str] | None = None,
@@ -168,7 +178,8 @@ def queue(
                        cf.verdict, cf.nearest_osm_id, cf.nearest_osm_type, cf.nearest_dist_m,
                        cf.poi_osm_id, cf.proposed_postcode,
                        cf.dup_sibling_candidate_id, cf.dup_sibling_dist_m,
-                       c.unit, c.flats, c.unit_shape, c.civic_key, c.postcode
+                       c.unit, c.flats, c.unit_shape, c.civic_key, c.postcode,
+                       {_DOOR_COUNT}
                 FROM review_items r
                 JOIN candidates c USING (run_id, candidate_id)
                 LEFT JOIN conflation cf USING (run_id, candidate_id)
@@ -192,7 +203,8 @@ def queue(
                        cf.verdict, cf.nearest_osm_id, cf.nearest_osm_type, cf.nearest_dist_m,
                        cf.poi_osm_id, cf.proposed_postcode,
                        cf.dup_sibling_candidate_id, cf.dup_sibling_dist_m,
-                       c.unit, c.flats, c.unit_shape, c.civic_key, c.postcode
+                       c.unit, c.flats, c.unit_shape, c.civic_key, c.postcode,
+                       {_DOOR_COUNT}
                 FROM candidates c
                 LEFT JOIN review_items r USING (run_id, candidate_id)
                 LEFT JOIN conflation cf USING (run_id, candidate_id)

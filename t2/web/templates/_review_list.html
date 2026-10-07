@@ -4,7 +4,7 @@
          hx-get="/runs/{{ run_id }}/{{ view }}/{{ it.candidate_id }}" hx-target="#detail" hx-push-url="true"
          hx-include="#review-filters"
          onclick="this.parentNode.querySelectorAll('div[hx-get]').forEach(function(r){r.style.background='';});this.style.background='#eef6ff';">
-      <strong>{{ it.address_full or (it.housenumber ~ ' ' ~ it.street_raw) }}</strong>{% if it.address_class == 'Structure Entrance' %}{% include "_entrance_icon.html" %}{% endif %}
+      <strong>{{ it.address_full or (it.housenumber ~ ' ' ~ it.street_raw) }}{% if it.unit %}, unit {{ it.unit }}{% endif %}</strong>{% if it.address_class == 'Structure Entrance' %}{% include "_entrance_icon.html" %}{% endif %}
       {% if it.address_class and it.address_class != 'Land' %}
         <span class="pill" data-tip="{{ tip('pill.address_class') }}">{{ it.address_class }}</span>
       {% endif %}
@@ -34,7 +34,10 @@
       {% if it.verdict %}
         <span class="pill {% if it.verdict == 'MATCH_FAR' %}bad{% elif it.verdict == 'MATCH_LISTED' %}ok{% else %}warn{% endif %}" data-tip="{{ tip('verdict.' ~ it.verdict) }}">{{ it.verdict }}</span>
       {% endif %}
-      {% if it.reason_code %}<span class="muted" data-tip="{{ tip('reason.' ~ it.reason_code) }}">{{ it.reason_code }}</span>{% endif %}
+      {#- A door's 3 m neighbours are its sibling doors, so city_duplicate says
+          nothing the door pill does not; the detail's check table still has it. -#}
+      {% set reason = (it.reason_code.split(',') | reject('equalto', 'city_duplicate') | join(',')) if (it.unit and it.reason_code) else it.reason_code %}
+      {% if reason %}<span class="muted" data-tip="{{ tip('reason.' ~ reason) }}">{{ reason }}</span>{% endif %}
       {% if it.poi_osm_id %}
         <span class="pill" data-tip="{{ tip('pill.poi_acknowledged') }}">POI</span>
       {% endif %}
@@ -50,7 +53,7 @@
         <a href="/units/shapes?focus={{ it.civic_key | urlencode }}"
            class="pill {% if it.unit_shape == 'review' %}bad{% elif it.unit_shape == 'collapse' %}ok{% elif it.unit_shape == 'civic-only' %}warn{% endif %}"
            data-tip="{{ tip('pill.unit_shape.' ~ it.unit_shape) }}"
-           onclick="event.stopPropagation()">{% if it.unit %}door {{ it.unit }}{% else %}{{ it.unit_shape }}{% endif %}</a>
+           onclick="event.stopPropagation()">{% if it.unit %}{{ it.door_count }} door{{ 's' if it.door_count != 1 }}{% elif it.flats %}{{ it.unit_shape }}: {{ it.flats | truncate(20, true, '…', 0) }}{% else %}{{ it.unit_shape }}{% endif %}</a>
       {% endif %}
     </div>
   {% else %}
