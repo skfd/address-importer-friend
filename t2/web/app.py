@@ -1191,7 +1191,7 @@ def create_app() -> Flask:
                 ).fetchone()
             rows = conn.execute(
                 """SELECT c.candidate_id, c.lat, c.lon, c.address_full, c.housenumber,
-                          c.street_raw, c.address_class, c.stage, c.unit,
+                          c.street_raw, c.address_class, c.stage, c.unit, c.flats,
                           cf.verdict, cf.nearest_osm_id, cf.nearest_osm_type,
                           r.status AS review_status
                    FROM candidates c
@@ -1220,6 +1220,7 @@ def create_app() -> Flask:
                 "address_class": d["address_class"],
                 "stage": d["stage"],
                 "unit": d["unit"],
+                "flats": d["flats"],
                 "verdict": d["verdict"],
                 "review_status": d["review_status"],
                 "nearest_osm_type": d["nearest_osm_type"],
@@ -1266,6 +1267,7 @@ def create_app() -> Flask:
                 "housenumber": hn,
                 "street": tags.get("addr:street"),
                 "unit": tags.get("addr:unit"),
+                "flats": tags.get("addr:flats"),
                 "floor": tags.get("addr:floor"),
                 "postcode": tags.get("addr:postcode"),
                 "name": tags.get("name"),

@@ -26,6 +26,10 @@
     html: '<div style="width:8px;height:8px;background:#fff;border:2px solid #6b7280;border-radius:50%"></div>',
     iconSize: [12, 12], iconAnchor: [6, 6]
   });
+  // addr:flats can list dozens of units; let it wrap inside the popup.
+  function flatsLine(flats) {
+    return '<div class="muted" style="margin-top:.15rem;max-width:16rem;overflow-wrap:anywhere">flats: ' + esc(flats) + '</div>';
+  }
   function makeCandPopup(runId, view) {
     return function (c) {
       const addr = c.address || [c.housenumber, c.street].filter(Boolean).join(' ') || ('#' + c.candidate_id);
@@ -35,6 +39,7 @@
       if (c.review_status) meta.push('<span class="pill">' + esc(c.review_status) + '</span>');
       else if (c.stage) meta.push('<span class="pill">' + esc(c.stage) + '</span>');
       if (meta.length) parts.push('<div style="margin-top:.25rem">' + meta.join(' ') + '</div>');
+      if (c.flats) parts.push(flatsLine(c.flats));
       if (c.address_class && c.address_class !== 'Land') {
         parts.push('<div class="muted" style="margin-top:.15rem">class: ' + esc(c.address_class) + '</div>');
       }
@@ -53,6 +58,7 @@
     if (o.floor) extra.push('floor ' + esc(o.floor));
     if (o.postcode) extra.push(esc(o.postcode));
     if (extra.length) parts.push('<div class="muted" style="margin-top:.15rem">' + extra.join(' &middot; ') + '</div>');
+    if (o.flats) parts.push(flatsLine(o.flats));
     if (o.name) parts.push('<div style="margin-top:.15rem">' + esc(o.name) + '</div>');
     parts.push('<div class="muted" style="margin-top:.25rem">' + esc(o.type) + ' #' + esc(o.id) + '</div>');
     parts.push('<div style="margin-top:.25rem"><a href="https://www.openstreetmap.org/' + esc(o.type) + '/' + esc(o.id) + '" target="_blank" rel="noopener">Open in OSM &uarr;</a></div>');
