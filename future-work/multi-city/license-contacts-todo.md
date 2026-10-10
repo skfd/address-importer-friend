@@ -1,24 +1,33 @@
 # Licence review + government-contact TODO (operator actions)
 
 State as of the 2026-08-16 licence review pass over every non-green dataset in
-`ontario-address-changes/datasets/`. Method: fetch the licence page where one
+`ontario-address-changes/datasets/` (amended 2026-10-09: Oakville's licence
+approved by the LWG). Method: fetch the licence page where one
 is published; for ArcGIS-hosted layers, read `licenseInfo` off the portal item
 (service JSON → `serviceItemId` → item metadata). OSMF process reference:
 <https://osmfoundation.org/wiki/OGL_Canada_and_local_variants>; waiver/permission
 templates: <https://osmfoundation.org/wiki/Licence/Waiver_and_Permission_Templates>.
 
-Draft LWG email (six OGL clones, unsent):
+Draft LWG email (drafted for six OGL clones, unsent):
 <https://gist.github.com/skfd/043eded6a26b279b7cf75aa3927b14da>
+— it still lists Oakville; take Oakville out before sending (see §A).
 
 Every outbound contact below is an **operator action** — a human writes to a
 government office; none of it is automatable or delegable to a probe.
 
 ## A. Desk work only — no contact required
 
-- [ ] **Send the LWG email** (the gist) covering oakville, brantford,
-      dufferin, huron, kitchener, **sarnia** — after a human read of the
-      three licences verified only from page summaries (oakville, brantford,
-      kitchener; dufferin + huron + sarnia are verbatim-verified).
+- [x] **oakville** — approved without our email: the OSMF variants page lists
+      "Town of Oakville Open Data Licence (PDF)" as compatible (LWG minutes
+      2026-09-14; page edit "Added Oakville", 2026-09-14). The Contributors
+      page already has an Oakville entry. Verified 2026-10-09. The tracker's
+      `oakville.toml` tier flip is the tracker's job.
+- [ ] **Send the LWG email** (the gist) covering brantford, dufferin, huron,
+      kitchener, **sarnia** — five now; remove Oakville from the gist first —
+      after a human read of the two licences verified only from page
+      summaries (brantford, kitchener; dufferin + huron + sarnia are
+      verbatim-verified). Re-checked 2026-10-09: none of the five, nor peel,
+      is on the OSMF variants page yet.
 - [ ] **brant** — item `licenseInfo` is literally **"CC0"**
       (item cfcb7930439e42b386410b716869d170, owner OpenData_Brant). CC0 is
       ODbL-compatible outright. Optionally confirm the marking is intentional
@@ -32,7 +41,17 @@ government office; none of it is automatable or delegable to a probe.
       Peel is the gateway to Mississauga, the designated first
       regional-dataset city.
 - [ ] After LWG replies: add Contributors-page entries and flip
-      `osm_compatible` tiers in the tracker datasets.
+      `osm_compatible` tiers in the tracker datasets. (Oakville's
+      Contributors entry already exists.)
+- [ ] **Tracker tiers the OSMF page does not back** (found 2026-10-09):
+      the tracker marks barrie, greater-sudbury and durham (Oshawa licence)
+      `green-lwg` and lambton `green-ogl`, but none of the four appears on
+      the OSMF variants page. niagara-falls matches only via "Open
+      Government License 2.0 (Niagara Region)" (LWG 2024-06-10). Barrie is
+      an onboarding import target, so it matters first. Find the evidence
+      behind each tier (LWG minutes, Contributors entry, or a licence that is
+      verbatim OGL-Ontario/Canada) or get the tracker to re-tier — the tiers
+      live in the tracker repo and are not changed here.
 
 ## B. Contact: CC-BY waiver ask
 

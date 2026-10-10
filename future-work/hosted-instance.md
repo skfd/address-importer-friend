@@ -290,7 +290,8 @@ Phases 1–3 are safe to do at any time and commit to nothing visible.
 
 ## 7. Prerequisites that are not code
 
-Both are blocking for phase 5 and neither is a technical task.
+Both were blocking for phase 5 and neither is a technical task. As of
+2026-10-09 only import governance still blocks — the licence cleared.
 
 - **Licence.** Oakville is `yellow-ogl` — a verified clean clone of
   OGL-Canada 2.0, sitting in the drafted-but-**unsent** LWG variant email
@@ -298,7 +299,10 @@ Both are blocking for phase 5 and neither is a technical task.
   `ontario-address-changes/LICENSING.md:60`). Scaffolding and a dev-only
   instance are invisible and stay ungated. A production upload is the
   visible step the gate is about — regardless of whose account it goes out
-  under.
+  under. **Cleared 2026-10-09:** the LWG approved the Town of Oakville
+  licence on 2026-09-14 (OSMF `OGL_Canada_and_local_variants` page), without
+  our email; the Contributors page already has an Oakville entry. The
+  tracker toml still reads `yellow-ogl` until the tracker re-tiers it.
 - **Import governance.** `TronnaLegacy`'s manual MapRoulette work is
   ordinary mapping. Running *this* pipeline against prod makes him the
   operator of an **import**, which under the OSM import guidelines means a

@@ -21,7 +21,8 @@ at the date they were written.
   mapper: OSM OAuth sign-in, a flat username allowlist, and he runs the whole
   pipeline under his own account. Needs a real auth gate (there is none
   today), per-(user, env) token storage, and two processes for the dev/prod
-  switch. Gated on the LWG licence reply and an import proposal.
+  switch. Gated on an import proposal (the LWG approved Oakville's licence
+  2026-09-14).
 - [postcode-enrichment.md](postcode-enrichment.md) — fill `addr:postcode` on
   matched OSM nodes that lack one, sourced from same-address POI nodes.
   First mutation flow in an otherwise create-only pipeline.

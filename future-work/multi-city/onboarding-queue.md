@@ -26,7 +26,9 @@ LWG reply for the OGL clones. This admits brant (CC0, re-tiered green-cc0, no
 LWG needed at all) and the five verified OGL clones: sarnia, dufferin, huron,
 brantford, kitchener. Oakville is also a verified clone but stays untouched
 (brownfield-active). Their tomls keep yellow-ogl until LWG replies; the queue
-entry below records the exception.
+entry below records the exception. (2026-10-09: the LWG approved Oakville's
+licence on 2026-09-14 without our email, so the five above are the clones
+still waiting.)
 
 Scaffolding ≠ importing. Every city enters as **onboarding** with
 `import_plan = ""`; entry state decides the consumer (import vs observer),
@@ -49,7 +51,7 @@ and nothing visible happens in any city without its own etiquette pass
 | thunder-bay | 2026-08-16 | greenfield (purest CanVec) | cleanest import target; FWFN jurisdiction question gates upload; forced number_from="props:<KEY>"; contacts Matthew Darwin, eireidium |
 | greater-sudbury | 2026-08-16 | greenfield, hand-mapped core | TristanA (2013-14 downtown, Kevo-style courtesy owed); status filter load-bearing (896 Retired live); addr:city splits 3 ways (TODO §2 re-generalized) |
 | lambton | 2026-08-16 | greenfield county (pure CanVec) | first county checkout; upload gated on Sarnia ownership (TODO §5) + 853 First Nations rows; no boundary polygons published (quadtree); tracker stalled 2026-06-28; addr:city = local municipality |
-| oakville | 2026-08-16 | **brownfield-active, handed to the incumbent** | scaffolded for `TronnaLegacy` (the user's friend) to run himself — checkout carries `IMPORT_CHECKLIST.md` + `CLAUDE.md`. First city whose source is UPPERCASE: `expand_street_name()` emits `MCCRANEY Street`, which forced the engine's title-caser — **shipped 2026-08-29** (`[export] street_case`, DONE.md), so this no longer blocks upload; his checklist items 13-16 do. Forced `number_from="full"` (tracker drops the `335A` suffix on 24 rows) which cascades to `full_from="full"`. Wards point-test 100.00%, best in the portfolio. Prod gated on LWG + his import proposal |
+| oakville | 2026-08-16 | **brownfield-active, handed to the incumbent** | scaffolded for `TronnaLegacy` (the user's friend) to run himself — checkout carries `IMPORT_CHECKLIST.md` + `CLAUDE.md`. First city whose source is UPPERCASE: `expand_street_name()` emits `MCCRANEY Street`, which forced the engine's title-caser — **shipped 2026-08-29** (`[export] street_case`, DONE.md), so this no longer blocks upload; his checklist items 13-16 do. Forced `number_from="full"` (tracker drops the `335A` suffix on 24 rows) which cascades to `full_from="full"`. Wards point-test 100.00%, best in the portfolio. Prod gated on his import proposal (LWG approved the licence 2026-09-14) |
 | ottawa | 2026-08-16 | **brownfield-active-community** | observer/QA confirmed — the community maps from city data via tasks.osmcanada.ca; contacts DannyMcD (active), Undearius, zzptichka, Matthew Darwin; 116 ONS hoods at 100%; 18k qualifier-letter rows gate any import |
 | brant | 2026-08-16 | greenfield (CanVec seed) | first licence-review admit (CC0); ward tiles 99.98% (settlement fabric repeated the Quinte West 72% trap); number_from="full" keeps 219 alpha qualifiers; 1,236 number-less rows = TODO §8's second consumer (331 project garbage numbers — skip policy must read the source row); contact riuri (active 2026-08); CanVec wrote addr:city="County of Brant"; repo published later same day |
 | huron | 2026-08-16 | greenfield (NRCan 2018, LogicalViolinist) | licence-review admit (verbatim OGL clone); cleanest schema yet — typed mixed-case StreetName (tracker street conflation-ready), suffix-fused StreetNumber; full SYNTHESIZED (FullAddress is ALL-CAPS + embeds units reordered — Guelph trap + §9 dodged in one move); fire-zone fabric 17 @ 99.99% (Urban_Area = settlement trap #3, 62%); Hamilton-style stacks (654, deepest 174); source ALIVE (rows grow weekly); addr:city = municipality (matches Mun); contacts LogicalViolinist, Matthew Darwin |
@@ -104,9 +106,11 @@ orange-ccby-waiver: brampton
 **oakville left this bucket 2026-08-16** — see Done. The "do not touch,
 brownfield-active" rule was written when `TronnaLegacy` was an unknown active
 mapper; he turns out to be a friend of the user, so the etiquette blocker
-became a collaboration instead. The licence half of the gate still stands: the
-toml keeps yellow-ogl and production upload waits on the LWG reply, which the
-user owns.
+became a collaboration instead. The licence half of the gate closed on
+2026-09-14 without the user's LWG email (found 2026-10-09): the OSMF variants
+page lists the Town of Oakville licence as compatible (LWG minutes
+2026-09-14). The proposal half (`TronnaLegacy`'s import proposal) remains; the
+toml's yellow-ogl tier is the tracker's to flip.
 
 ## Iteration recipe (one city per loop iteration)
 
