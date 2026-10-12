@@ -300,8 +300,10 @@ Both were blocking for phase 5 and neither is a technical task. As of
   instance are invisible and stay ungated. A production upload is the
   visible step the gate is about — regardless of whose account it goes out
   under. **Cleared 2026-10-09:** the LWG approved the Town of Oakville
-  licence on 2026-09-14 (OSMF `OGL_Canada_and_local_variants` page), without
-  our email; the Contributors page already has an Oakville entry. The
+  licence on 2026-09-14 (OSMF `OGL_Canada_and_local_variants` page). The
+  LWG email was sent (date not recorded; no reply as of 2026-10-11), and
+  `TronnaLegacy` had added the Contributors entry on 2026-08-31 under the
+  OSMF self-service procedure; which prompted the listing is not known. The
   tracker toml still reads `yellow-ogl` until the tracker re-tiers it.
 - **Import governance.** `TronnaLegacy`'s manual MapRoulette work is
   ordinary mapping. Running *this* pipeline against prod makes him the

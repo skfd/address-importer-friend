@@ -27,8 +27,8 @@ LWG needed at all) and the five verified OGL clones: sarnia, dufferin, huron,
 brantford, kitchener. Oakville is also a verified clone but stays untouched
 (brownfield-active). Their tomls keep yellow-ogl until LWG replies; the queue
 entry below records the exception. (2026-10-09: the LWG approved Oakville's
-licence on 2026-09-14 without our email, so the five above are the clones
-still waiting.)
+licence on 2026-09-14, so the five above are the clones still waiting.
+2026-10-11: the email has since been sent — date not recorded, no reply yet.)
 
 Scaffolding ≠ importing. Every city enters as **onboarding** with
 `import_plan = ""`; entry state decides the consumer (import vs observer),
@@ -107,9 +107,11 @@ orange-ccby-waiver: brampton
 brownfield-active" rule was written when `TronnaLegacy` was an unknown active
 mapper; he turns out to be a friend of the user, so the etiquette blocker
 became a collaboration instead. The licence half of the gate closed on
-2026-09-14 without the user's LWG email (found 2026-10-09): the OSMF variants
-page lists the Town of Oakville licence as compatible (LWG minutes
-2026-09-14). The proposal half (`TronnaLegacy`'s import proposal) remains; the
+2026-09-14 (found 2026-10-09): the OSMF variants page lists the Town of
+Oakville licence as compatible (LWG minutes 2026-09-14). `TronnaLegacy` had
+added the Contributors entry on 2026-08-31 under the OSMF self-service
+procedure, and the user's LWG email was sent too (no reply as of
+2026-10-11); which prompted the listing is not known. The proposal half (`TronnaLegacy`'s import proposal) remains; the
 toml's yellow-ogl tier is the tracker's to flip.
 
 ## Iteration recipe (one city per loop iteration)

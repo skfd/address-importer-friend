@@ -223,8 +223,10 @@ and one browser-grab away from joining the email; thirteen sources publish no
 licence at all and four publish restrictive terms. Every remaining step is an
 operator action — sending the email, and writing to municipal GIS offices for
 licences, waivers (brampton, CC BY), or permissions.
-(2026-10-09: the LWG approved Oakville's licence on 2026-09-14 without the
-email, which now covers five.)
+(2026-10-09: the LWG listed Oakville's licence as compatible on 2026-09-14.
+2026-10-11: the email went out covering all six — date not recorded, no reply
+yet; five remain off the OSMF list. Next: the OSMF self-service route for
+each, see license-contacts-todo.md §A.)
 
 - [ ] Work through [license-contacts-todo.md](license-contacts-todo.md) —
       per-city evidence, contacts where known, and ask templates live there.

@@ -2,32 +2,41 @@
 
 State as of the 2026-08-16 licence review pass over every non-green dataset in
 `ontario-address-changes/datasets/` (amended 2026-10-09: Oakville's licence
-approved by the LWG). Method: fetch the licence page where one
-is published; for ArcGIS-hosted layers, read `licenseInfo` off the portal item
-(service JSON → `serviceItemId` → item metadata). OSMF process reference:
+approved by the LWG; amended 2026-10-11: the LWG email was sent). Method:
+fetch the licence page where one is published; for ArcGIS-hosted layers, read
+`licenseInfo` off the portal item (service JSON → `serviceItemId` → item
+metadata). OSMF process reference:
 <https://osmfoundation.org/wiki/OGL_Canada_and_local_variants>; waiver/permission
 templates: <https://osmfoundation.org/wiki/Licence/Waiver_and_Permission_Templates>.
 
-Draft LWG email (drafted for six OGL clones, unsent):
+LWG email covering six OGL clones — sent (date not recorded), no reply as of
+2026-10-11. Draft:
 <https://gist.github.com/skfd/043eded6a26b279b7cf75aa3927b14da>
-— it still lists Oakville; take Oakville out before sending (see §A).
 
 Every outbound contact below is an **operator action** — a human writes to a
 government office; none of it is automatable or delegable to a probe.
 
 ## A. Desk work only — no contact required
 
-- [x] **oakville** — approved without our email: the OSMF variants page lists
-      "Town of Oakville Open Data Licence (PDF)" as compatible (LWG minutes
-      2026-09-14; page edit "Added Oakville", 2026-09-14). The Contributors
-      page already has an Oakville entry. Verified 2026-10-09. The tracker's
+- [x] **oakville** — the OSMF variants page lists "Town of Oakville Open
+      Data Licence (PDF)" as compatible (LWG minutes 2026-09-14; page edit
+      "Added Oakville", 2026-09-14). The Contributors entry was added
+      2026-08-31 by `TronnaLegacy`, following the self-service procedure on
+      the OSMF variants page. Which message prompted the listing is not
+      known. Verified 2026-10-09. The tracker's
       `oakville.toml` tier flip is the tracker's job.
-- [ ] **Send the LWG email** (the gist) covering brantford, dufferin, huron,
-      kitchener, **sarnia** — five now; remove Oakville from the gist first —
-      after a human read of the two licences verified only from page
-      summaries (brantford, kitchener; dufferin + huron + sarnia are
-      verbatim-verified). Re-checked 2026-10-09: none of the five, nor peel,
-      is on the OSMF variants page yet.
+- [x] **Send the LWG email** (the gist) covering oakville, brantford,
+      dufferin, huron, kitchener, **sarnia** — sent (date not recorded); no
+      reply as of 2026-10-11. Re-checked 2026-10-09: the other five, and peel,
+      are still not on the OSMF variants page.
+- [ ] **Next: the self-service route for the five** (and other Ontario
+      licences): diff each against the Ottawa Open Data Licence 2.0 per the
+      OSMF variants page; where the only differences are locality name, legal
+      venue, PII or "records" definitions, add a Contributors entry and email
+      legal-questions@osmfoundation.org. Follow up with legal-questions@ for
+      any that are not a pure variant of that kind. Diffs in progress in
+      `ontario-osm-data-sources/licences/`. Brantford and kitchener were
+      verified only from page summaries — read their full text first.
 - [ ] **brant** — item `licenseInfo` is literally **"CC0"**
       (item cfcb7930439e42b386410b716869d170, owner OpenData_Brant). CC0 is
       ODbL-compatible outright. Optionally confirm the marking is intentional
@@ -37,10 +46,11 @@ government office; none of it is automatable or delegable to a probe.
       adapted with permission of the UK National Archives. Full text is at
       <https://data.peelregion.ca/pages/license> but the page is JS-rendered —
       grab the text in a browser, diff against UK OGL 3.0 / OGL-Canada 2.0,
-      then add Peel to the LWG email. **Highest-value item on this list:**
+      then follow up with legal-questions@osmfoundation.org (a UK-OGL base
+      is not a pure locality variant). **Highest-value item on this list:**
       Peel is the gateway to Mississauga, the designated first
       regional-dataset city.
-- [ ] After LWG replies: add Contributors-page entries and flip
+- [ ] As each licence clears: add Contributors-page entries and flip
       `osm_compatible` tiers in the tracker datasets. (Oakville's
       Contributors entry already exists.)
 - [ ] **Tracker tiers the OSMF page does not back** (found 2026-10-09):
