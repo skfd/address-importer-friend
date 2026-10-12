@@ -8,16 +8,20 @@ two to a small building, or by the dozen in one large one, is the difference
 between a townhouse complex and an apartment block that the unit numbering
 cannot see.
 
-Read from the same Ontario PBF the refresh downloaded, filtered to the city
-bbox, and cached beside the extract as `<extract stem>-buildings.json`.
+Read from the same dated Ontario PBF the address extract was filtered from
+(`osm_store.resolve_pbf`), filtered to the city bbox, and cached beside the
+extract as `<extract stem>-buildings.json`.
 Rebuilt when the PBF is newer than the cache. Outlines are outer rings only;
 a courtyard building's hole is ignored, which overstates its area and can
 only push a group toward "apartment", the conservative side.
 """
 import json
 import math
+import sys
 from collections import defaultdict
 from pathlib import Path
+
+from . import osm_store
 
 # Metres per degree near the city. Good to well under a percent over a
 # city's extent, which is all an area and a point-in-ring need.
@@ -35,8 +39,12 @@ def cache_path(cfg) -> Path:
     return ext.with_name(f"{ext.stem}-buildings.json")
 
 
-def pbf_path(cfg) -> Path:
-    return Path(cfg.osm_extract_json).with_name("ontario-latest.osm.pbf")
+def pbf_path(cfg) -> Path | None:
+    """The PBF the city's address extract recorded; see `osm_store.resolve_pbf`."""
+    pbf, note = osm_store.city_pbf(cfg)
+    if note and pbf is not None:
+        print(f"osm_buildings: {note}", file=sys.stderr)
+    return pbf
 
 
 def extract(pbf: Path, bbox: tuple[float, float, float, float]) -> list[dict]:
@@ -76,9 +84,9 @@ def extract(pbf: Path, bbox: tuple[float, float, float, float]) -> list[dict]:
 def load(cfg, rebuild: bool = False) -> list[dict]:
     """The cached outlines, extracted first if missing, stale or asked for."""
     cache, pbf = cache_path(cfg), pbf_path(cfg)
-    if rebuild or not cache.exists() or (pbf.exists() and pbf.stat().st_mtime > cache.stat().st_mtime):
-        if not pbf.exists():
-            raise FileNotFoundError(f"{pbf} missing; refresh the OSM extract first")
+    if rebuild or not cache.exists() or (pbf and pbf.stat().st_mtime > cache.stat().st_mtime):
+        if pbf is None:
+            raise FileNotFoundError("no OSM extract PBF in the store; refresh the OSM extract first")
         cache.write_text(json.dumps(extract(pbf, cfg.osm_city_bbox)), encoding="utf-8")
     return json.loads(cache.read_text(encoding="utf-8"))
 

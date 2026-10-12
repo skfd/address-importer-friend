@@ -148,13 +148,15 @@ overpass_url = "https://overpass-api.de/api/interpreter"
 source = "local"
 # Geofabrik PBF covering the city. Ontario is the smallest Geofabrik region
 # that includes Toronto, and it covers every other city in the portfolio too,
-# so this line does not change per city; ~600MB on first download, diff-friendly.
+# so this line does not change per city. The URL's basename names the region in
+# the shared OSM store (osm-extracts, ~/Code/.osm-data or OSM_DATA_DIR), which
+# downloads it once for every project; refresh asks it to fetch, never downloads.
 pbf_url = "https://download.geofabrik.de/north-america/canada/ontario-latest.osm.pbf"
 # City-ish clip applied after tag filtering. Anything outside this rectangle is
 # discarded from the local extract to keep it small. Required — a rectangle is
 # not a boundary (see future-work/multi-city/10-boundary-clipping.md).
 city_bbox = [43.58, -79.64, 43.86, -79.11]
-# Where the PBF, filtered JSON, meta sidecar, lock and log live.
+# Where the filtered JSON, meta sidecar, lock and log live. The PBF stays in the store.
 extract_dir = "data/osm"
 
 [conflation]

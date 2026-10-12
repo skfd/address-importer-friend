@@ -7,7 +7,7 @@ from pathlib import Path
 
 from flask import Flask, abort, flash, g, jsonify, redirect, render_template, request, send_file, send_from_directory, url_for
 
-from .. import audit, campaign_stats as _campaign_stats, candidates, config as _config, db as _db, maintenance as _maintenance, maintenance_report as _maintenance_report, multi_addresses as _multi_addresses, multi_fixes as _multi_fixes, osm_client, osm_export, osm_refresh, pipeline, ranges as _ranges, reverse_sweep as _reverse_sweep, review, run_for_all, source_db, source_multi as _source_multi, streets as _streets, tag_diff, tiles_build, unit_shapes as _unit_shapes, unit_verdicts as _unit_verdicts, wiki_sync as _wiki_sync
+from .. import audit, campaign_stats as _campaign_stats, candidates, config as _config, db as _db, maintenance as _maintenance, maintenance_report as _maintenance_report, multi_addresses as _multi_addresses, multi_fixes as _multi_fixes, osm_client, osm_export, osm_refresh, osm_store, pipeline, ranges as _ranges, reverse_sweep as _reverse_sweep, review, run_for_all, source_db, source_multi as _source_multi, streets as _streets, tag_diff, tiles_build, unit_shapes as _unit_shapes, unit_verdicts as _unit_verdicts, wiki_sync as _wiki_sync
 from ..conflate import _proposed_tags, _is_poi_node, POI_TAG_KEYS, normalize_street
 from ..checks import REGISTRY
 from .glossary import GLOSSARY
@@ -1691,10 +1691,13 @@ def create_app() -> Flask:
         running, pid = osm_refresh.is_refresh_running(cfg)
         status = osm_refresh.extract_status(cfg)
         log_tail = osm_refresh.tail_log(cfg, lines=30)
+        pbf, pbf_note = osm_store.city_pbf(cfg, meta) if meta else (None, None)
         return render_template(
             "osm.html",
             cfg=cfg,
             meta=meta,
+            pbf=pbf,
+            pbf_note=pbf_note,
             running=running,
             pid=pid,
             status=status,
@@ -2281,7 +2284,7 @@ def _collect_data_stats(cfg) -> dict:
     source_size = _file_size(source_path)
 
     extract_dir = cfg.osm_extract_dir
-    pbf_path = extract_dir / "ontario-latest.osm.pbf"
+    pbf_path, _note = osm_store.city_pbf(cfg)
     json_path = cfg.osm_extract_json
 
     run_json_files: list[dict] = []
@@ -2325,7 +2328,9 @@ def _collect_data_stats(cfg) -> dict:
         },
         "osm_extract": {
             "dir": str(extract_dir),
-            "pbf_bytes": _file_size(pbf_path),
+            "pbf_path": str(pbf_path) if pbf_path else None,
+            "pbf_name": pbf_path.name if pbf_path else None,
+            "pbf_bytes": _file_size(pbf_path) if pbf_path else None,
             "json_bytes": _file_size(json_path),
         },
         "run_json": {

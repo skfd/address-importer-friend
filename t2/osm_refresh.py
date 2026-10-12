@@ -1,12 +1,13 @@
-"""Download a Geofabrik OSM extract and filter it to the city's address features.
+"""Filter the shared Ontario OSM extract to the city's address features.
 
 Canonical entry point: ``python -m t2.osm_refresh``.
 
-Writes to ``config.osm_extract_dir`` (default ``data/osm``):
+The PBF itself lives in the shared store (``t2.osm_store``); a refresh asks
+``osm-extracts`` to fetch it, then filters the dated file ``latest.json``
+names. Writes to ``config.osm_extract_dir`` (default ``data/osm``):
 
-    ontario-latest.osm.pbf    raw PBF download
     <slug>-addresses.json     filtered element list (shape matches Overpass `out center;`)
-    meta.json                 source URL + timestamps + sha256 + element counts
+    meta.json                 source PBF (dated file + sha256) + timestamps + element counts
     refresh.lock              PID of the running refresh (present only while running)
     refresh.log               stdout+stderr of the last refresh run
 
@@ -24,12 +25,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-import requests
-
-from . import audit, config as _config
-
-_CHUNK = 1 << 20  # 1 MiB download chunks
-_HTTP_TIMEOUT = 60
+from . import audit, config as _config, osm_store
 
 
 def _iso_now() -> str:
@@ -40,7 +36,6 @@ def _paths(cfg) -> dict[str, Path]:
     d = cfg.osm_extract_dir
     return {
         "dir": d,
-        "pbf": d / "ontario-latest.osm.pbf",
         "json": cfg.osm_extract_json,
         "meta": d / "meta.json",
         "lock": d / "refresh.lock",
@@ -146,36 +141,6 @@ def _pid_alive(pid: int) -> bool:
 
 def _log(msg: str) -> None:
     print(f"[{_iso_now()}] {msg}", flush=True)
-
-
-def _head(url: str) -> dict[str, str]:
-    r = requests.head(url, allow_redirects=True, timeout=_HTTP_TIMEOUT)
-    r.raise_for_status()
-    return dict(r.headers)
-
-
-def _download(url: str, dest: Path) -> tuple[str, int]:
-    """Stream download to dest. Returns (sha256_hex, bytes_written)."""
-    h = hashlib.sha256()
-    total = 0
-    next_log = 25 * _CHUNK  # every 25 MiB
-    tmp = dest.with_suffix(dest.suffix + ".partial")
-    with requests.get(url, stream=True, timeout=_HTTP_TIMEOUT) as r:
-        r.raise_for_status()
-        size = int(r.headers.get("Content-Length") or 0)
-        with tmp.open("wb") as f:
-            for chunk in r.iter_content(chunk_size=_CHUNK):
-                if not chunk:
-                    continue
-                f.write(chunk)
-                h.update(chunk)
-                total += len(chunk)
-                if total >= next_log:
-                    pct = f" ({100 * total // size}%)" if size else ""
-                    _log(f"downloaded {total // (1 << 20)} MiB{pct}")
-                    next_log += 25 * _CHUNK
-    tmp.replace(dest)
-    return h.hexdigest(), total
 
 
 def _in_bbox(lat: float, lon: float, bbox: tuple[float, float, float, float]) -> bool:
@@ -359,14 +324,6 @@ def _filter(pbf_path: Path, bbox: tuple[float, float, float, float]) -> tuple[li
     return elements, counts
 
 
-def _sha256_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(_CHUNK), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-
 def _acquire_lock(lock: Path) -> None:
     lock.parent.mkdir(parents=True, exist_ok=True)
     if lock.exists():
@@ -388,123 +345,119 @@ def _release_lock(lock: Path) -> None:
         pass
 
 
+def _same_pbf(prior: dict | None, latest: dict) -> bool:
+    """Whether the city extract was filtered from the store's latest file."""
+    if not prior:
+        return False
+    if prior.get("pbf_sha256") and latest.get("sha256"):
+        return prior["pbf_sha256"] == latest["sha256"]
+    return bool(latest.get("source_last_modified")) and (
+        prior.get("source_last_modified") == latest["source_last_modified"]
+    )
+
+
+def _filter_and_write(cfg, paths: dict[str, Path], pbf: Path, info: dict,
+                      t_start: float, **stamps: str) -> dict:
+    """Filter pbf, write the city JSON + meta.json, audit. info is the store's
+    meta for pbf; stamps override downloaded_at / add rebuilt_at."""
+    _log(f"filtering {pbf.name} with pyosmium to bbox {cfg.osm_city_bbox}")
+    t_filter = time.monotonic()
+    elements, counts = _filter(pbf, cfg.osm_city_bbox)
+    filter_s = time.monotonic() - t_filter
+    _log(f"filter done in {filter_s:.1f}s — {counts}")
+
+    body = json.dumps(elements)
+    paths["json"].write_text(body, encoding="utf-8")
+    json_sha = hashlib.sha256(body.encode("utf-8")).hexdigest()
+    _log(f"wrote {paths['json']} ({len(body)} bytes, sha256 {json_sha[:16]}…)")
+
+    meta = {
+        "source_url": info.get("source_url") or cfg.osm_pbf_url,
+        "source_last_modified": info.get("source_last_modified") or "",
+        "source_bytes": info.get("bytes") or pbf.stat().st_size,
+        "pbf_file": pbf.name,
+        "pbf_sha256": info.get("sha256") or "",
+        "json_sha256": json_sha,
+        "json_bytes": len(body),
+        "element_counts": counts,
+        "city_bbox": list(cfg.osm_city_bbox),
+        "downloaded_at": _iso_now(),
+        **stamps,
+        "filter_duration_s": round(filter_s, 2),
+        "total_duration_s": round(time.monotonic() - t_start, 2),
+    }
+    paths["meta"].write_text(json.dumps(meta, indent=2), encoding="utf-8")
+    audit.log(actor="osm_refresh", event_type="OSM_EXTRACT_REFRESHED", payload=meta)
+    _log("done")
+    return meta
+
+
 def run(force: bool = False, dry_run: bool = False, rebuild: bool = False) -> dict:
     """Do the refresh. Returns the meta dict written to disk (or would-be meta on dry_run).
 
-    rebuild=True re-filters the existing PBF without re-downloading; useful
-    after the filter logic changes (e.g. emitting multipolygon relations).
+    rebuild=True re-filters the PBF the extract was built from without
+    fetching; useful after the filter logic changes (e.g. emitting
+    multipolygon relations).
     """
     cfg = _config.load()
     paths = _paths(cfg)
     paths["dir"].mkdir(parents=True, exist_ok=True)
+    prior = read_meta(cfg)
 
     if rebuild:
-        if not paths["pbf"].exists():
-            raise FileNotFoundError(
-                f"--rebuild requires {paths['pbf']} to exist; run without --rebuild first."
-            )
-        prior = read_meta(cfg) or {}
+        pbf, note = osm_store.resolve_pbf(cfg, prior)
+        if pbf is None:
+            raise FileNotFoundError(f"--rebuild: {note}; run without --rebuild first.")
+        if note:
+            _log(note)
+        info = osm_store.file_meta(pbf)
+        if not note and prior and not info.get("sha256"):
+            info = {**info, "sha256": prior.get("pbf_sha256")}
         _acquire_lock(paths["lock"])
         t_start = time.monotonic()
         try:
-            _log(f"rebuild: reusing {paths['pbf']} ({paths['pbf'].stat().st_size} bytes)")
-            pbf_sha = prior.get("pbf_sha256") or _sha256_file(paths["pbf"])
-            pbf_bytes = paths["pbf"].stat().st_size
-
-            _log(f"filtering with pyosmium to bbox {cfg.osm_city_bbox}")
-            t_filter = time.monotonic()
-            elements, counts = _filter(paths["pbf"], cfg.osm_city_bbox)
-            filter_s = time.monotonic() - t_filter
-            _log(f"filter done in {filter_s:.1f}s — {counts}")
-
-            body = json.dumps(elements)
-            paths["json"].write_text(body, encoding="utf-8")
-            json_sha = hashlib.sha256(body.encode("utf-8")).hexdigest()
-            _log(f"wrote {paths['json']} ({len(body)} bytes, sha256 {json_sha[:16]}…)")
-
-            meta = {
-                "source_url": prior.get("source_url", cfg.osm_pbf_url),
-                "source_last_modified": prior.get("source_last_modified", ""),
-                "source_bytes": prior.get("source_bytes", pbf_bytes),
-                "pbf_sha256": pbf_sha,
-                "json_sha256": json_sha,
-                "json_bytes": len(body),
-                "element_counts": counts,
-                "city_bbox": list(cfg.osm_city_bbox),
-                "downloaded_at": prior.get("downloaded_at", _iso_now()),
-                "rebuilt_at": _iso_now(),
-                "filter_duration_s": round(filter_s, 2),
-                "total_duration_s": round(time.monotonic() - t_start, 2),
-            }
-            paths["meta"].write_text(json.dumps(meta, indent=2), encoding="utf-8")
-            audit.log(actor="osm_refresh", event_type="OSM_EXTRACT_REFRESHED", payload=meta)
-            _log("done")
-            return meta
+            _log(f"rebuild: reusing {pbf} ({pbf.stat().st_size} bytes)")
+            downloaded_at = (prior or {}).get("downloaded_at") if not note else None
+            return _filter_and_write(cfg, paths, pbf, info, t_start,
+                                     downloaded_at=downloaded_at or _iso_now(),
+                                     rebuilt_at=_iso_now())
         finally:
             _release_lock(paths["lock"])
 
-    _log(f"HEAD {cfg.osm_pbf_url}")
-    headers = _head(cfg.osm_pbf_url)
-    source_last_modified = headers.get("Last-Modified", "")
-    content_length = int(headers.get("Content-Length") or 0)
-    _log(f"source last-modified: {source_last_modified or '(unknown)'} size: {content_length} bytes")
-
-    prior = read_meta(cfg)
-    unchanged = (
-        prior is not None
-        and prior.get("source_last_modified") == source_last_modified
-        and paths["json"].exists()
-    )
-
     if dry_run:
-        _log(f"dry-run: would_download={not unchanged or force}")
+        latest = osm_store.read_latest(cfg) or {}
+        unchanged = _same_pbf(prior, latest) and paths["json"].exists()
+        _log(f"dry-run: store latest {latest.get('file') or '(none)'}, "
+             f"would_filter={not unchanged or force} (Geofabrik not checked)")
         return {
-            "source_url": cfg.osm_pbf_url,
-            "source_last_modified": source_last_modified,
-            "source_bytes": content_length,
-            "would_download": (not unchanged) or force,
+            "store_file": latest.get("file"),
+            "source_last_modified": latest.get("source_last_modified", ""),
+            "source_bytes": latest.get("bytes", 0),
+            "would_filter": (not unchanged) or force,
             "prior": prior,
         }
-
-    if unchanged and not force:
-        _log("source unchanged since last refresh; skipping download (pass --force to override)")
-        return prior or {}
 
     _acquire_lock(paths["lock"])
     t_start = time.monotonic()
     try:
-        _log(f"downloading to {paths['pbf']}")
-        pbf_sha, pbf_bytes = _download(cfg.osm_pbf_url, paths["pbf"])
-        _log(f"downloaded {pbf_bytes} bytes, sha256 {pbf_sha[:16]}…")
+        _log(f"fetching {cfg.osm_pbf_url} into {osm_store.region_dir(cfg)}")
+        osm_store.fetch(cfg, force=force)
+        latest = osm_store.read_latest(cfg) or {}
+        pbf = osm_store.region_dir(cfg) / latest["file"] if latest.get("file") else None
+        if pbf is None or not pbf.exists():
+            raise FileNotFoundError(f"no latest extract in {osm_store.region_dir(cfg)} after fetch")
+        _log(f"store latest: {pbf.name}, source last-modified "
+             f"{latest.get('source_last_modified') or '(unknown)'}")
 
-        _log(f"filtering with pyosmium to bbox {cfg.osm_city_bbox}")
-        t_filter = time.monotonic()
-        elements, counts = _filter(paths["pbf"], cfg.osm_city_bbox)
-        filter_s = time.monotonic() - t_filter
-        _log(f"filter done in {filter_s:.1f}s — {counts}")
+        if _same_pbf(prior, latest) and paths["json"].exists() and not force:
+            if prior.get("pbf_file") != pbf.name:
+                prior["pbf_file"] = pbf.name
+                paths["meta"].write_text(json.dumps(prior, indent=2), encoding="utf-8")
+                _log(f"recorded pbf_file {pbf.name} in {paths['meta']}")
+            _log("extract already filtered from this PBF; skipping (pass --force to override)")
+            return prior
 
-        body = json.dumps(elements)
-        paths["json"].write_text(body, encoding="utf-8")
-        json_sha = hashlib.sha256(body.encode("utf-8")).hexdigest()
-        _log(f"wrote {paths['json']} ({len(body)} bytes, sha256 {json_sha[:16]}…)")
-
-        meta = {
-            "source_url": cfg.osm_pbf_url,
-            "source_last_modified": source_last_modified,
-            "source_bytes": pbf_bytes,
-            "pbf_sha256": pbf_sha,
-            "json_sha256": json_sha,
-            "json_bytes": len(body),
-            "element_counts": counts,
-            "city_bbox": list(cfg.osm_city_bbox),
-            "downloaded_at": _iso_now(),
-            "filter_duration_s": round(filter_s, 2),
-            "total_duration_s": round(time.monotonic() - t_start, 2),
-        }
-        paths["meta"].write_text(json.dumps(meta, indent=2), encoding="utf-8")
-        audit.log(actor="osm_refresh", event_type="OSM_EXTRACT_REFRESHED", payload=meta)
-        _log("done")
-        return meta
+        return _filter_and_write(cfg, paths, pbf, latest, t_start)
     finally:
         _release_lock(paths["lock"])
 
@@ -512,14 +465,16 @@ def run(force: bool = False, dry_run: bool = False, rebuild: bool = False) -> di
 def _cli() -> int:
     parser = argparse.ArgumentParser(
         prog="python -m t2.osm_refresh",
-        description="Download + filter the city OSM extract used by stage 2.",
+        description="Fetch the shared OSM extract and filter it to the city for stage 2.",
     )
     parser.add_argument("--force", action="store_true",
-                        help="Re-download even if Geofabrik Last-Modified is unchanged.")
+                        help="Have the store re-download even if Geofabrik Last-Modified "
+                             "is unchanged, and re-filter.")
     parser.add_argument("--dry-run", action="store_true",
-                        help="Only HEAD-check the source; print what would happen.")
+                        help="Only compare the city extract with the store's latest; "
+                             "fetch nothing.")
     parser.add_argument("--rebuild", action="store_true",
-                        help="Re-filter the existing PBF (skip download). "
+                        help="Re-filter the PBF the extract was built from (no fetch). "
                              "Use after the filter logic changes.")
     args = parser.parse_args()
     try:

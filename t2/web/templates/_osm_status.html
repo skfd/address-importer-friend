@@ -1,4 +1,4 @@
-{# Card summarising the local OSM extract. Expects: cfg, meta, status, running, pid, log_tail. #}
+{# Card summarising the local OSM extract. Expects: cfg, meta, pbf, pbf_note, status, running, pid, log_tail. #}
 {% set pill_class = {'fresh': 'ok', 'stale': 'warn', 'missing': 'bad', 'running': 'pill'}.get(status, '') %}
 <div class="card" id="osm-status">
   <h2>
@@ -23,7 +23,11 @@
     </tr>
     <tr>
       <th>PBF</th>
-      <td>{{ (meta.source_bytes / 1048576) | round(1) }} MiB · sha256 <code data-tip="{{ tip('field.osm_pbf_sha256') }}">{{ meta.pbf_sha256[:16] }}…</code></td>
+      <td>
+        {% if pbf %}<code data-tip="{{ tip('field.osm_pbf_file') }}">{{ pbf.name }}</code> · {% endif %}
+        {{ (meta.source_bytes / 1048576) | round(1) }} MiB · sha256 <code data-tip="{{ tip('field.osm_pbf_sha256') }}">{{ meta.pbf_sha256[:16] }}…</code>
+        {% if pbf_note %}<br><span class="pill warn">{{ pbf_note }}</span>{% endif %}
+      </td>
     </tr>
     <tr>
       <th>JSON</th>
@@ -44,7 +48,7 @@
     </tr>
   </table>
   {% else %}
-  <p class="muted">No extract on disk yet. Click Refresh to download and filter the Geofabrik PBF.</p>
+  <p class="muted">No extract on disk yet. Click Refresh to fetch the Geofabrik PBF into the shared store and filter it.</p>
   {% endif %}
 
   <div>

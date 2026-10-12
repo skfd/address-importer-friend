@@ -22,8 +22,8 @@ guelph 187, hamilton 146, ottawa 121. Smallest: cornwall 9 MB.
 
 The source side therefore costs **nothing** — no network at all.
 
-For the OSM side, use the **Geofabrik Ontario PBF** that `t2/osm_refresh.py`
-already downloads. One offline pass covers every city in the portfolio.
+For the OSM side, use the **Geofabrik Ontario PBF** already in the shared OSM
+store (`~/Code/.osm-data/ontario/`, see `t2/osm_store.py`). One offline pass covers every city in the portfolio.
 Do **not** issue 42 full-city Overpass queries against the volunteer-run public
 instance.
 
@@ -70,7 +70,7 @@ schemas is visible rather than inferred from two examples.
 
 ## Cost note
 
-Cheap and mostly offline, but the PBF is ~600 MB on first download and the
+Cheap and mostly offline, but the PBF is ~1 GB if the store lacks it and the
 filtering pass over 42 city extents is not instant. Worth running once,
 deliberately, and keeping the output as a dated artifact rather than
 re-deriving it.

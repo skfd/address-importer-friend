@@ -137,15 +137,27 @@ querying Overpass every time. First-time setup:
 python -m t2.osm_refresh
 ```
 
-This downloads the latest Ontario PBF from Geofabrik (~600 MB) into
-`data/osm/ontario-latest.osm.pbf`, filters it to `addr:housenumber`-tagged
-features clipped to `[osm] city_bbox` in `config.toml`, and writes
-`data/osm/<slug>-addresses.json` (`[city] slug`) + a `meta.json` sidecar. Stage 2 then just
-bbox-clips that JSON per run — no network, sub-second.
+The PBF is not downloaded here. Every project under `~/Code` shares one store
+of OSM extracts, `~/Code/.osm-data` (override with `OSM_DATA_DIR`), owned by
+osm-extracts (`~/Code/osm-extracts`) — clone it beside this repo, or point
+`OSM_EXTRACTS_TOOL` at its `osm_extracts.py`. A refresh runs
+`osm_extracts.py fetch` for `[osm] pbf_url` (the URL's basename names the region,
+`ontario-latest.osm.pbf` → `ontario`), which HEAD-checks Geofabrik and downloads
+the Ontario PBF (~1 GB) only if it changed. The refresh then reads
+`ontario/latest.json`, filters the dated file it names
+(`ontario-2026-10-02.osm.pbf`) to `addr:housenumber`-tagged features clipped to
+`[osm] city_bbox` in `config.toml`, and writes `data/osm/<slug>-addresses.json`
+(`[city] slug`) + a `meta.json` sidecar recording that file and its sha256. Stage 2
+then just bbox-clips that JSON per run — no network, sub-second. The building
+outlines the unit-shape auto-judge reads come from the same recorded file; the
+store keeps only the newest two plus pins, so once it is pruned they fall back to the
+latest and the `/osm` page says the extract wants a refresh.
 
-Re-run whenever you want a fresher snapshot. The tool HEAD-checks Geofabrik
-and skips the download if `Last-Modified` hasn't changed; pass `--force` to
-re-download regardless. `--dry-run` does only the HEAD check.
+Re-run whenever you want a fresher snapshot. If the extract was already
+filtered from the store's latest PBF, the filter is skipped; pass `--force` to
+have the store re-download regardless and re-filter. `--rebuild` re-filters the
+recorded PBF without fetching. `--dry-run` only compares the extract with the
+store's latest.
 
 You can also trigger a refresh from the web UI at <http://localhost:5000/osm>.
 The page shows the extract's freshness, element counts, sha256s, and tails

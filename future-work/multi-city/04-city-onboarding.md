@@ -55,8 +55,9 @@ Each of these is a pure function of inputs that can be re-run and diffed:
   declared config (`02`, settled).
 
 Use the **Geofabrik PBF, not Overpass**, for the OSM side wherever possible.
-`t2/osm_refresh.py` already downloads `ontario-latest.osm.pbf`, and one pass
-covers every city in the portfolio. Running 42 full-city address queries against
+The shared OSM store (`~/Code/.osm-data`, filled by `osm-extracts`, which
+`t2/osm_refresh.py` calls) already holds the Ontario PBF, and one pass covers
+every city in the portfolio. Running 42 full-city address queries against
 the volunteer-run public Overpass instance would be rude and slow.
 
 ## Fuzzy — judgment, belongs in a skill
