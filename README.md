@@ -150,7 +150,7 @@ the Ontario PBF (~1 GB) only if it changed. The refresh then reads
 (`[city] slug`) + a `meta.json` sidecar recording that file and its sha256. Stage 2
 then just bbox-clips that JSON per run — no network, sub-second. The building
 outlines the unit-shape auto-judge reads come from the same recorded file; the
-store keeps only the newest two plus pins, so once it is pruned they fall back to the
+store keeps 14 days of extracts (plus the newest two and pins), so once it is pruned they fall back to the
 latest and the `/osm` page says the extract wants a refresh.
 
 Re-run whenever you want a fresher snapshot. If the extract was already

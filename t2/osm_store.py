@@ -12,7 +12,7 @@ The Ontario PBF is not ours to download. ``osm-extracts`` (a sibling checkout,
 names the region (``ontario-latest.osm.pbf`` -> ``ontario``). A city's
 ``meta.json`` records the dated file it was filtered from, and every later
 pass over the PBF (building outlines) reopens that same file so the passes
-agree. The store keeps the newest two files plus pins, so the recorded one can
+agree. The store keeps 14 days of files plus the newest two and pins, so the recorded one can
 be pruned; then we fall back to the latest and say the city wants a refresh.
 
 Standard library only, so the web app and ``osm_buildings`` stay light.
