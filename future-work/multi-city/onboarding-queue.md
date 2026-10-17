@@ -103,6 +103,25 @@ document exists; it now sits in the no-published-licence contact bucket
 
 orange-ccby-waiver: brampton
 
+**elgin entered this bucket 2026-10-16** (was unknown-review, out). The tracker
+re-pointed it to the county's `Elgin_Civic_Numbers_2026` layer, whose group sits
+in the Elgin open-data hub's catalogue, and that hub publishes "Open Government
+Licence - County of Elgin". Next is the self-service diff against Ottawa 2.0
+(tracker TODO); a pure variant makes it `green-self` and it joins the queue.
+Import notes for when it does: the layer's `StrUNIT` holds "N/A" on 94% of rows
+(null, not a unit); `Civic` carries the suffix and dash units ("9024A",
+"10211-1"); `x`/`y` are a stale copy of the geometry (484 rows > 1.1 m off).
+
+**middlesex is out (unknown-review), but if it ever enters, units are in a
+separate layer.** The tracker reads `MiddlesexCounty/Base_Layers/MapServer/1`
+(via the utility.arcgis.com proxy item `f4dd79bd…`), which carries only 424
+unit rows. Layer 0 of the same service, "Address (Units)", holds 2,298 unit
+points (`STREET_UNI` + `FULLADDRES` only, 465 buildings) and covers 419 of
+those 424. An import must take its units from layer 0 and its base addresses
+from layer 1 (see `09-units.md`); the tracker decided 2026-10-16 not to track
+layer 0. Also: layer 1's real OID is `OBJECTID_1`; its `OBJECTID` column is
+mostly 0, so never page or key on it.
+
 **oakville left this bucket 2026-08-16** — see Done. The "do not touch,
 brownfield-active" rule was written when `TronnaLegacy` was an unknown active
 mapper; he turns out to be a friend of the user, so the etiquette blocker
