@@ -115,6 +115,58 @@ permission (template above). Sorted by known contact first.
 - [ ] **windsor** — red-review, "City of Windsor Terms of Use" (mappmycity.ca).
       Same.
 
+## E. Tracked from 2026-10-16 onward, gated off the site — asks drafted 2026-10-23
+
+The ontario-address-changes tracker added these with `publish_reports = false` (licence
+decides publishing, never tracking). Each ask below lifts a gate if it succeeds. Two
+questions per place: may we publish change reports derived from the layer (the tracker),
+and under what licence (OSM). Use the suggested ask below; add the tracker sentence:
+"We also publish a daily list of added/retired/changed addresses derived from the layer
+- is that permitted?" Contacts seen on official pages 2026-10-23 (evidence URL in brackets).
+
+No licence published anywhere (ask them to state one):
+- [ ] **caledon** - info@caledon.ca (no GIS address) [caledon.ca/contact]
+- [ ] **dryden** - generalinquiries@dryden.ca (maps page says contact the City) [dryden.ca/build-invest/maps]
+- [ ] **oshawa** - service@oshawa.ca, the open-data page's contact. Also ask whether the
+      "Open Data Licence Agreement ... for reference use only" the registry quoted
+      covers Parcels_AddPts. [oshawa.ca/city-hall/city-records/open-data]
+- [ ] **vaughan + vaughan-ng911** (one ask) - service@vaughan.ca (seen only in a search
+      snippet; vaughan.ca returned 403 to a direct fetch) [vaughan.ca/contact-us]
+- [ ] **grey + grey-assigned-addresses + blue-mountains** (one ask; all three are layers
+      on gis.grey.ca) - web form only: form.foreaction.cloud/submit/grey-county [grey.ca/contact-us]
+- [ ] **gorham-ware + oliver-paipoonge** (one ask) - published by Lakehead Region
+      Conservation Authority on NVCA's server: info@lakeheadca.com [lakeheadca.com/about-us].
+      Who owns the data is unclear; Oliver Paipoonge also lists planning@oliverpaipoonge.on.ca.
+- [ ] **leamington** - clerks@leamington.ca (no GIS or general address) [leamington.ca news
+      post]. The layer sits in the County of Essex AGOL org but is not on the County hub, so
+      the County OGL that covers tecumseh may not reach it - CC the County form below.
+
+Restrictive terms published (permission ask, uphill):
+- [ ] **oxford** - gis@oxfordcounty.ca (confirmed; also addressing@oxfordcounty.ca). The
+      data-requests page grants a "limited licence": no posting on an external website, no
+      commercial use. [oxfordcounty.ca/services-for-you/data-requests]
+- [ ] **north-bay** - customerservice@northbay.ca (northbay.ca/legal forbids copying onto
+      other websites without written agreement) [northbay.ca/contact-us]
+- [ ] **haliburton** - gis@haliburtoncounty.ca (view-and-print-a-single-copy terms plus an
+      anti-scraping clause - the hardest terms in the catalogue) [haliburtoncounty.ca/planning-and-maps/maps]
+- [ ] **sault-ste-marie** - info@cityssm.on.ca; the service is hosted by the Sault Ste. Marie
+      Innovation Centre (enterprise.ssmic.com), no contact found for them. SooMaps terms are
+      non-commercial only. [saultstemarie.ca/contact]
+- [ ] **peterborough (City)** - gis@peterborough.ca, named on the open-data page. The Terms
+      allow copying only UNMODIFIED datasets; ask whether derived change reports count.
+      [peterborough.ca/en/city-hall/open-data.aspx]
+
+Publishing already; confirmation asks:
+- [ ] **ajax** - GISServices@ajax.ca. **New wrinkle:** the opendata.ajax.ca site settings
+      list the licence as "CC-BY-SA", while the tracker read the Town of Ajax Open Data
+      Licence v1.0 (OGL clone) off the hub's site-wide text. Ask which applies to Civic
+      Addresses item e48315e9; CC-BY-SA would not be ODbL-compatible without a waiver.
+      [arcgis.com/sharing/rest/content/items/5a328e1aa7ac469c8dcc16dd12f298bc/data?f=json]
+- [ ] **tecumseh** - the County is the licensor: County of Essex GIS Open Data Feedback form
+      eforms.countyofessex.ca/GIS/Open-Data-Feedback (or coeinfo@countyofessex.ca); Town is
+      info@tecumseh.ca. Ask whether the County OGL may license the Town's points.
+      [countyofessex.ca/discover-the-county/open-data]
+
 ## Suggested ask (C and D)
 
 > We'd like to use your published civic address data to improve
