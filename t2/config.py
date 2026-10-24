@@ -320,9 +320,13 @@ class Links:
     #: onto the changeset: this is a name and a URL for a human to click.
     open_data_name: str = ""
     open_data_url: str = ""
+    #: GoatCounter count endpoint (`https://<code>.goatcounter.com/count`).
+    #: Every page with a <head> carries the tag when set, none when absent, so
+    #: one city's visits never land in another city's counter.
+    goatcounter: str = ""
 
 
-_LINK_KEYS = ("repo", "discussion", "proposal", "open_data")
+_LINK_KEYS = ("repo", "discussion", "proposal", "open_data", "goatcounter")
 
 
 # A Canadian postal code: forward sortation area, space, local delivery unit.
@@ -454,6 +458,7 @@ def parse_links(section: dict, origin: str = "config.toml") -> Links:
         proposal=_url("proposal", section.get("proposal")),
         open_data_name=od_name,
         open_data_url=od_url,
+        goatcounter=_url("goatcounter", section.get("goatcounter")),
     )
 
 

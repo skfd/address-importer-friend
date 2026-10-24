@@ -27,6 +27,7 @@
     body.static-export [hx-post] input[type="checkbox"] { pointer-events: none; }
   </style>
   {% endif %}
+  {% if cfg.links.goatcounter %}<script data-goatcounter="{{ cfg.links.goatcounter }}" async src="//gc.zgo.at/count.js"></script>{% endif %}
 </head>
 {% set _body_classes = [] %}
 {% if static_export.active %}{% set _ = _body_classes.append('static-export') %}{% endif %}

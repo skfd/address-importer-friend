@@ -103,3 +103,11 @@ def test_static_export_omits_the_ranges_page_for_a_rangeless_city(monkeypatch):
     assert not rangeless.source_fields.has_ranges
     monkeypatch.setattr(_config, "load", lambda: rangeless)
     assert static_export._ranges_page() == []
+
+
+def test_goatcounter_is_optional_and_must_be_a_url():
+    assert parse_links({}).goatcounter == ""
+    url = "https://osm-toronto.goatcounter.com/count"
+    assert parse_links({"goatcounter": url}).goatcounter == url
+    with pytest.raises(ValueError):
+        parse_links({"goatcounter": "osm-toronto"})
