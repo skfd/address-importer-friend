@@ -140,6 +140,15 @@ No licence published anywhere (ask them to state one):
 - [ ] **leamington** - clerks@leamington.ca (no GIS or general address) [leamington.ca news
       post]. The layer sits in the County of Essex AGOL org but is not on the County hub, so
       the County OGL that covers tecumseh may not reach it - CC the County form below.
+- [ ] **kingsville** (tracked 2026-10-31) - requests@kingsville.ca, the general address; no GIS
+      or open-data contact exists on kingsville.ca and the site has no open-data section
+      [kingsville.ca/en/index.aspx footer; kingsville.ca/our-town/maps/]. The layer
+      ("KingAddress_Sep25", 10,270 points) sits in the County of Essex AGOL org under a town
+      staff account inside a staff working map (MESH_WFL1), one upload of a Sep-2025 export
+      with no edits since. Ask two things: is there a maintained address layer we should
+      track instead of the working-map copy, and under what terms. The town's own map
+      viewers are hosted by the County (maps.kingsville.ca -> gisweb.countyofessex.on.ca),
+      so CC the County form below as for leamington.
 
 Restrictive terms published (permission ask, uphill):
 - [ ] **oxford** - gis@oxfordcounty.ca (confirmed; also addressing@oxfordcounty.ca). The
