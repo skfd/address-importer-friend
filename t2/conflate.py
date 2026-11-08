@@ -506,6 +506,12 @@ def run(run_id: int, osm_snapshot_hash: str, match_radius_m: float, match_near_m
             # Checked ahead of matching: a placeholder is never "already in
             # OSM", whatever happens to sit near it.
             skip_reason = _SKIP_HOUSENUMBERS.get(cand.get("housenumber") or "")
+            # A row with no civic number cannot become an address: exported, it
+            # was a node with only addr:street (or nothing but addr:source).
+            # Thunder Bay has 9 (8 of them Fort William First Nation, 2026-11-08).
+            # The first half of TODO §8: skipped, and counted, never uploaded.
+            if not (cand.get("housenumber") or "").strip():
+                skip_reason = "no civic number in the source"
 
             # Address ranges are skipped during conflation (kept for reference only).
             # Non-Land rows that share an address with a Land sibling are also skipped —

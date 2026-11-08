@@ -192,6 +192,13 @@ which for these rows looks populated.
 - [ ] Decide the policy: skip-with-visible-count at ingest (the Land Entrance
       shape), or a distinct terminal status. Silent ingestion is the one wrong
       answer. Gate: needed before Quinte West's first baseline is read.
+- [x] **Half done 2026-11-08 (Thunder Bay):** a candidate whose *projected*
+      housenumber is empty is now SKIPPED at conflation with a
+      `HOUSENUMBER_SKIPPED` event ("no civic number in the source"). Before,
+      it auto-approved and would have uploaded a node with only
+      `addr:street`. Thunder Bay had 9, 8 of them FWFN. Brant's
+      projected-garbage rows ("PARKSIDE" from the street) still look
+      populated and still need the source-row rule above.
 
 ## 10. Units that are civic numbers in disguise (Quinte West, 2026-08-15)
 
@@ -271,6 +278,14 @@ overstated. Rural numbered roads (`County Road 43`) need a rule, not a table.
 Guardrail: Toronto's match rates must not move (`tool.db` is living).
 
 ## Housekeeping
+
+- [ ] **OSM caches are keyed by run id alone** (`data/<slug>/osm_current_run<N>.json`).
+      Reset a city's tool.db and the new runs reuse ids 1..N; with workers
+      taking tiles in a different order, a run conflates against another
+      tile's cached OSM. Seen 2026-11-08 on Thunder Bay: MATCH fell from 322
+      to 158 until the stale files were moved aside. Key the cache by tile
+      bbox or the run's created_at, or clear `osm_current_run*.json` in
+      `db.migrate()` when it creates a fresh DB.
 
 - [x] **`maint-snap113` ran and closed 2026-08-28** — window 2026-07-22 →
       2026-08-27, changeset 188123936, 49 uploaded / 10 rejected / 18 skipped,

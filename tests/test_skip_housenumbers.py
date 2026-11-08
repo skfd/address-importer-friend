@@ -115,3 +115,26 @@ def test_with_nothing_declared_the_same_run_conflates_as_before(tool_db, monkeyp
     by = {r["candidate_id"]: r["verdict"] for r in _rows("SELECT candidate_id, verdict FROM conflation")}
     assert by == {10: "MATCH", 11: "MISSING", 12: "MATCH"}
     assert not _rows("SELECT 1 FROM events WHERE event_type = 'HOUSENUMBER_SKIPPED'")
+
+
+def test_a_row_with_no_civic_number_is_always_skipped(tool_db, monkeypatch):
+    """Nothing declared, and still skipped: exported, a number-less candidate
+    was a node with only addr:street. Thunder Bay had 9 auto-approved
+    (8 on Fort William First Nation land), 2026-11-08."""
+    monkeypatch.setattr(conflate, "_SKIP_HOUSENUMBERS", {})
+    with _db.tx() as conn:
+        for cid, number in ((13, None), (14, "  ")):
+            conn.execute(
+                "INSERT INTO candidates (run_id, candidate_id, address_full, housenumber, "
+                "street_raw, street_norm, lat, lon, stage, stage_updated_at) "
+                "VALUES (1, ?, 'CITY RD', ?, 'CITY Road', 'CITY RD', 43.6, -80.3, 'INGESTED', 't')",
+                (cid, number),
+            )
+    conflate.run(1, "hash", 100.0, 15.0)
+    by = {r["candidate_id"]: r["verdict"] for r in _rows("SELECT candidate_id, verdict FROM conflation")}
+    assert by[13] == "SKIPPED" and by[14] == "SKIPPED"
+    assert by[11] == "MISSING"
+    reasons = {e["candidate_id"]: json.loads(e["payload_json"])["reason"]
+               for e in _rows("SELECT candidate_id, payload_json FROM events "
+                              "WHERE event_type = 'HOUSENUMBER_SKIPPED'")}
+    assert reasons == {13: "no civic number in the source", 14: "no civic number in the source"}
