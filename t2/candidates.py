@@ -19,16 +19,17 @@ def _street_from_row(row: dict) -> str:
 def _build_polygon(polygon_latlon: list):
     """Reconstruct a shapely polygon from a tile's Leaflet rings.
 
-    ``polygon_latlon`` is [[[lat, lon], ...]] (exterior ring first); shapely
-    wants (x=lon, y=lat). Tiles store a single exterior ring with no holes
-    (tiles_build._polygon_latlon), so we use the first ring as the shell.
+    ``polygon_latlon`` is [exterior, hole, ...], each [[lat, lon], ...];
+    shapely wants (x=lon, y=lat). The first ring is the shell and any further
+    rings are holes (tiles_build._polygon_latlon). Runs created before holes
+    were written carry the exterior alone and read as before.
     """
     from shapely.geometry import Polygon  # local import; only tile runs need shapely
 
     if not polygon_latlon:
         return None
-    shell = [(lon, lat) for lat, lon in polygon_latlon[0]]
-    return Polygon(shell)
+    rings = [[(lon, lat) for lat, lon in r] for r in polygon_latlon]
+    return Polygon(rings[0], rings[1:])
 
 
 def _raw_postcode(row: dict):

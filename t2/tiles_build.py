@@ -219,9 +219,15 @@ def _slugify(name: str) -> str:
 
 
 def _polygon_latlon(poly: Polygon) -> list[list[list[float]]]:
-    """Return Leaflet-style rings: [[[lat, lon], ...]] (exterior ring only)."""
-    coords = [[round(y, 6), round(x, 6)] for x, y in poly.exterior.coords]
-    return [coords]
+    """Return Leaflet-style rings: [exterior, hole, ...], each [[lat, lon], ...].
+
+    Holes are kept. A ward with an enclave (Thunder Bay's Westfort around Fort
+    William First Nation land) used to be written as its bare exterior, so a run
+    on the ward tile ingested the enclave's addresses too, while the tile's
+    count, computed on the real polygon, said it didn't."""
+    def ring(r):
+        return [[round(y, 6), round(x, 6)] for x, y in r.coords]
+    return [ring(poly.exterior)] + [ring(h) for h in poly.interiors]
 
 
 def _iter_polygons(geom) -> Iterator[Polygon]:
@@ -376,6 +382,7 @@ def _merge_underfilled(
     floor: int,
     soft_ceiling: int,
     hard_ceiling: int,
+    keep_orphans_apart: bool = False,
 ) -> tuple[list[dict], list[Polygon], dict]:
     """Absorb tiles below ``floor`` into a border-sharing neighbour.
 
@@ -384,6 +391,11 @@ def _merge_underfilled(
     partners, results within ``soft_ceiling``, longest shared border, and the
     smallest combined count among ties. The larger contributor's id/name/parent
     survive so prior runs keyed off the survivor's id remain reachable.
+
+    ``keep_orphans_apart`` forbids merging an orphan tile into a layer tile, so
+    a named orphan bucket that is another jurisdiction (Thunder Bay's Fort
+    William First Nation) never shares a tile, run or changeset with the city.
+    Orphan tiles may still merge with each other.
     """
     n = len(tiles)
     if n == 0:
@@ -423,6 +435,10 @@ def _merge_underfilled(
 
         scored: list[tuple] = []
         for nb_idx in neighbours[t_idx]:
+            if keep_orphans_apart and (
+                bool(tiles_w[t_idx]["is_orphan"]) != bool(tiles_w[nb_idx]["is_orphan"])
+            ):
+                continue
             combined = tiles_w[t_idx]["address_count"] + tiles_w[nb_idx]["address_count"]
             if combined > hard_ceiling:
                 continue
@@ -539,6 +555,7 @@ def build_tiles(
     merge_hard_ceiling: int = MERGE_HARD_CEILING,
     name_field: str = "",
     parent_field: str = "",
+    keep_orphans_apart: bool = False,
 ) -> tuple[list[dict], dict]:
     points = [Point(x, y) for x, y in points_xy]
     tree = STRtree(points)
@@ -620,7 +637,7 @@ def build_tiles(
     # Every orphan gets bucketed, no matter how few — an address in no tile is
     # unreachable from the picker and from Run-for-All (decision 2026-08-15;
     # Hamilton's layer strands 27). Small orphan tiles are then absorbed into
-    # bordering real tiles by the merge pass below.
+    # bordering real tiles by the merge pass below, unless keep_orphans_apart.
     if orphan_count > 0:
         _log(
             f"bucketing {orphan_count} orphans ({orphan_pct:.2%}) into {orphan_name!r}"
@@ -663,6 +680,7 @@ def build_tiles(
         floor=merge_floor,
         soft_ceiling=merge_soft_ceiling,
         hard_ceiling=merge_hard_ceiling,
+        keep_orphans_apart=keep_orphans_apart,
     )
     stats = {
         "total_addresses": total,
@@ -860,6 +878,10 @@ def run(force: bool = False, dry_run: bool = False) -> dict:
             name_field=cfg.city_neighbourhood_name_field,
             parent_field=cfg.city_neighbourhood_parent_field,
             orphan_name=cfg.city_orphan_name or "Unassigned",
+            # A named orphan bucket is a place of its own; don't fold it into
+            # the city's tiles. Unnamed cities keep the old merge, so their
+            # tile ids cannot move (TODO §7).
+            keep_orphans_apart=bool(cfg.city_orphan_name),
         )
         build_s = time.monotonic() - t_build
         _log(

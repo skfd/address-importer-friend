@@ -79,3 +79,54 @@ def test_no_layer_path_keeps_unbounded_tiles():
     assert len(tiles) == 1
     dlat, dlon = _spans(tiles[0])
     assert dlat > 0.3 and dlon > 0.3
+
+
+def test_small_orphans_merge_into_the_layer_by_default():
+    """The old behaviour, kept for cities that don't name their orphans:
+    Hamilton's and Toronto's tile ids must not move."""
+    hood = {"properties": {"NEIGHBOURHOOD": "Guernsey"},
+            "geometry": _square(-79.90, 43.10, 0.01)}
+    inside = _grid_in(-79.90, 43.10, 0.01, 18)
+    strays = [(-79.8995 + k * 0.0004, 43.1102) for k in range(5)]  # just north
+    tiles, _ = tiles_build.build_tiles([hood], inside + strays, BBOX)
+    guernsey = [t for t in tiles if t["name"].startswith("Guernsey")]
+    assert sum(t["address_count"] for t in guernsey) == len(inside) + len(strays)
+
+def test_named_orphans_never_merge_into_the_layer():
+    """Thunder Bay: the orphans are Fort William First Nation, another
+    jurisdiction. They must stay in tiles of their own, however small."""
+    hood = {"properties": {"NEIGHBOURHOOD": "Guernsey"},
+            "geometry": _square(-79.90, 43.10, 0.01)}
+    inside = _grid_in(-79.90, 43.10, 0.01, 18)
+    strays = [(-79.8995 + k * 0.0004, 43.1102) for k in range(5)]
+    tiles, _ = tiles_build.build_tiles([hood], inside + strays, BBOX,
+                                       orphan_name="Fort William First Nation",
+                                       keep_orphans_apart=True)
+    layer = [t for t in tiles if not t["is_orphan"]]
+    orphans = [t for t in tiles if t["is_orphan"]]
+    assert sum(t["address_count"] for t in layer) == len(inside)
+    assert sum(t["address_count"] for t in orphans) == len(strays)
+    assert all(t["name"].startswith("Fort William First Nation") for t in orphans)
+
+
+def test_a_ward_with_an_enclave_keeps_its_hole():
+    """Thunder Bay's Westfort ward wraps Fort William First Nation land. The
+    stored tile polygon must keep the hole, or a run on the ward tile ingests
+    the enclave's addresses (candidates._build_polygon reads it back)."""
+    from shapely.geometry import Point, Polygon
+    from t2 import candidates
+
+    ward = Polygon([(0, 0), (10, 0), (10, 10), (0, 10)], [[(4, 4), (6, 4), (6, 6), (4, 6)]])
+    stored = tiles_build._polygon_latlon(ward)
+    assert len(stored) == 2
+    back = candidates._build_polygon(stored)
+    assert not back.covers(Point(5, 5))
+    assert back.covers(Point(1, 1))
+
+
+def test_old_single_ring_polygons_still_read():
+    from shapely.geometry import Point
+    from t2 import candidates
+
+    back = candidates._build_polygon([[[0, 0], [0, 10], [10, 10], [10, 0], [0, 0]]])
+    assert back.covers(Point(5, 5))
