@@ -16,7 +16,12 @@
     never auto-deleted.
   </p>
   <table>
-    <tr><th>Watermark snapshot</th><td>#{{ delta.watermark }}</td></tr>
+    <tr><th>Watermark snapshot</th><td>#{{ delta.watermark }}
+      {%- if delta.watermark_origin == 'import' %}
+        <span class="muted">— from the import runs; no month closed yet</span>
+      {%- elif delta.watermark_origin == 'none' %}
+        <span class="muted">— nothing imported yet, so nothing to maintain</span>
+      {%- endif %}</td></tr>
     <tr><th>Latest source snapshot</th><td>#{{ delta.latest_snapshot }}
       {%- if source_snapshot_info and source_snapshot_info.downloaded %}
         <span class="muted">({{ source_snapshot_info.downloaded[:10] }})</span>
@@ -56,7 +61,8 @@
     <tr><th>Maintenance watermark</th>
       <td>snapshot #{{ baseline.watermark }}
         {%- if baseline.watermark_date %} <span class="muted">({{ baseline.watermark_date[:10] }})</span>{% endif %}
-        <span class="muted">— where delta tracking starts</span></td></tr>
+        <span class="muted">— where delta tracking starts
+          {%- if baseline.watermark_origin == 'import' %}; derived from the oldest snapshot the import was built from{% endif %}</span></td></tr>
     <tr><th>Published DB snapshot</th>
       <td>
         {% if snapshot.published_tag %}

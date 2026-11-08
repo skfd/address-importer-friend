@@ -47,18 +47,19 @@ def _iso() -> str:
 
 WATERMARK_KEY = "maintenance.watermark_snapshot"
 WATERMARK_DATE_KEY = "maintenance.watermark_date"
-# Snapshot the citywide import had *finished uploading* against (2026-05-28).
-# NOTE: this is the upload-completion snapshot, NOT the snapshot the import data
-# was pulled from (that was IMPORT_SOURCE_SNAPSHOT=45, 2026-05-15). Defaulting
-# the watermark here instead of 45 left additions that first appeared in (45,52]
-# unprocessed by both the import and maintenance — 31 of them, swept up by a
+# Until a city closes its first month there is no stored watermark, and the
+# initial one is derived from the import itself: the OLDEST source snapshot any
+# uploaded import run was built from. Not where uploads happened to finish —
+# Toronto first defaulted to its upload-completion snapshot (2026-05-28), which
+# left additions that first appeared between the import's source pull and that
+# date unprocessed by both the import and maintenance: 31 of them, swept up by a
 # one-off `maint-catchup-snap45-56` run (2026-06-06). Conflation auto-skips
-# anything already in OSM, so the safe choice for an initial watermark is the
-# import *source* snapshot, not where uploads happened to finish.
-# Snapshot IDs are per-database. When the source moved from the retired
-# addresses.db to ontario-address-changes' toronto.db, 2026-05-28 went from id 52
-# to id 54 — translated by date, never carried across as a number.
-DEFAULT_WATERMARK = 54
+# anything already in OSM, so starting early costs nothing and starting late
+# loses addresses. A hard-coded Toronto default used to stand in here, and gave
+# every other city a snapshot id that meant nothing in its own source DB.
+# Snapshot IDs are per-database: a derived watermark is only right while the
+# source DB the import runs were built from is the one still in use, which is
+# why the page shows where the watermark came from.
 
 _OSM_WEB = "https://www.openstreetmap.org"
 _JOSM_RC = "http://127.0.0.1:8111"
@@ -71,7 +72,26 @@ _RETIRE_CACHE: dict[int, tuple[float, dict]] = {}
 
 # ---- watermark (stored in tool.db kv) -------------------------------------
 
-def get_watermark() -> int:
+def import_source_snapshot() -> int | None:
+    """Oldest source snapshot an uploaded import run was built from, or None
+    when nothing has been imported. Maintenance runs don't count."""
+    conn = _db.connect()
+    try:
+        row = conn.execute(
+            "SELECT MIN(source_snapshot_id) AS s FROM runs "
+            "WHERE upload_status = 'uploaded' AND name NOT LIKE ?",
+            (_MAINT_NAME_LIKE,),
+        ).fetchone()
+    finally:
+        conn.close()
+    return int(row["s"]) if row and row["s"] is not None else None
+
+
+def watermark_origin() -> dict:
+    """The watermark and where it came from: `stored` once a month has been
+    closed, `import` while it is still derived from the import runs, `none`
+    when nothing has been imported yet (the latest snapshot, so the delta is
+    empty rather than counted from an arbitrary point)."""
     conn = _db.connect()
     try:
         row = conn.execute("SELECT value FROM kv WHERE key = ?", (WATERMARK_KEY,)).fetchone()
@@ -79,10 +99,17 @@ def get_watermark() -> int:
         conn.close()
     if row and row["value"] is not None:
         try:
-            return int(row["value"])
+            return {"snapshot": int(row["value"]), "origin": "stored"}
         except (ValueError, TypeError):
             pass
-    return DEFAULT_WATERMARK
+    derived = import_source_snapshot()
+    if derived is not None:
+        return {"snapshot": derived, "origin": "import"}
+    return {"snapshot": source_db.latest_snapshot_id(), "origin": "none"}
+
+
+def get_watermark() -> int:
+    return watermark_origin()["snapshot"]
 
 
 def set_watermark(snapshot_id: int) -> None:
@@ -216,12 +243,16 @@ def _address_class(row: dict) -> str | None:
 def compute_delta(watermark: int | None = None) -> dict:
     """Source-side counts/lists of what changed since the watermark. No network."""
     if watermark is None:
-        watermark = get_watermark()
+        wm = watermark_origin()
+        watermark, origin = wm["snapshot"], wm["origin"]
+    else:
+        origin = "override"
     latest = source_db.latest_snapshot_id()
     new_rows = list(source_db.iter_new_since(watermark, latest))
     retired_rows = list(source_db.iter_retired_since(watermark, latest))
     return {
         "watermark": watermark,
+        "watermark_origin": origin,
         "latest_snapshot": latest,
         "new_rows": new_rows,
         "retired_rows": retired_rows,
@@ -329,15 +360,17 @@ def get_run_window(run_id: int) -> dict | None:
     m = cfg_obj.get("maintenance")
     if m and m.get("from_snapshot") is not None and m.get("to_snapshot") is not None:
         return {"from_snapshot": int(m["from_snapshot"]), "to_snapshot": int(m["to_snapshot"])}
-    # Fallback for any maintenance run created before windows were persisted.
-    return {"from_snapshot": DEFAULT_WATERMARK, "to_snapshot": int(row["source_snapshot_id"])}
+    # Fallback for any maintenance run created before windows were persisted:
+    # it can only have started where maintenance did.
+    to = int(row["source_snapshot_id"])
+    return {"from_snapshot": import_source_snapshot() or to, "to_snapshot": to}
 
 
 # Source snapshots the one-time citywide import was actually built from: the
 # pilot tile on 2026-05-12, then the 1,297 citywide runs on 2026-05-15. OSM
-# uploads ran 2026-05-13..2026-05-28 at human review cadence. Distinct from
-# DEFAULT_WATERMARK (2026-05-28) above, which is only where maintenance starts
-# looking for deltas — not the date the import data was pulled.
+# uploads ran 2026-05-13..2026-05-28 at human review cadence. Toronto's own
+# numbers: its runs carry addresses.db ids, so `import_source_snapshot()`
+# cannot recover these for it (Toronto has a stored watermark, so it never needs to).
 # IDs are toronto.db's (2026-05-12=44, 2026-05-15=47); they were 42/45 in the
 # retired addresses.db — translated by date on the source swap.
 IMPORT_SOURCE_SNAPSHOT = 47
@@ -348,14 +381,15 @@ def import_baseline() -> dict:
     """The source snapshots the one-time citywide import was built from (the
     pilot, then the citywide pass) and the maintenance watermark, each with its
     feed-publication date. Drives the "Original import" rows on the page."""
-    wm = get_watermark()
+    wm = watermark_origin()
     return {
         "snapshot": IMPORT_SOURCE_SNAPSHOT,
         "date": source_db.snapshot_date(IMPORT_SOURCE_SNAPSHOT),
         "pilot_snapshot": IMPORT_PILOT_SNAPSHOT,
         "pilot_date": source_db.snapshot_date(IMPORT_PILOT_SNAPSHOT),
-        "watermark": wm,
-        "watermark_date": source_db.snapshot_date(wm),
+        "watermark": wm["snapshot"],
+        "watermark_origin": wm["origin"],
+        "watermark_date": source_db.snapshot_date(wm["snapshot"]),
     }
 
 
@@ -388,8 +422,8 @@ def history() -> list[dict]:
         r = dict(row)
         cfg_obj = json.loads(r["config_json"]) if r["config_json"] else {}
         m = cfg_obj.get("maintenance") or {}
-        frm = int(m.get("from_snapshot", DEFAULT_WATERMARK))
         to = int(m.get("to_snapshot", r["source_snapshot_id"]))
+        frm = int(m.get("from_snapshot", import_source_snapshot() or to))
         new_count, retired_count = _window_counts(r["run_id"], m, frm, to)
         r.update(
             from_snapshot=frm,

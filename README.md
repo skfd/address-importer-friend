@@ -489,7 +489,11 @@ A newer reminder closes an older open one. To file one now, run the workflow
 by hand from the city repo's Actions tab.
 
 The watermark advances only when the operator confirms it, so a skipped or
-aborted month loses nothing. It starts at the import's source snapshot.
+aborted month loses nothing. Until the first close stores one, it is derived
+from the import: the oldest source snapshot any uploaded import run was built
+from (Guelph's gap-fill gives 47). Nothing to set by hand when an import
+finishes, and a city that has uploaded nothing has an empty delta. The page
+says when the watermark is still derived.
 Provenance and history reads always hit **production** OSM
 (`api.openstreetmap.org`), independent of the upload `--env`.
 
