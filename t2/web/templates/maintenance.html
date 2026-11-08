@@ -55,9 +55,12 @@
   </p>
   <table>
     <tr><th>Import source data</th>
-      <td>source snapshot #{{ baseline.snapshot }}
+      <td>{% if baseline.snapshot is none %}<span class="muted">nothing imported yet</span>
+        {%- else %}source snapshot #{{ baseline.snapshot }}
         {%- if baseline.date %} <span class="muted">({{ baseline.date[:10] }})</span>{% endif %}
-        <span class="muted">· pilot #{{ baseline.pilot_snapshot }}{% if baseline.pilot_date %} ({{ baseline.pilot_date[:10] }}){% endif %}</span></td></tr>
+        {%- if baseline.first_snapshot is not none %}
+        <span class="muted">· first batches from #{{ baseline.first_snapshot }}{% if baseline.first_date %} ({{ baseline.first_date[:10] }}){% endif %}</span>
+        {%- endif %}{% endif %}</td></tr>
     <tr><th>Maintenance watermark</th>
       <td>snapshot #{{ baseline.watermark }}
         {%- if baseline.watermark_date %} <span class="muted">({{ baseline.watermark_date[:10] }})</span>{% endif %}

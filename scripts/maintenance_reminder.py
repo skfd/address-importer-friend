@@ -14,8 +14,8 @@ A city is in maintenance once its config.toml carries
     since = "2026-06-05"   # the day the initial import finished
 
 and gets no reminder before that, so the workflow can be scaffolded with every
-new city and stay quiet until its import is done. The engine does not read this
-section; only this script does.
+new city and stay quiet until its import is done. The engine only validates
+`since`; this script is what acts on it.
 
 Stdlib only, so the workflow needs no install step.
 

@@ -2,6 +2,7 @@ import os
 import re
 import tomllib
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 
 from accordeur import normalize_street
@@ -695,6 +696,45 @@ def parse_stats(section: dict, origin: str = "config.toml") -> StatsTheme:
     return StatsTheme(badge=badge.strip(), session_gap_minutes=gap, **colours)
 
 
+def parse_maintenance(section: dict, origin: str = "config.toml") -> tuple[int, int] | None:
+    """Validate the optional [maintenance] section; return import_snapshots.
+
+    `since` is the day the initial import finished. The engine does not use it
+    (the maintenance-reminder workflow does) but checks it, so a typo fails here
+    rather than silently keeping a city out of its reminders.
+
+    `import_snapshots = [oldest, newest]` names the source snapshots the import
+    was built from, for a city whose import runs carry ids from a source DB it
+    no longer reads. Toronto's do: they are addresses.db ids, two lower than
+    the same snapshots in toronto.db. Every other city leaves it out and the
+    engine reads the range off its uploaded import runs.
+    """
+    unknown = sorted(set(section) - {"since", "import_snapshots"})
+    if unknown:
+        raise ValueError(
+            f"{origin} [maintenance] has unknown key(s) {unknown}; valid keys are "
+            "'since' and 'import_snapshots'."
+        )
+    if "since" in section:
+        try:
+            date.fromisoformat(str(section["since"]))
+        except ValueError:
+            raise ValueError(
+                f"{origin} [maintenance] since = {section['since']!r} is not a "
+                "YYYY-MM-DD date."
+            ) from None
+    snaps = section.get("import_snapshots")
+    if snaps is None:
+        return None
+    if (not isinstance(snaps, list) or len(snaps) not in (1, 2)
+            or not all(isinstance(s, int) and not isinstance(s, bool) for s in snaps)):
+        raise ValueError(
+            f"{origin} [maintenance] import_snapshots = {snaps!r} is invalid; "
+            "expected [oldest, newest] source snapshot ids, or [one]."
+        )
+    return (min(snaps), max(snaps))
+
+
 @dataclass
 class Config:
     city_slug: str
@@ -768,6 +808,10 @@ class Config:
     osm_redirect_uri: str
     flask_secret_key: str
     fernet_key: str
+
+    # [maintenance] import_snapshots as (oldest, newest), for a city whose
+    # import runs carry another source DB's ids; None reads them off the runs.
+    maintenance_import_snapshots: tuple[int, int] | None = None
 
     # data_root holds checkout-level state: the OSM extract (its own key
     # above), the OAuth token blob, and publish/archive artifacts. Per-city
@@ -931,6 +975,8 @@ def load() -> Config:
         osm_redirect_uri=env.get("OSM_REDIRECT_URI") or "http://127.0.0.1:5000/oauth/callback",
         flask_secret_key=env.get("FLASK_SECRET_KEY") or "dev-secret",
         fernet_key=env.get("FERNET_KEY", ""),
+        maintenance_import_snapshots=parse_maintenance(cfg.get("maintenance", {}),
+                                                       str(toml_path)),
         data_dir=data_dir,
         tool_db_path=data_dir / "tool.db",
     )

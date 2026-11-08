@@ -240,9 +240,12 @@ import_plan = "https://wiki.openstreetmap.org/wiki/Toronto/Import/AddressPoints"
 # 30 minutes is the default and reproduces Toronto's published 25 sessions.
 # session_gap_minutes = 30
 
-# Set once the initial import is finished. Read only by the maintenance-reminder
-# workflow (scripts/maintenance_reminder.py), not by the engine: from the next
-# 1st of the month, a reminder issue is filed on the city repo every month.
-# Leave it out while the city is onboarding or importing.
+# Set `since` once the initial import is finished: from the next 1st of the
+# month, the maintenance-reminder workflow (scripts/maintenance_reminder.py)
+# files a reminder issue on the city repo every month. Leave it out while the
+# city is onboarding or importing.
+# `import_snapshots` is only for a city whose import runs carry another source
+# DB's snapshot ids (Toronto); everyone else's are read off the runs.
 # [maintenance]
-# since = "2026-06-05"   # the day continuous maintenance began
+# since = "2026-06-05"         # the day continuous maintenance began
+# import_snapshots = [44, 47]  # oldest and newest snapshot the import used

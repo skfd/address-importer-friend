@@ -6,17 +6,20 @@ hard-coded Toronto snapshot id, which for Guelph counted from a date that had
 nothing to do with its import.
 """
 import sqlite3
+from types import SimpleNamespace
 
 import pytest
 
-from t2 import maintenance
+from t2 import config, maintenance
 
 
 @pytest.fixture
 def make_db(tmp_path, monkeypatch):
     path = tmp_path / "tool.db"
 
-    def _make(runs=(), stored=None):
+    def _make(runs=(), stored=None, override=None):
+        monkeypatch.setattr(maintenance._config, "load",
+                            lambda: SimpleNamespace(maintenance_import_snapshots=override))
         conn = sqlite3.connect(path)
         conn.execute(
             "CREATE TABLE runs (run_id INTEGER PRIMARY KEY, name TEXT, "
@@ -38,6 +41,8 @@ def make_db(tmp_path, monkeypatch):
 
     monkeypatch.setattr(maintenance._db, "connect", _connect)
     monkeypatch.setattr(maintenance.source_db, "latest_snapshot_id", lambda: 78)
+    monkeypatch.setattr(maintenance.source_db, "snapshot_date",
+                        lambda s, conn=None: f"2026-09-{s - 30:02d}")
     return _make
 
 
@@ -66,3 +71,52 @@ def test_nothing_imported_means_an_empty_delta(make_db):
     number from some other city."""
     make_db(runs=[("tile-a", 40, "pending")])
     assert maintenance.watermark_origin() == {"snapshot": 78, "origin": "none"}
+
+
+def test_override_names_the_import_snapshots(make_db):
+    """Toronto's runs carry addresses.db ids (42/45); config translates them."""
+    make_db(runs=[("pilot", 42, "uploaded"), ("tile-a", 45, "uploaded")],
+            override=(44, 47))
+    assert maintenance.import_snapshots() == (44, 47)
+    assert maintenance.get_watermark() == 44
+
+
+def test_baseline_shows_the_range_the_import_used(make_db):
+    make_db(runs=[("tile-a", 45, "uploaded"), ("tile-b", 47, "uploaded")], stored=60)
+    b = maintenance.import_baseline()
+    assert (b["snapshot"], b["date"]) == (47, "2026-09-17")
+    assert (b["first_snapshot"], b["first_date"]) == (45, "2026-09-15")
+    assert (b["watermark"], b["watermark_origin"]) == (60, "stored")
+
+
+def test_baseline_with_one_pull_has_no_first_batches(make_db):
+    make_db(runs=[("tile-a", 47, "uploaded"), ("tile-b", 47, "uploaded")])
+    b = maintenance.import_baseline()
+    assert b["snapshot"] == 47 and b["first_snapshot"] is None
+
+
+def test_baseline_before_any_import(make_db):
+    make_db()
+    assert maintenance.import_baseline()["snapshot"] is None
+
+
+@pytest.mark.parametrize("section, expected", [
+    ({}, None),
+    ({"since": "2026-06-05"}, None),
+    ({"import_snapshots": [47, 44]}, (44, 47)),
+    ({"import_snapshots": [47]}, (47, 47)),
+])
+def test_parse_maintenance(section, expected):
+    assert config.parse_maintenance(section) == expected
+
+
+@pytest.mark.parametrize("section", [
+    {"sinse": "2026-06-05"},
+    {"since": "June 5"},
+    {"import_snapshots": 47},
+    {"import_snapshots": [44, 45, 47]},
+    {"import_snapshots": ["44"]},
+])
+def test_parse_maintenance_refuses(section):
+    with pytest.raises(ValueError):
+        config.parse_maintenance(section)

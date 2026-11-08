@@ -72,19 +72,32 @@ _RETIRE_CACHE: dict[int, tuple[float, dict]] = {}
 
 # ---- watermark (stored in tool.db kv) -------------------------------------
 
-def import_source_snapshot() -> int | None:
-    """Oldest source snapshot an uploaded import run was built from, or None
-    when nothing has been imported. Maintenance runs don't count."""
+def import_snapshots() -> tuple[int, int] | None:
+    """(oldest, newest) source snapshot the uploaded import runs were built
+    from, or None when nothing has been imported. Maintenance runs don't count.
+    `[maintenance] import_snapshots` overrides it for a city whose runs carry
+    another source DB's ids (Toronto)."""
+    override = _config.load().maintenance_import_snapshots
+    if override:
+        return override
     conn = _db.connect()
     try:
         row = conn.execute(
-            "SELECT MIN(source_snapshot_id) AS s FROM runs "
-            "WHERE upload_status = 'uploaded' AND name NOT LIKE ?",
+            "SELECT MIN(source_snapshot_id) AS lo, MAX(source_snapshot_id) AS hi "
+            "FROM runs WHERE upload_status = 'uploaded' AND name NOT LIKE ?",
             (_MAINT_NAME_LIKE,),
         ).fetchone()
     finally:
         conn.close()
-    return int(row["s"]) if row and row["s"] is not None else None
+    if not row or row["lo"] is None:
+        return None
+    return int(row["lo"]), int(row["hi"])
+
+
+def import_source_snapshot() -> int | None:
+    """Oldest source snapshot the import was built from: the initial watermark."""
+    snaps = import_snapshots()
+    return snaps[0] if snaps else None
 
 
 def watermark_origin() -> dict:
@@ -366,27 +379,19 @@ def get_run_window(run_id: int) -> dict | None:
     return {"from_snapshot": import_source_snapshot() or to, "to_snapshot": to}
 
 
-# Source snapshots the one-time citywide import was actually built from: the
-# pilot tile on 2026-05-12, then the 1,297 citywide runs on 2026-05-15. OSM
-# uploads ran 2026-05-13..2026-05-28 at human review cadence. Toronto's own
-# numbers: its runs carry addresses.db ids, so `import_source_snapshot()`
-# cannot recover these for it (Toronto has a stored watermark, so it never needs to).
-# IDs are toronto.db's (2026-05-12=44, 2026-05-15=47); they were 42/45 in the
-# retired addresses.db — translated by date on the source swap.
-IMPORT_SOURCE_SNAPSHOT = 47
-IMPORT_PILOT_SNAPSHOT = 44
-
-
 def import_baseline() -> dict:
-    """The source snapshots the one-time citywide import was built from (the
-    pilot, then the citywide pass) and the maintenance watermark, each with its
-    feed-publication date. Drives the "Original import" rows on the page."""
+    """The source snapshots the import was built from (oldest and newest; one
+    when every batch used the same pull) and the maintenance watermark, each
+    with its feed-publication date. Drives the "Import source data" rows on the
+    page. `snapshot` is None for a city that has imported nothing."""
+    snaps = import_snapshots()
+    first, last = snaps if snaps else (None, None)
     wm = watermark_origin()
     return {
-        "snapshot": IMPORT_SOURCE_SNAPSHOT,
-        "date": source_db.snapshot_date(IMPORT_SOURCE_SNAPSHOT),
-        "pilot_snapshot": IMPORT_PILOT_SNAPSHOT,
-        "pilot_date": source_db.snapshot_date(IMPORT_PILOT_SNAPSHOT),
+        "snapshot": last,
+        "date": source_db.snapshot_date(last) if last is not None else None,
+        "first_snapshot": first if first != last else None,
+        "first_date": source_db.snapshot_date(first) if first != last else None,
         "watermark": wm["snapshot"],
         "watermark_origin": wm["origin"],
         "watermark_date": source_db.snapshot_date(wm["snapshot"]),
