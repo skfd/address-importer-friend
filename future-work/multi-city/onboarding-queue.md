@@ -149,6 +149,9 @@ toml's yellow-ogl tier is the tracker's to flip.
 3. **Scaffold** `<slug>-address-import` from the Guelph template: config.toml
    with dated probe evidence in comments, README with entry state + contacts,
    `[prior_import]` block when one exists, `import_plan = ""` always.
+   Copy `scripts/maintenance-reminder.caller.yml` to
+   `.github/workflows/maintenance-reminder.yml`; it stays quiet until the
+   import finishes and someone adds `[maintenance] since` to config.toml.
    Smoke-test `t2.config.load()` via `T2_CITY_DIR`. git init + commit, then
    `gh repo create <slug>-address-import --public --source=. --remote=origin`
    and push (permission granted 2026-08-16; all 11 checkouts published then).

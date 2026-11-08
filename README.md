@@ -469,6 +469,25 @@ gated on the published snapshot: that gate exists to stop a month being
 The published release stays recorded, because it is a true record of a state
 that really existed.
 
+**The month arrives as an issue.** Every city checkout carries
+`.github/workflows/maintenance-reminder.yml` (copied from
+[`scripts/maintenance-reminder.caller.yml`](scripts/maintenance-reminder.caller.yml)),
+which calls this repo's reusable workflow on the 1st of each month. It files a
+reminder on the city repo: the steps below, the last closed month (the newest
+`tool-db-*` release), and what the city's
+[ontario-address-changes](https://skfd.github.io/ontario-address-changes/) page
+has reported since. It counts nothing: the delta needs local state, so it stays
+on `/maintenance`. A city is quiet until its config.toml says the initial import
+is done:
+
+```toml
+[maintenance]
+since = "2026-06-05"
+```
+
+A newer reminder closes an older open one. To file one now, run the workflow
+by hand from the city repo's Actions tab.
+
 The watermark advances only when the operator confirms it, so a skipped or
 aborted month loses nothing. It starts at the import's source snapshot.
 Provenance and history reads always hit **production** OSM

@@ -1,0 +1,48 @@
+name: Maintenance reminder
+
+# Reusable: every city checkout calls this from its own
+# .github/workflows/maintenance-reminder.yml (template in
+# scripts/maintenance-reminder.caller.yml), which owns the schedule. Files the
+# month's maintenance reminder on the calling repo, filled in from the public
+# ontario-address-changes pages. Cities without `[maintenance] since` in
+# config.toml are still importing and get nothing. See
+# scripts/maintenance_reminder.py.
+
+on:
+  workflow_call:
+
+jobs:
+  remind:
+    name: File the reminder
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout the city
+        uses: actions/checkout@v7
+        with:
+          path: city
+
+      - name: Checkout the engine
+        uses: actions/checkout@v7
+        with:
+          repository: skfd/address-importer-friend
+          path: engine
+          sparse-checkout: scripts/maintenance_reminder.py
+          sparse-checkout-cone-mode: false
+
+      - name: File it
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 engine/scripts/maintenance_reminder.py --city-dir city
+
+      # GitHub disables a public repo's scheduled workflows after 60 days with no
+      # commits, and a city in maintenance can go that long. Re-enabling from the
+      # run itself resets the clock; it needs `actions: write` from the caller.
+      - name: Keep the schedule alive
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh api -X PUT
+          "repos/${{ github.repository }}/actions/workflows/maintenance-reminder.yml/enable"
+          || echo "could not re-enable; grant actions: write in the caller"
