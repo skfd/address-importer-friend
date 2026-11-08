@@ -157,12 +157,29 @@ def _number_base_sql(sf: _config.SourceFields, alias: str) -> str:
     return f"{p}number"
 
 
+def _hyphen_unit_sql(base: str) -> str:
+    """True when the projected number is exactly <digits>-<digits>, the shape
+    `unit = "number-after-hyphen"` splits ("270-1": civic 270, unit 1; Thunder
+    Bay's three Caribou Crescent townhouse blocks, 2026-11-08). Anything else,
+    "12A-3" or "1-2-3" included, is left whole."""
+    return (
+        f"({base} GLOB '[0-9]*-[0-9]*' AND {base} NOT GLOB '*[^0-9-]*' "
+        f"AND {base} NOT GLOB '*-*-*' AND {base} NOT GLOB '*-')"
+    )
+
+
 def field_sql(sf: _config.SourceFields, name: str, alias: str = "a") -> str:
     """SQL value expression (no AS) for a logical source field under recipe
     ``sf``. Undeclared optional fields project literal NULL — visible in the
     generated SQL rather than an absent key at runtime."""
     if name == "number":
         base = _number_base_sql(sf, alias)
+        if sf.unit == "number-after-hyphen":
+            raw = base
+            base = (
+                f"(CASE WHEN {_hyphen_unit_sql(raw)} "
+                f"THEN SUBSTR({raw}, 1, INSTR({raw}, '-') - 1) ELSE {raw} END)"
+            )
         if not sf.number_suffix:
             return base
         # Guelph's QUALIFIER: 155 + A -> 155A. NULL || x is NULL, so a row
@@ -222,6 +239,12 @@ def field_sql(sf: _config.SourceFields, name: str, alias: str = "a") -> str:
             probe = f"INSTR({p}full, ' ' || {street})"
             tail = f"SUBSTR({p}full, {probe} + 1 + LENGTH({street}))"
             return f"CASE WHEN {probe} > 0 THEN NULLIF(TRIM({tail}),'') END"
+        if spec == "number-after-hyphen":
+            raw = _number_base_sql(sf, alias)
+            return (
+                f"CASE WHEN {_hyphen_unit_sql(raw)} "
+                f"THEN SUBSTR({raw}, INSTR({raw}, '-') + 1) END"
+            )
         # Sources write '' or the literal string 'None' for "no unit";
         # both must read as SQL NULL so the collapse elects those rows.
         return f"NULLIF(NULLIF({_spec_sql(spec, alias)},''),'None')" if spec else "NULL"

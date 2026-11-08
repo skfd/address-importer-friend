@@ -58,7 +58,9 @@ class SourceFields:
     hi_num: str | None
     hi_num_suf: str | None
     address_class: str | None
-    # "unit" (canonical tracker column) | "props:<KEY>" | None. Declaring it
+    # "unit" (canonical tracker column) | "props:<KEY>" | "full-after-street" |
+    # "number-after-hyphen" (Thunder Bay's "270-1": civic 270, unit 1, split
+    # off the projected number) | None. Declaring it
     # obliges the config to also pick a [units] policy — a declared unit with
     # no policy is the silent-drop failure mode 09-units.md exists to prevent.
     unit: str | None = None
@@ -181,11 +183,18 @@ def parse_source_fields(section: dict, origin: str = "config.toml") -> SourceFie
         name: _spec(
             name,
             section[name],
-            ("unit", "full-after-street") if name == "unit" else (),
+            ("unit", "full-after-street", "number-after-hyphen") if name == "unit" else (),
         )
         if name in section else None
         for name in _SOURCE_FIELD_OPTIONAL
     }
+    if optional["unit"] == "number-after-hyphen" and street_from == "full":
+        raise ValueError(
+            f"{origin} [source_fields] unit = 'number-after-hyphen' cannot be "
+            "combined with street_from = 'full': the street is cut from the "
+            "combined column by the projected number's length, and splitting "
+            "the unit off shortens that number."
+        )
     if optional["unit"] == "full-after-street" and full_from != "full":
         raise ValueError(
             f"{origin} [source_fields] unit = 'full-after-street' requires "
