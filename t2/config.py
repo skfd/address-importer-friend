@@ -812,6 +812,11 @@ class Config:
     # [maintenance] import_snapshots as (oldest, newest), for a city whose
     # import runs carry another source DB's ids; None reads them off the runs.
     maintenance_import_snapshots: tuple[int, int] | None = None
+    # [city] orphan_name: what to call the tiles holding addresses outside every
+    # polygon of the neighbourhoods layer. Empty = "Unassigned". Thunder Bay's
+    # orphans are exactly Fort William First Nation's addresses, and a tile name
+    # flows into run names and changeset comments.
+    city_orphan_name: str = ""
 
     # data_root holds checkout-level state: the OSM extract (its own key
     # above), the OAuth token blob, and publish/archive artifacts. Per-city
@@ -977,6 +982,7 @@ def load() -> Config:
         fernet_key=env.get("FERNET_KEY", ""),
         maintenance_import_snapshots=parse_maintenance(cfg.get("maintenance", {}),
                                                        str(toml_path)),
+        city_orphan_name=str(city_section.get("orphan_name", "")).strip(),
         data_dir=data_dir,
         tool_db_path=data_dir / "tool.db",
     )

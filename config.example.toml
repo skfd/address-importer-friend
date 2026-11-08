@@ -16,6 +16,10 @@ name = "Toronto"
 # the quadtree then splits `[osm] city_bbox` directly and names the tiles after
 # `name` above. Toronto's is the City's official 158-neighbourhood layer.
 neighbourhoods_url = "https://ckan0.cf.opendata.inter.prod-toronto.ca/dataset/fc443770-ef0a-4025-9c2c-2cb558bfab00/resource/0719053b-28b7-48ea-b863-068823a93aaa/download/neighbourhoods-4326.geojson"
+# What to call the tiles for addresses outside every polygon of that layer
+# (default "Unassigned"). Set it when the leftovers are a place with a name of
+# its own: Thunder Bay's are exactly Fort William First Nation's addresses.
+# orphan_name = "Fort William First Nation"
 
 [source]
 sqlite_path = "C:/Users/kk/Code/ontario-address-changes/data/toronto/toronto.db"

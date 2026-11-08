@@ -859,6 +859,7 @@ def run(force: bool = False, dry_run: bool = False) -> dict:
             features, points_xy, cfg.osm_city_bbox,
             name_field=cfg.city_neighbourhood_name_field,
             parent_field=cfg.city_neighbourhood_parent_field,
+            orphan_name=cfg.city_orphan_name or "Unassigned",
         )
         build_s = time.monotonic() - t_build
         _log(
