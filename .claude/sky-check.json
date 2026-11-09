@@ -1,0 +1,4 @@
+{
+  "command": ".venv\\Scripts\\python -m pytest -q",
+  "timeoutSeconds": 120
+}
