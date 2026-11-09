@@ -161,6 +161,13 @@
   {% endif %}
 </div>
 
+{% if cs_tags_error %}
+<div class="card">
+  <h3>Changeset tags</h3>
+  <p class="muted">No upload yet: {{ cs_tags_error }}</p>
+</div>
+{% endif %}
+
 {% if cs_tags %}
 <div class="card">
   <h3>Changeset tags</h3>

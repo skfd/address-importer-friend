@@ -695,7 +695,16 @@ def create_app() -> Flask:
         counts = pipeline.counts_by_stage(run_id)
         toggles = _get_toggles(run_id)
         upload_items = osm_export.items_for_view(run_id)
-        cs_tags = osm_export.changeset_tags(run_id) if counts.get("APPROVED", 0) or run.get("upload_status") else {}
+        # Before the import's wiki page exists, changeset_tags refuses (no
+        # upload may go out without import_plan). The run page still has to
+        # open: it says why there are no tags instead of failing with a 500.
+        cs_tags: dict[str, str] = {}
+        cs_tags_error = ""
+        if counts.get("APPROVED", 0) or run.get("upload_status"):
+            try:
+                cs_tags = osm_export.changeset_tags(run_id)
+            except ValueError as e:
+                cs_tags_error = str(e)
         cs_tags_tsv = "\n".join(f"{k}\t{v}" for k, v in cs_tags.items())
         josm_url = _josm_import_endpoint(run_id, cs_tags) if cs_tags else ""
         # Absolute app path, not `_external`: static_export rewrites it to the
@@ -720,7 +729,7 @@ def create_app() -> Flask:
                                missing_sample_every_nth=missing_sample_every_nth,
                                upload_items=upload_items, cs_tags=cs_tags,
                                cs_tags_tsv=cs_tags_tsv, josm_url=josm_url,
-                               josm_osm_url=josm_osm_url)
+                               josm_osm_url=josm_osm_url, cs_tags_error=cs_tags_error)
 
     @app.get("/runs/<int:run_id>/neighbor")
     def run_neighbor(run_id: int):
