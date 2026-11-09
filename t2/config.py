@@ -556,7 +556,7 @@ def parse_skip_housenumbers(section: dict, origin: str = "config.toml") -> dict[
     return out
 
 
-DERIVED_NODE_TAGS = ("addr:housenumber", "addr:street", "addr:postcode", "addr:source")
+DERIVED_NODE_TAGS = ("addr:housenumber", "addr:street", "addr:postcode", "source:addr")
 
 
 def parse_node_tags(section: dict, origin: str = "config.toml") -> dict[str, str]:

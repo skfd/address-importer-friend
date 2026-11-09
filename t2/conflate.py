@@ -507,7 +507,7 @@ def run(run_id: int, osm_snapshot_hash: str, match_radius_m: float, match_near_m
             # OSM", whatever happens to sit near it.
             skip_reason = _SKIP_HOUSENUMBERS.get(cand.get("housenumber") or "")
             # A row with no civic number cannot become an address: exported, it
-            # was a node with only addr:street (or nothing but addr:source).
+            # was a node with only addr:street (or nothing but source:addr).
             # Thunder Bay has 9 (8 of them Fort William First Nation, 2026-11-08).
             # The first half of TODO §8: skipped, and counted, never uploaded.
             if not (cand.get("housenumber") or "").strip():

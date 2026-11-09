@@ -39,7 +39,7 @@ def test_declared_licence_reaches_the_changeset(run_one, monkeypatch):
     monkeypatch.setattr(osm_export._CONFIG, "export_source_license", "OGL-Canada-2.0")
     tags = osm_export.changeset_tags(run_one)
     assert tags["source:license"] == "OGL-Canada-2.0"
-    # It is a changeset tag only — the node keeps addr:source and nothing else.
+    # It is a changeset tag only — the node keeps source:addr and nothing else.
     assert "source:license" not in osm_export.build_tags(
         {"housenumber": "1", "street_raw": "Main Street"}
     )

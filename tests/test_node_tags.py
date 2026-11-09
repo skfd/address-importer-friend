@@ -48,7 +48,7 @@ def test_toronto_still_writes_no_addr_city():
     assert "addr:city" not in osm_export.build_tags(ITEM)
 
 
-@pytest.mark.parametrize("derived", ["addr:housenumber", "addr:street", "addr:postcode", "addr:source"])
+@pytest.mark.parametrize("derived", ["addr:housenumber", "addr:street", "addr:postcode", "source:addr"])
 def test_redefining_a_derived_tag_is_refused(derived):
     with pytest.raises(ValueError, match="redefines"):
         parse_node_tags({"node_tags": {derived: "whatever"}})

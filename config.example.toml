@@ -215,7 +215,7 @@ attribution = "City of Toronto Open Data"
 # Changeset `import_plan` tag — the wiki page documenting this city's import.
 import_plan = "https://wiki.openstreetmap.org/wiki/Toronto/Import/AddressPoints"
 # Constant tags written on every created node, on top of the derived
-# addr:housenumber / addr:street / addr:postcode / addr:source. Declare only
+# addr:housenumber / addr:street / addr:postcode / source:addr. Declare only
 # what this city's published tagging plan promises; omit the key entirely
 # where it promises nothing (Toronto writes no addr:city, deliberately).
 # Redefining a derived tag is refused at load.

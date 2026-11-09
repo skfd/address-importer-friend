@@ -11,7 +11,7 @@ from . import audit, config as _config, db as _db, units as _units
 _CONFIG = _config.load()
 
 def _attribution() -> str:
-    """`addr:source` tag for every node we create, and `source` on the
+    """`source:addr` tag for every node we create, and `source` on the
     changeset. Deliberately checked here rather than at config load: a city can
     conflate and be reviewed before its attribution string is settled, but it
     must never upload without one."""
@@ -19,7 +19,7 @@ def _attribution() -> str:
     if not value:
         raise ValueError(
             "config.toml [export] attribution is empty — it becomes the "
-            "`addr:source` tag on every uploaded node and cannot be omitted."
+            "`source:addr` tag on every uploaded node and cannot be omitted."
         )
     return value
 
@@ -383,10 +383,12 @@ def build_tags(it: dict) -> dict[str, str]:
     rows are uploaded as plain addresses, not as entrance=yes nodes (see
     IMPORT_PROPOSAL_CHANGELOG.md 2026-05-06).
 
-    `addr:source` rather than a bare `source`: it sources the *address*, sits
-    in the addr:* namespace with the tags it belongs to, and survives a later
-    merge into a building polygon without claiming to source the building. The
-    changeset keeps the plain `source` key — that one is about the edit.
+    `source:addr` rather than a bare `source`: it sources the *address*, and
+    survives a later merge into a building polygon without claiming to source
+    the building. The changeset keeps the plain `source` key — that one is
+    about the edit. Spelled `source:addr`, the wiki's `source:<key>` form
+    (13.3M uses on taginfo, 2026-11-09), not `addr:source` (98k, its wiki page
+    a redirect to "historic"), which nodes uploaded before 2026-11-09 carry.
 
     `[export] node_tags` appends the city's constant tags (Guelph's published
     plan promises addr:city=Guelph; Toronto declares none and writes none).
@@ -410,7 +412,7 @@ def build_tags(it: dict) -> dict[str, str]:
     tags = {
         "addr:housenumber": (it.get("housenumber") or "").strip(),
         "addr:street": street,
-        "addr:source": _CONFIG.export_attribution,
+        "source:addr": _CONFIG.export_attribution,
     }
     postcode = (it.get("postcode") or it.get("proposed_postcode") or "").strip()
     if postcode:

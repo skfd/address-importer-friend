@@ -4,6 +4,22 @@ Status: **abandoned (2026-06-03).** Investigated and dropped after a read-only
 pilot showed the premise does not hold. Kept as a record so the idea is not
 re-proposed without the evidence below.
 
+## Update 2026-11-09: new nodes write `source:addr`
+
+`addr:source` was the wrong spelling of a right idea. The established key is
+`source:addr`, the wiki's `source:<key>` form: 13,276,567 uses on taginfo
+against 98,324, and `Key:addr:source` only redirects to `Key:source` §
+"Multiple source tags (historic)". Even in Toronto, other mappers had written
+`source:addr=City of Toronto Open Data` 898 times. `build_tags` writes
+`source:addr` from 2026-11-09, forward only.
+
+So nodes carry one of three spellings, by upload date: a bare `source` (the
+Toronto rollout and `maint-snap113`), `addr:source` (Toronto maintenance from
+2026-08-28, and every city that uploaded before 2026-11-09 — Guelph's 4,320
+among them), and `source:addr` after that. Nothing rewrites the older two, for
+the reason below: it would be an automated edit over a cosmetic key. If a
+rewrite is ever proposed, its target is `source:addr`, not `addr:source`.
+
 ## Update 2026-08-27: new nodes write `addr:source`, and 49 do not
 
 Two things moved after this was abandoned, neither reviving it.

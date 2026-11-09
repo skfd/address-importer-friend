@@ -55,3 +55,5 @@ at the date they were written.
   `addr:source` on imported objects. A pilot showed that tag is a shared
   community convention (used by other mappers/imports for 15+ years), so it
   can't be claimed as ours beyond our own manifest node ids. Kept as a record.
+  Since 2026-11-09 new nodes write `source:addr` (the standard key, not
+  `addr:source`); a revived rewrite would target that.
