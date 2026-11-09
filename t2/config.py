@@ -826,6 +826,11 @@ class Config:
     # orphans are exactly Fort William First Nation's addresses, and a tile name
     # flows into run names and changeset comments.
     city_orphan_name: str = ""
+    # [tiles] frozen: why this city's tile layer must not be rebuilt. Non-empty
+    # = frozen; tiles_build refuses to run. Tile ids do not survive a rebuild
+    # (future-work/multi-city/TODO.md §7), so a city that has runs to keep
+    # freezes its tiles instead of rebuilding them.
+    tiles_frozen: str = ""
 
     # data_root holds checkout-level state: the OSM extract (its own key
     # above), the OAuth token blob, and publish/archive artifacts. Per-city
@@ -992,6 +997,7 @@ def load() -> Config:
         maintenance_import_snapshots=parse_maintenance(cfg.get("maintenance", {}),
                                                        str(toml_path)),
         city_orphan_name=str(city_section.get("orphan_name", "")).strip(),
+        tiles_frozen=str(cfg.get("tiles", {}).get("frozen", "")).strip(),
         data_dir=data_dir,
         tool_db_path=data_dir / "tool.db",
     )

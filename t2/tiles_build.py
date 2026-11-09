@@ -794,8 +794,20 @@ def _write_tiles(
     return meta_out
 
 
+class TilesFrozen(RuntimeError):
+    """The city's config says its tile layer must not be rebuilt."""
+
+
 def run(force: bool = False, dry_run: bool = False) -> dict:
     cfg = _config.load()
+    # A rebuild gives every tile a new id and orphans every run's tile
+    # (TODO §7). A city with runs to keep says so in [tiles] frozen; the
+    # tiles.json on disk then stays exactly as it is.
+    if cfg.tiles_frozen and not dry_run:
+        raise TilesFrozen(
+            f"{cfg.city_name}'s tiles are frozen ([tiles] frozen in config.toml): "
+            f"{cfg.tiles_frozen} Remove that line to rebuild."
+        )
     paths = _paths(cfg)
     paths["tiles_dir"].mkdir(parents=True, exist_ok=True)
     paths["hood_dir"].mkdir(parents=True, exist_ok=True)

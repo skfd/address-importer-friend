@@ -21,6 +21,12 @@ neighbourhoods_url = "https://ckan0.cf.opendata.inter.prod-toronto.ca/dataset/fc
 # its own: Thunder Bay's are exactly Fort William First Nation's addresses.
 # orphan_name = "Fort William First Nation"
 
+# [tiles]
+# Non-empty = this city's tile layer is never rebuilt; `python -m t2.tiles_build`
+# refuses. Tile ids do not survive a rebuild, so freeze the tiles once you have
+# runs to keep (README, "Freezing the tiles").
+# frozen = "Import announced; runs are tied to these tile ids."
+
 [source]
 sqlite_path = "C:/Users/kk/Code/ontario-address-changes/data/toronto/toronto.db"
 

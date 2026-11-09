@@ -193,6 +193,20 @@ tiles after `[city] name`. Same splitting and merging, so tiles stay in the
 same 250–750 band; they are just named `Hamilton-1`, `Hamilton-2`, … instead of
 after neighbourhoods.
 
+**Freezing the tiles.** A rebuild gives every tile a new id, so the runs made
+on the old tiles lose their tile. Once a city has runs to keep, freeze its
+tiles instead of rebuilding them:
+
+```toml
+[tiles]
+frozen = "Import announced 2026-11; runs are tied to these tile ids."
+```
+
+`tiles_build` then refuses to run (`--dry-run` still works) and `tiles.json`
+stays as it is. New source rows inside a tile still show up in runs: a new run reads
+candidates by its tile's polygon at the current snapshot. Only the address
+counts shown on `/map` go stale.
+
 The dashboard's **Pick on map** button opens `/map` — click any tile to land
 on its detail page, which lists prior runs on that tile and has a "Start new
 run" form pre-filled with the tile's bbox. The manual bbox form on the

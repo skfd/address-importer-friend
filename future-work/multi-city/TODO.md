@@ -167,6 +167,11 @@ blocking the moment a city has runs we must keep:
       Runs already store `polygon_json` (016), so spatial re-association —
       match a run to the new tile that best overlaps its stored polygon — is
       the obvious mechanism. Decide and build it before announcing any import.
+      **Thunder Bay (2026-11-08) froze its tiles instead** (`[tiles] frozen`,
+      README "Freezing the tiles"): `tiles_build` refuses to run for a frozen
+      city. That covers one city for one import. Re-association is still the
+      answer for a city that must rebuild while it has runs, such as a
+      maintenance city whose neighbourhood layer changes.
 - [ ] **The UI has no staleness detection.** After the rebuild, the old
       run-for-all state (680/680 done) kept describing tiles that no longer
       existed; the operator had to know to reset it. `tiles.json generated_at`
