@@ -288,17 +288,16 @@ name, so a reviewer can decide whether to accept the variant or fix the
 source. Default radius is in `config.toml` under
 `[check_params.nearby_street_mismatch]`.
 
-Once a variant is confirmed, it goes into `STREET_NAME_OVERRIDES` in
-`t2/conflate.py` — a hardcoded source-name → OSM-name table applied at
-ingest. From then on the candidate carries the OSM name in `street_raw`
-(and the upload tag), so it MATCHes the existing OSM addresses instead of
-duplicating them under a parallel spelling. Current entries cover proper-
-noun spacing (`Deane Field Cres → Deanefield Cres`, `Golfcrest Rd →
-Golf Crest Rd`, `Forest View Rd → Forestview Rd`, `Greenhouse Rd → Green
-House Rd`, `Posthorn Grv → Post Horn Grv`) and one outright suffix
-correction (`Kathleen Ave → Kathleen Cres` — the source has the street
-type wrong; the addresses sit on what OSM and signage call Kathleen
-Crescent).
+Once a variant is confirmed, it goes into the city's `[streets.overrides]`
+table in its `config.toml`: a source-name → OSM-name table applied at ingest
+(format in `config.example.toml`). From then on the candidate carries the OSM
+name in `street_raw` (and the upload tag), so it MATCHes the existing OSM
+addresses instead of duplicating them under a parallel spelling. Toronto's
+entries cover proper-noun spacing (`Deane Field Cres → Deanefield Cres`,
+`Golfcrest Rd → Golf Crest Rd`) and one outright suffix correction
+(`Kathleen Ave → Kathleen Cres`). Why there is no automatic `alt_name` map,
+and how to push a new entry into runs that already exist:
+[docs/knowledge/street-overrides.md](docs/knowledge/street-overrides.md).
 
 ## Out of scope (possible next phase)
 
