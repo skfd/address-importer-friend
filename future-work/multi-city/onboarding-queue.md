@@ -152,7 +152,8 @@ toml's yellow-ogl tier is the tracker's to flip.
    Copy `scripts/maintenance-reminder.caller.yml` to
    `.github/workflows/maintenance-reminder.yml`; it stays quiet until the
    import finishes and someone adds `[maintenance] since` to config.toml.
-   Smoke-test `t2.config.load()` via `T2_CITY_DIR`. git init + commit, then
+   Copy the Guelph `CLAUDE.md` (one line importing the engine's
+   `FAMILY.md`, plus a line naming the city). Smoke-test `t2.config.load()` via `T2_CITY_DIR`. git init + commit, then
    `gh repo create <slug>-address-import --public --source=. --remote=origin`
    and push (permission granted 2026-08-16; all 11 checkouts published then).
 4. **Feed lessons back** — the point of the exercise:
@@ -161,8 +162,9 @@ toml's yellow-ogl tier is the tracker's to flip.
    - **previous cities**: re-read the Done table's configs against the new
      lesson; apply and commit where relevant (the Hamilton-neighbourhoods
      lesson retroactively fixed a config — expect more of these).
-5. **Update this file** (move the city to Done, note nuances) and the memory
-   store. Commit engine + checkout; push repos that have remotes.
+5. **Update this file** (move the city to Done, note nuances). A lesson that
+   holds for every city goes into `FAMILY.md` or a `docs/knowledge/` page,
+   not into a memory store. Commit engine + checkout; push repos that have remotes.
 6. **Stop conditions**: queue empty → stop the loop and summarize. Any
    probe requiring a judgment call the docs don't cover (ambiguous prior
    import, license doubt, live activity) → park the city with a note and
