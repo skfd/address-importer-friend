@@ -415,7 +415,19 @@ snapshot** and, each month, processes only what changed since — visit
 python -m t2.maintenance              # print the delta since the watermark
 python -m t2.maintenance --prepare    # also ingest + conflate the additions
 python -m t2.maintenance --report     # the closing report for the newest run
+python -m scripts.osmose_check --city-dir ../<city>-address-import   # Osmose 2060 on our streets
 ```
+
+The Osmose check shows what a second pair of eyes sees and conflation can't.
+Conflation compares street names upper-cased, so a casing error on the uploaded
+`addr:street` is invisible to it. Osmose item 2060 compares exactly. In Guelph,
+769 imported addresses carried the City's `Mcelderry` beside OSM's `McElderry`
+until 2026-11-17. Each spelling the check lists is one of three things:
+- a `[streets] overrides` entry to add;
+- a road to fix in OSM;
+- a dispute for an OSM note.
+
+See [street-overrides.md](docs/knowledge/street-overrides.md).
 
 - **Additions** (points whose first appearance is after the watermark) become a
   normal run named `maint-snap<N>` and ride the existing
