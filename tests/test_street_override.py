@@ -75,7 +75,7 @@ def test_override_can_change_street_suffix():
 
 
 def test_a_city_that_declares_none_leaves_every_name_alone():
-    # Guelph and Hamilton declare no [streets] section at all. Their engine
+    # Hamilton declares no [streets] section at all. Its engine
     # must then be a pure pass-through — the failure this move prevents is
     # Toronto's curated table silently rewriting another city's street names.
     from accordeur import NO_OVERRIDES
@@ -92,3 +92,45 @@ def test_no_op_entries_are_refused_at_load():
 
     with pytest.raises(ValueError, match="does not change the normalized form"):
         parse_street_overrides({"overrides": {"Bloor St W": "Bloor Street West"}})
+
+
+@pytest.mark.parametrize("src,dst", [
+    ("Mcelderry Road", "McElderry Road"),   # Guelph's mechanical title-casing
+    ("Mcelderry Rd", "McElderry Road"),     # case plus the expansion the engine does anyway
+    ("O'connor Lane", "O'Connor Lane"),
+    ("Macdonald Street", "MacDonald Street"),
+])
+def test_case_only_corrections_are_accepted(src, dst):
+    # normalize_street upper-cases, so these look like no-ops to it, but the
+    # uploaded addr:street is the override's spelling: they do real work.
+    from t2.config import parse_street_overrides
+
+    assert parse_street_overrides({"overrides": {src: dst}}) == {src: dst}
+
+
+@pytest.mark.parametrize("src,dst", [
+    ("McElderry Road", "McElderry Road"),   # identical
+    ("McElderry Rd", "McElderry Road"),     # abbreviation only, already correct case
+])
+def test_entries_that_change_nothing_are_still_refused(src, dst):
+    from t2.config import parse_street_overrides
+
+    with pytest.raises(ValueError, match="does not change the normalized form"):
+        parse_street_overrides({"overrides": {src: dst}})
+
+
+@pytest.mark.parametrize("street_case", [None, "title"])
+def test_case_only_override_reaches_the_uploaded_tag(monkeypatch, street_case):
+    # The whole point of a case-only entry is the addr:street that lands in
+    # OSM, so follow it through ingest's own composition into build_tags, with
+    # and without the title-caser (which must leave a mixed-case word alone).
+    from accordeur import StreetProfile
+    from t2 import osm_export
+
+    profile = StreetProfile({"Mcelderry Road": "McElderry Road"})
+    street_raw = expand_street_name(profile.apply_override("Mcelderry Road"))
+    monkeypatch.setattr(osm_export._CONFIG, "export_street_case", street_case, raising=False)
+    tags = osm_export.build_tags({"street_raw": street_raw, "housenumber": "12"})
+    assert tags["addr:street"] == "McElderry Road"
+    # Conflation still sees one street: matching cannot move.
+    assert normalize_street(street_raw) == normalize_street("Mcelderry Road")

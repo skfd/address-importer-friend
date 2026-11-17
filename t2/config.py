@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 
-from accordeur import normalize_street
+from accordeur import expand_street_name, normalize_street
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -472,6 +472,14 @@ def parse_links(section: dict, origin: str = "config.toml") -> Links:
     )
 
 
+def _case_only(src: str, dst: str) -> bool:
+    """True when `dst` respells the expanded `src` in different case and
+    nothing else: the one kind of override the normalizer cannot see."""
+    a = " ".join((expand_street_name(src) or "").split())
+    b = " ".join(dst.split())
+    return a != b and a.casefold() == b.casefold()
+
+
 def parse_street_overrides(section: dict, origin: str = "config.toml") -> dict[str, str]:
     """Validate this city's `[streets] overrides` — source spelling -> the
     OSM-canonical name.
@@ -480,13 +488,23 @@ def parse_street_overrides(section: dict, origin: str = "config.toml") -> dict[s
     name, not about how to abbreviate it, so no normalizer can bridge them
     (`accordeur.StreetProfile`). They are a fact about one city's data, which
     is why they are declared per city rather than compiled in: Toronto needs
-    thirteen, Guelph and Hamilton none. A city that declares none gets an empty
+    thirteen, Guelph 22 case-only ones, Hamilton none. A city that declares none gets an empty
     table and every street name reaches conflation exactly as the source wrote
     it. Absent section = no overrides, so nothing is required of a new city.
 
     An entry that does not change the normalized form is refused: it is a no-op
     the normalizer already covers, and leaving it in the table would make it
     look like a rule that is doing work.
+
+    **Except a case-only correction.** `normalize_street` upper-cases, so
+    "Mcelderry Rd" -> "McElderry Road" looks like a no-op to it, yet the
+    uploaded addr:street is the override's spelling, so the entry changes what
+    lands in OSM. A source that publishes mixed case mechanically (Guelph's
+    STREET is a naive title-casing of its all-caps STREETNAME) needs exactly
+    these, and `osm_export._cap_mc` has always pointed "MacDonald" cities here.
+    The entry is accepted when the expanded source differs from the target by
+    case alone. An abbreviation-only entry ("Bloor St W" -> "Bloor Street
+    West") still expands to the target exactly and is still refused.
     """
     raw = section.get("overrides", section) if section else {}
     if not raw:
@@ -503,7 +521,7 @@ def parse_street_overrides(section: dict, origin: str = "config.toml") -> dict[s
                 f"{origin} [streets] overrides {src!r} = {dst!r} is not a "
                 "street name."
             )
-        if normalize_street(src) == normalize_street(dst):
+        if normalize_street(src) == normalize_street(dst) and not _case_only(src, dst):
             raise ValueError(
                 f"{origin} [streets] overrides {src!r} -> {dst!r} does not "
                 "change the normalized form; the normalizer already covers "

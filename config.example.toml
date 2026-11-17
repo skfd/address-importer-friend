@@ -87,11 +87,13 @@ address_class = "props:ADDRESS_CLASS_DESC" # Land Entrance skip + Land dedup
 # suffixes; expansion runs after the override and rewrites those to the OSM
 # full form. Lookup is case- and whitespace-insensitive. An entry that does not
 # change the normalized form is refused at load, since the normalizer already
-# covers it. Each entry is a candidate for retirement once the source and OSM
-# converge; the `nearby_street_mismatch` review check surfaces fresh ones.
+# covers it, unless it changes case alone ("Mcelderry Road" = "McElderry
+# Road"): that changes the uploaded addr:street, which is what Guelph's 22
+# entries are for. Each entry is a candidate for retirement once the source and
+# OSM converge; the `nearby_street_mismatch` review check surfaces fresh ones.
 #
-# Omit the whole section for a city with no such disagreements (Guelph,
-# Hamilton) — the engine then leaves every street name exactly as written.
+# Omit the whole section for a city with no such disagreements (Hamilton) —
+# the engine then leaves every street name exactly as written.
 [streets.overrides]
 "Deane Field Cres" = "Deanefield Cres"
 "Golfcrest Rd" = "Golf Crest Rd"

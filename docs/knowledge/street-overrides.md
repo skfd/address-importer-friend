@@ -17,6 +17,26 @@ with a short suffix. Lookup ignores case and whitespace, and runs before
 `expand_street_name`. A value may have no suffix (`Sunnyslope Ave → Sunny
 Slope`) when the OSM canonical name has no street type.
 
+## Case-only entries
+
+A mixed-case source can be wrong only in case. Guelph's `STREET` is a naive
+title-casing of its all-caps `STREETNAME`, so every Mc and O' name arrives as
+`Mcelderry Road` / `O'connor Lane`. The `title` street_case leaves mixed case
+alone on purpose, and conflation can't see the difference because it compares
+upper-cased. The only symptom is the uploaded tag: Osmose item 2060 flagged 769
+of Guelph's imported addresses for it (fixed by hand 2026-11-17, changeset
+192062743).
+
+Since 2026-11-17 the loader accepts an entry whose expanded source differs from
+the target by case alone (`t2.config._case_only`). An abbreviation-only entry is
+still refused. Guelph's 22 entries were **generated, not typed**: every source
+street whose expanded spelling equals exactly one OSM highway name except for
+case. Skip a name if OSM has it in two casings.
+
+A case-only entry changes no `street_norm`, so existing runs and matching don't
+move. It only changes what future exports write. Other mixed-case cities may
+have the same Mc/O' problem. Check them the same way before assuming they don't.
+
 ## Why there is no automatic `alt_name → name` map
 
 A naive global map is unsafe, because some alt_names are *also the canonical
