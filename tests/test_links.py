@@ -12,10 +12,10 @@ from t2.config import Links, parse_links
 
 #: The four values `base.html` carried as literals until 2026-08-29.
 TORONTO_LINKS = {
-    "repo": "https://github.com/skfd/toronto-2-address-import",
+    "repo": "https://github.com/toronto-maps/toronto-2-address-import",
     "discussion": "https://community.openstreetmap.org/t/address-import-for-toronto/119368",
     "proposal": (
-        "https://github.com/skfd/toronto-2-address-import/blob/main/"
+        "https://github.com/toronto-maps/toronto-2-address-import/blob/main/"
         "IMPORT_PROPOSAL.mediawiki"
     ),
     "open_data_name": "Toronto Open Data",
@@ -49,7 +49,7 @@ def test_unknown_key_is_refused():
 
 def test_non_url_is_refused():
     with pytest.raises(ValueError, match="not an http"):
-        parse_links({"repo": "skfd/toronto-2-address-import"})
+        parse_links({"repo": "toronto-maps/toronto-2-address-import"})
 
 
 def test_open_data_needs_both_halves():

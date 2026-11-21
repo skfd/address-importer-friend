@@ -30,7 +30,7 @@ _FEATURE_TAG_KEYS = frozenset((
 ))
 
 _API_BASE = "https://api.openstreetmap.org"
-_USER_AGENT = "t2-address-import maintenance (https://github.com/skfd/toronto-2-address-import)"
+_USER_AGENT = "t2-address-import maintenance (https://github.com/toronto-maps/toronto-2-address-import)"
 
 
 def fetch_history(osm_type: str, osm_id: int, timeout: float = 30.0) -> list[dict]:

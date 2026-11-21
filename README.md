@@ -15,11 +15,11 @@ selected at launch with `--city-dir`:
 
 | City checkout | Status |
 |---|---|
-| [`toronto-2-address-import`](https://github.com/skfd/toronto-2-address-import) | Initial import complete (2026-05-13 → 2026-05-28, ~449k addresses); monthly maintenance |
+| [`toronto-2-address-import`](https://github.com/toronto-maps/toronto-2-address-import) | Initial import complete (2026-05-13 → 2026-05-28, ~449k addresses); monthly maintenance |
 | [`hamilton-address-import`](https://github.com/skfd/hamilton-address-import) | Onboarding — city #2 |
 
 Forked 2026-08-13 from
-[`toronto-2-address-import`](https://github.com/skfd/toronto-2-address-import)
+[`toronto-2-address-import`](https://github.com/toronto-maps/toronto-2-address-import)
 with full history — commits before the fork point describe the Toronto
 checkout this engine grew out of; its import milestones are tagged
 (`import-start`, `import-complete`, `maint-1`, `maint-2`). The multi-city
@@ -570,7 +570,7 @@ as a dated, credential-scrubbed GitHub release asset
 `/publish-db <city-dir>` command (one definition, any city; `scripts/publish_db.py`
 builds the artifact and resolves the target repo from the city checkout's
 `origin`). Toronto's DB history and current release live at
-[`toronto-2-address-import`](https://github.com/skfd/toronto-2-address-import).
+[`toronto-2-address-import`](https://github.com/toronto-maps/toronto-2-address-import).
 
 **There is no "final" snapshot.** A city's DB does not freeze when its import
 reaches citywide-complete — it keeps growing through monthly maintenance, so the

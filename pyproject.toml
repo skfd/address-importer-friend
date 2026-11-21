@@ -20,9 +20,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/skfd/toronto-2-address-import"
-Repository = "https://github.com/skfd/toronto-2-address-import"
-Issues = "https://github.com/skfd/toronto-2-address-import/issues"
+Homepage = "https://github.com/toronto-maps/toronto-2-address-import"
+Repository = "https://github.com/toronto-maps/toronto-2-address-import"
+Issues = "https://github.com/toronto-maps/toronto-2-address-import/issues"
 
 [project.optional-dependencies]
 dev = [
